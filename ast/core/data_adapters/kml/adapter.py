@@ -4,7 +4,7 @@
 from pathlib import Path
 import geopandas as gpd
 from data_adapters.base import BaseSpatialAdapter
-from data_adapters.exceptions import DataReadError
+from data_adapters.exceptions import DataReadError, DataCrsError
 
 
 class KMLAdapter(BaseSpatialAdapter):
@@ -27,8 +27,7 @@ class KMLAdapter(BaseSpatialAdapter):
 
         # KML is usually WGS84, but be defensive
         if gdf.crs is None:
-            gdf = gdf.set_crs("EPSG:4326")
-
+            raise DataCrsError
         if target_crs:
             gdf = gdf.to_crs(target_crs)
 
