@@ -13,7 +13,7 @@ TODO: implement /utilities/ for spatial data type detection?
 # Dropping in a basic example of an AOI dataclass schema
 import geopandas as gpd
 
-@dataclass
+#@dataclass
 class AreaOfInterest:
     aoi_id: str
     name: str
