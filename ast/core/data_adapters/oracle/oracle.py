@@ -2,7 +2,7 @@ from data_adapters.base import BaseSpatialAdapter
 from data_adapters.exceptions import DataReadError
 import geopandas as gpd
 
-class KMLAdapter(BaseSpatialAdapter):
+class OracleAdapter(BaseSpatialAdapter):
     """
     Oracle Spatial dataset adapter.
 
