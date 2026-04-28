@@ -16,7 +16,7 @@ AST is a python application that provides normalized results of an overlay betwe
 - cron or trigger
 - normalizes client config for AST-Core
 - customizable to normalize multiple configurations
-```
+```mermaid
 flowchart LR
 
     A["Client Provided<br/>Configuration"]
