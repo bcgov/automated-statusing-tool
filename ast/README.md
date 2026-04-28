@@ -27,7 +27,7 @@ flowchart LR
     A --> B --> C
     C --> D --> E
 ```
-## AST-core
+## AST-Core
 - Operates at runtime  
 - Provides data adapters
 - Minimizes geometric overlay ops
