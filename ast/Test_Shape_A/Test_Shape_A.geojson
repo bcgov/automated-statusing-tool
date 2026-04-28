@@ -1,0 +1,10 @@
+{
+  "type" : "FeatureCollection",
+  "crs" : {
+    "type" : "name",
+    "properties" : {
+      "name" : "EPSG:3005"
+    }
+  },
+  "features" : [{"type":"Feature","id":1,"geometry":{"type":"Polygon","coordinates":[[[1331637.5494999997,716501.11240000091],[1331637.5494999997,713157.92259999923],[1335232.2644999996,713157.92259999923],[1335232.2644999996,716501.11240000091],[1331637.5494999997,716501.11240000091]]]},"properties":{"OBJECTID":1,"NoteType":0,"Name":"Test Shape A","Notes":"Should intersect WHA, Unencumbered Land, Private Land, Provincial Land and Several Lakes.","created_user":"EMILLAN","created_date":1777412260000,"last_edited_user":"EMILLAN","last_edited_date":1777412317000,"Shape_Length":13875.809600003064,"Shape_Area":12017814.521912543}}]
+}
