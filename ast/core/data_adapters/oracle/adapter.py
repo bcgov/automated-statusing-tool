@@ -1,4 +1,7 @@
-"""OracleAdapter — read BCGW Oracle Spatial features related to an AOI."""
+"""
+OracleAdapter
+Reads BCGW Oracle Spatial features related to an AOI and returns a geodataframe.
+"""
 
 import logging
 from typing import Any, Literal
@@ -18,12 +21,10 @@ Predicate = Literal["intersects", "within_distance", "touches", "nearest"]
 
 
 class OracleAdapter(BaseSpatialAdapter):
-    """Adapter for Oracle Spatial (BCGW) datasets.
+    """Adapter for BCGW Oracle datasets.
 
-    The connection is injected — the adapter never opens or closes
-    Oracle connections itself. The caller is responsible for the
-    session's lifecycle (typically one connection per AST run, opened
-    via `OracleConnection` in connection.py).
+    The Oracle connection is provided by OracleConnection in connection.py
+    and injected into this adapter
     """
 
     def __init__(self, connection: Any, cursor: Any):
@@ -41,7 +42,7 @@ class OracleAdapter(BaseSpatialAdapter):
         where: str | None = None,
         target_crs: str | None = None,
     ) -> gpd.GeoDataFrame:
-        """Return features from `table` spatially related to `aoi`.
+        """Return features from a spatial query result`.
 
         Predicates and their required kwargs:
           - intersects:        none
@@ -76,7 +77,7 @@ class OracleAdapter(BaseSpatialAdapter):
         where: str | None,
         target_crs: str | None,
     ) -> gpd.GeoDataFrame:
-        # 1. Validate AOI shape
+        # 1. Validate AOI shape - Review this later. will be handled upstream by AOI validator module!
         if aoi is None or aoi.empty:
             raise DataReadError("AOI is empty")
         if aoi.crs is None:
@@ -99,7 +100,7 @@ class OracleAdapter(BaseSpatialAdapter):
         # 3. AOI -> WKB + SRID for bind variables
         wkb_aoi, srid = aoi_to_wkb_srid(aoi)
 
-        # 4. Inspect table metadata
+        # 4. Inspect table metadata - Review this later. Will be handled upstream by Data inventory module!
         geom_col = utils.get_geometry_column(self.connection, self.cursor, table)
         srid_t = utils.get_srid(self.connection, self.cursor, table, geom_col)
         if srid_t is None:
@@ -159,6 +160,7 @@ class OracleAdapter(BaseSpatialAdapter):
         # 10. Optional reproject
         return self._maybe_reproject(gdf, target_crs)
 
+    # Resolve columns discrepancies between requested columns (from xlxs) and actual table columns - Review this later: will be handled upstream by Data inventory module!
     def _resolve_columns(
         self, table: str, requested: list[str] | None
     ) -> str:

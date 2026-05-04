@@ -1,8 +1,7 @@
-"""Oracle table inspection and SQL post-processing helpers.
+"""Helpers and post-processing functions for the Oracle data adapter.
 
-Pure functions that take `(connection, cursor, ...)`. Used by the
-adapter to introspect table metadata (geometry column, SRID, columns)
-and to patch query strings for known-quirky tables and SRID mismatches.
+Includes functions to patch query strings for known problematic tables (e.g. curved geometries) 
+and for correcting SRID mismatches (e.g. 3005 vs 1000003005).
 """
 
 import logging

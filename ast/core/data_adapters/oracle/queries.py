@@ -5,7 +5,7 @@ One template per spatial predicate. The adapter formats placeholders
 binds AOI geometry via `:wkb_aoi`, `:srid`, optional `:srid_t` (when
 applying a coordinate transform), and `:k` (for nearest).
 
-SDO syntax stays in this module by design — the Overlay Engine never
+SDO syntax stays in this module by design; the Overlay Engine never
 sees SQL; it just calls `adapter.read(predicate=..., ...)`.
 """
 

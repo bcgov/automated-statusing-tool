@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def aoi_to_wkb_srid(aoi: gpd.GeoDataFrame) -> tuple[bytes, int]:
-    """Extract WKB bytes and EPSG SRID from the first AOI geometry.
+    """Extract WKB bytes and EPSG SRID from the AOI geometry.
 
     The adapter passes these as `:wkb_aoi` and `:srid` bind variables.
     3D geometries are flattened to 2D (Oracle SDO_GEOMETRY constructed
@@ -42,10 +42,8 @@ def aoi_to_wkb_srid(aoi: gpd.GeoDataFrame) -> tuple[bytes, int]:
 def df_to_gdf(df: pd.DataFrame, srid: int) -> gpd.GeoDataFrame:
     """Convert a DataFrame with a WKT 'SHAPE' column to a GeoDataFrame.
 
-    Oracle returns geometries as WKT strings via SDO_UTIL.TO_WKTGEOMETRY
-    (or the rectified/densified variant for problematic tables — see
-    utils.apply_geometry_fix). We strip the SHAPE column and rebuild it
-    as a shapely-backed geometry column with the AOI's SRID.
+    Queries are set to return a SHAPE column containing geometries as WKT strings via SDO_UTIL.TO_WKTGEOMETRY.
+    This function rebuilds it as a shapely-backed geometry column and returns a GeoDataFrame.
     """
     shape_col = "SHAPE" if "SHAPE" in df.columns else "shape"
     if shape_col not in df.columns:

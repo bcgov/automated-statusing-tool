@@ -3,7 +3,7 @@
 Provides a context manager around `oracledb.connect()` so the
 application can open one connection per AST run and pass it down
 to adapter calls. The OracleAdapter does NOT create connections
-itself — this module is the single point where credentials enter.
+itself. This module is the single point where credentials enter.
 """
 
 import logging
@@ -18,7 +18,7 @@ class OracleConnection:
     """Context manager for an Oracle database session.
 
     Usage:
-        with OracleConnection(user, pwd, dsn) as (conn, cur):
+        with OracleConnection(user, pwd, host) as (conn, cur):
             adapter = OracleAdapter(connection=conn, cursor=cur)
             gdf = adapter.read(table=..., aoi=...)
     """
