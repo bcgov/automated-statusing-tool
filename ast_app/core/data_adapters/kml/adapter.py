@@ -3,13 +3,15 @@
 
 from pathlib import Path
 import geopandas as gpd
-from data_adapters.base import BaseSpatialAdapter, ReadOptions
-from data_adapters.exceptions import DataReadError, DataCrsError
-
+from ..base import BaseSpatialAdapter, ReadOptions
+from ..exceptions import DataReadError, DataCrsError
 
 class KMLAdapter(BaseSpatialAdapter):
     """
-    Adapter for KML files.
+    Adapter for KML files. 
+    Uses the BaseSpatialAdapter to handle most things
+    Anything specific to KML reading will be overwritten by the 
+    _read_impl method in this specific class 
     """
 
     def _read_impl(

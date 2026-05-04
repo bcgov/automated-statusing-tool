@@ -1,5 +1,5 @@
-from data_adapters.base import BaseSpatialAdapter
-from data_adapters.exceptions import DataReadError
+from ast_app.core.data_adapters.base import BaseSpatialAdapter
+from ast_app.core.data_adapters.exceptions import DataReadError
 import geopandas as gpd
 
 class OracleAdapter(BaseSpatialAdapter):
