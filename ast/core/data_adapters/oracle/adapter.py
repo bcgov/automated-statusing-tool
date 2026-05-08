@@ -9,7 +9,7 @@ from typing import Any, Literal
 import geopandas as gpd
 import oracledb
 
-from data_adapters.base import BaseSpatialAdapter
+from data_adapters.base import BaseSpatialAdapter, ReadOptions
 from data_adapters.exceptions import DataCrsError, DataReadError
 
 from . import queries, utils
@@ -31,35 +31,39 @@ class OracleAdapter(BaseSpatialAdapter):
         self.connection = connection
         self.cursor = cursor
 
-    def read(
+    def _read_impl(
         self,
+        *,
+        read_options: ReadOptions,
         table: str,
         aoi: gpd.GeoDataFrame,
         predicate: Predicate = "intersects",
         distance: float | None = None,
         k: int | None = None,
-        columns: list[str] | None = None,
         where: str | None = None,
-        target_crs: str | None = None,
+        **_,
     ) -> gpd.GeoDataFrame:
-        """Return features from a spatial query result`.
+        """Return features from a spatial query result.
 
         Predicates and their required kwargs:
           - intersects:        none
           - within_distance:   distance (metres)
           - touches:           none
           - nearest:           k (int)
+
+        Consumes read_options.keep_columns and clears it before returning,
+        so the base class post-filter does not strip adapter-emitted
+        metadata columns (RESULT, DISTANCE_M). See PR description Q2.
         """
         try:
             return self._read(
+                read_options=read_options,
                 table=table,
                 aoi=aoi,
                 predicate=predicate,
                 distance=distance,
                 k=k,
-                columns=columns,
                 where=where,
-                target_crs=target_crs,
             )
         except (DataReadError, DataCrsError):
             raise
@@ -68,14 +72,13 @@ class OracleAdapter(BaseSpatialAdapter):
 
     def _read(
         self,
+        read_options: ReadOptions,
         table: str,
         aoi: gpd.GeoDataFrame,
         predicate: Predicate,
         distance: float | None,
         k: int | None,
-        columns: list[str] | None,
         where: str | None,
-        target_crs: str | None,
     ) -> gpd.GeoDataFrame:
         # 1. Validate AOI shape - Review this later. will be handled upstream by AOI validator module!
         if aoi is None or aoi.empty:
@@ -108,9 +111,14 @@ class OracleAdapter(BaseSpatialAdapter):
                 f"Cannot determine SRID for {table} (table may be empty or have no SDO metadata)"
             )
 
-        cols_csv = self._resolve_columns(table, columns)
+        # 5. Resolve columns from read_options.keep_columns and consume it
+        # (clearing prevents the base class post-filter from stripping the
+        # adapter-emitted RESULT/DISTANCE_M metadata columns).
+        keep = list(read_options.keep_columns) if read_options.keep_columns else None
+        cols_csv = self._resolve_columns(table, keep)
+        read_options.keep_columns = None
 
-        # 5. Pick + format SQL template
+        # 6. Pick + format SQL template
         template = queries.PREDICATE_TEMPLATES[predicate]
         def_query = f"AND ({where.strip()})" if where and where.strip() else ""
 
@@ -124,10 +132,10 @@ class OracleAdapter(BaseSpatialAdapter):
             format_args["distance"] = distance
         sql = template.format(**format_args)
 
-        # 6. Server-side curve fix for known-problematic tables
+        # 7. Server-side curve fix for known-problematic tables
         sql = utils.apply_geometry_fix(sql, table, geom_col)
 
-        # 7. Coordinate transform if AOI SRID != table SRID
+        # 8. Coordinate transform if AOI SRID != table SRID
         bind_vars: dict[str, Any] = {"wkb_aoi": wkb_aoi, "srid": srid}
         if srid_t != srid:
             sql = utils.apply_coordinate_transform(sql, geom_col, srid_t)
@@ -135,7 +143,7 @@ class OracleAdapter(BaseSpatialAdapter):
         if predicate == "nearest":
             bind_vars["k"] = k
 
-        # 8. Execute
+        # 9. Execute
         logger.debug("Executing Oracle overlay query against %s", table)
         self.cursor.setinputsizes(wkb_aoi=oracledb.DB_TYPE_BLOB)
         self.cursor.execute(sql, bind_vars)
@@ -144,21 +152,18 @@ class OracleAdapter(BaseSpatialAdapter):
 
         if not rows:
             logger.info("No features found in %s for the given AOI/predicate", table)
-            empty = gpd.GeoDataFrame(
+            return gpd.GeoDataFrame(
                 {n: [] for n in names if n != "SHAPE"},
                 geometry=gpd.GeoSeries([], crs=f"EPSG:{srid}"),
                 crs=f"EPSG:{srid}",
             )
-            return self._maybe_reproject(empty, target_crs)
 
         import pandas as pd
         df = pd.DataFrame(rows, columns=names)
 
-        # 9. Build GeoDataFrame from WKT
-        gdf = df_to_gdf(df, srid=srid)
-
-        # 10. Optional reproject
-        return self._maybe_reproject(gdf, target_crs)
+        # 10. Build GeoDataFrame from WKT (target_crs reprojection
+        # is handled by the base class wrapper).
+        return df_to_gdf(df, srid=srid)
 
     # Resolve columns discrepancies between requested columns (from xlxs) and actual table columns - Review this later: will be handled upstream by Data inventory module!
     def _resolve_columns(
@@ -192,16 +197,3 @@ class OracleAdapter(BaseSpatialAdapter):
                 f"None of the requested columns {requested!r} exist in {table}"
             )
         return ",".join(kept)
-
-    @staticmethod
-    def _maybe_reproject(
-        gdf: gpd.GeoDataFrame, target_crs: str | None
-    ) -> gpd.GeoDataFrame:
-        if target_crs is None:
-            return gdf
-        try:
-            return gdf.to_crs(target_crs)
-        except Exception as exc:
-            raise DataCrsError(
-                f"Failed to reproject result to {target_crs}: {exc}"
-            ) from exc
