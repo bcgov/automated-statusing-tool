@@ -1,6 +1,3 @@
-
-# TODO: AI Generated -- needs validation
-
 from pathlib import Path
 import geopandas as gpd
 from ..base import BaseSpatialAdapter, ReadOptions
