@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import geopandas as gpd
-from ast.core.data_adapters.exceptions import DataCrsError
+from core.data_adapters.exceptions import DataCrsError
 
 from typing import Iterable
 
