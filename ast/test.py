@@ -1,6 +1,7 @@
-from ast_app.core.data_adapters.kml.adapter import KMLAdapter
+from .core.data_adapters.kml.adapter import KMLAdapter
+import geopandas as gpd
 
-def main():
+def test():
     
     gdf = KMLAdapter().read(path="ast_app/Test_Shape_A/Test_Shape_A.kmz", target_crs="EPSG:3005")
 
@@ -17,8 +18,4 @@ def main():
         assert len(gdf) > 0
 
 if __name__ == "__main__":
-    main()
-
-
-
-
+    test()

@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from enum import Enum
 from typing import Literal
 import geopandas as gpd
-from ast_app.core.data_adapters.kml import KMLAdapter
+from ast.core.data_adapters.kml import KMLAdapter
 
 class DataAdpterType(str, Enum):
     KML = "kml"
