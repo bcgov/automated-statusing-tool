@@ -1,1 +1,45 @@
 # datasets.yaml -- persisted inventory of validated datasets and authoritative metadata
+# data registry
+
+data_registry_version: 0.1
+
+datasets:
+  - id: 1
+    name: Private Classified Parcel Titles
+    unique_id: OBJECTID
+    adapter_type: ORACLE
+    datasource:
+      table: WHSE_CADASTRE.PMBC_PARCEL_FABRIC_POLY_SVW
+    columns:
+      - PID
+      - PARCEL_STATUS
+      - PARCEL_CLASS
+      - OWNER_TYPE
+      - OBJECTID
+    definition: "PARCEL_CLASS = 'PRIVATE'"
+    geom:
+      geom_column: SHAPE
+      geom_type: multipart
+      crs: 3005
+    operators:
+      - overlay
+      - proximity:
+          distance: 100
+
+  - id: 2
+    name: null
+    unique_id: null
+    adapter_type: FGDB
+    datasource:
+      table: null
+      layer: null
+    columns: []
+    definition: null
+    geom:
+      geom_column: GEOMETRY
+      geom_type: point
+      crs: 4326
+    operators:
+      - overlay
+      - proximity:
+          distance: 100
