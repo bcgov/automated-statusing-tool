@@ -44,7 +44,7 @@ class Operators(BaseModel):
 #class OperatorDistance(BaseModel):
 #    distance: Optional[Annotated[float, Gt(0)]] = None
 
-class Validate(BaseModel):
+class ValidateRegistry(BaseModel):
     # should this be uuid?
     #input must be integer greater than or equal to 0
     id: Annotated[int, Ge(0)]
@@ -94,7 +94,7 @@ sample_dict = {
 #print(sample_dict)
 try:
     # load via kwargs
-    test = Validate(**sample_dict)
+    test = ValidateRegistry(**sample_dict)
     print(test)
 except ValidationError as e:
     print(e.errors())
