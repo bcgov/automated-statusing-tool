@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="test_shape_a" id="test_shape_a">
+	<SimpleField name="OBJECTID" type="int"></SimpleField>
+	<SimpleField name="NoteType" type="int"></SimpleField>
+	<SimpleField name="Notes" type="string"></SimpleField>
+	<SimpleField name="created_user" type="string"></SimpleField>
+	<SimpleField name="created_date" type="float"></SimpleField>
+	<SimpleField name="last_edited_user" type="string"></SimpleField>
+	<SimpleField name="last_edited_date" type="float"></SimpleField>
+	<SimpleField name="Shape_Length" type="float"></SimpleField>
+	<SimpleField name="Shape_Area" type="float"></SimpleField>
+</Schema>
+<Folder><name>test_shape_a</name>
+  <Placemark id="test_shape_a.1">
+	<name>Test Shape A</name>
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#test_shape_a">
+		<SimpleData name="OBJECTID">1</SimpleData>
+		<SimpleData name="NoteType">0</SimpleData>
+		<SimpleData name="Notes">Should intersect WHA, Unencumbered Land, Private Land, Provincial Land and Several Lakes.</SimpleData>
+		<SimpleData name="created_user">EMILLAN</SimpleData>
+		<SimpleData name="created_date">1777412260000</SimpleData>
+		<SimpleData name="last_edited_user">EMILLAN</SimpleData>
+		<SimpleData name="last_edited_date">1777412317000</SimpleData>
+		<SimpleData name="Shape_Length">13875.8096000031</SimpleData>
+		<SimpleData name="Shape_Area">12017814.5219125</SimpleData>
+	</SchemaData></ExtendedData>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>-121.228409008656,51.3612298328513 -121.231644116542,51.3312891560251 -121.18011726253,51.3291056590703 -121.176847411461,51.3590449239147 -121.228409008656,51.3612298328513</coordinates></LinearRing></outerBoundaryIs></Polygon>
+  </Placemark>
+</Folder>
+</Document></kml>
