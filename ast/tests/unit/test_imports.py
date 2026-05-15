@@ -36,7 +36,6 @@ AST_MODULES = [
 ]
 
 @pytest.mark.parametrize("module_name", AST_MODULES)
-
 def test_module_imports_cleanly(module_name):
     """
     Each module should import without:
@@ -45,6 +44,6 @@ def test_module_imports_cleanly(module_name):
     - executing heavy logic at import time
     """
 
-    module = importlib.import_module(module_name)
+    importlib.import_module(module_name)
 
-    assert module is not None, f"Failed to import module: {module_name}"
+
