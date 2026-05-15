@@ -16,7 +16,7 @@ import geopandas as gpd
 import oracledb
 import pandas as pd
 
-from data_adapters.exceptions import DataReadError
+from core.data_adapters.exceptions import DataReadError
 
 from . import utils
 from .geometry import df_to_gdf
