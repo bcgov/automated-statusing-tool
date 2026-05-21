@@ -1,6 +1,4 @@
 """
-core/operator/proximity.py
-
 Proximity analysis Operator. Two analyses covered in this operator:
 
   within_distance: find every feature whose distance to the AOI is
@@ -15,11 +13,9 @@ Notes:
   the CRS's native units, which we assume is metres for BC Albers (EPSG:3005).
 - The adapter is called as-is. For Oracle, the caller passes the SDO
   push-down kwargs (predicate / distance / k / aoi). For local file adapters
-  the full dataset is read and filtered client-side (***This can be very inefficient
-  for large datasets. Looking into usinf bbox/maks for gpd.read()***). Push-down support for
-  file adapters is a separate work item
+  the dataset is read and filtered client-side 
 - gpd.clip via ReadOptions.spatial_mask would alter feature geometries and
-  break distance computation, so this module avoids that path entirely.
+  break distance computation, so this module avoids that path entirely (for now!).
 """
 
 from __future__ import annotations
@@ -50,8 +46,8 @@ def within_distance(
 
     The caller is responsible for telling the adapter how to filter the candidate
     set. For Oracle pass predicate='within_distance', distance=distance_m,
-    aoi=<aoi_gdf> via adapter_kwargs. For file adapters the full dataset is
-    read (push-down not wired yet).
+    aoi=<aoi_gdf> via adapter_kwargs. For file adapters the dataset is
+    read and filtered.
     """
     if distance_m < 0:
         raise ValueError("distance_m must be non-negative")
@@ -59,7 +55,6 @@ def within_distance(
 
     # Ask the adapter for the dataset features. 
     # The orchestrator can pre-tell the adapter how to filter (Oracle uses predicate="within_distance"
-    # file adapters just read everything for now (***will look into this***).
     gdf = adapter.read(
         read_options=read_options or _default_read_options(feature_id_field, keep_properties),
         target_crs=str(aoi.gdf.crs),
@@ -96,7 +91,7 @@ def nearest(
 
     For Oracle the caller can pass predicate='nearest', k=k, aoi=<aoi_gdf>
     via adapter_kwargs so SDO_NN does the work push-down. For file adapters
-    the full dataset is read and sorted client-side.
+    the dataset is read and sorted client-side.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -105,7 +100,7 @@ def nearest(
     _require_projected(aoi)
 
     # adapter read. For Oracle the orchestrator can use predicate="nearest" to push the work down to the database
-    # for file adapters we get the full dataset. (***will look into this***).
+    # for file adapters we get the full dataset and sort it.
     gdf = adapter.read(
         read_options=read_options or _default_read_options(feature_id_field, keep_properties),
         target_crs=str(aoi.gdf.crs),
@@ -131,7 +126,7 @@ def _default_read_options(
     """Build a ReadOptions that keeps every column the operator needs downstream.
 
     Without this, passing keep_properties through `keep_columns` causes the base
-    adapter to drop feature_id_field — and the result builder falls back to the
+    adapter to drop feature_id_field, and the result builder falls back to the
     row index. We always include feature_id_field in the keep set.
     """
     if not feature_id_field and not keep_properties:
@@ -145,6 +140,8 @@ def _default_read_options(
 
 
 def _require_projected(aoi: AreaOfInterest) -> None:
+    """Make sure the AOI is in a projected CRS for distance calulcation.
+    """
     crs = aoi.gdf.crs
     if crs is None or not crs.is_projected:
         raise ValueError(
@@ -203,7 +200,7 @@ def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str
 def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | float]:
     """Picks attribute columns to surface on the output record.
 
-       Walks the list of column names the caller asked to keep (e.g., ["PID", "parcel_class"]). For each:
+       Walks the list of column names the caller asked to keep. For each:
         - Skip if the column isn't on this row.
         - Skip if the value is null.
         - If the value is already a string/int/float, keep it as-is.
