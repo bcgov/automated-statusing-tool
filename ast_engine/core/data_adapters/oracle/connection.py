@@ -20,7 +20,8 @@ class OracleConnection:
     Usage:
         with OracleConnection(user, pwd, host) as (conn, cur):
             adapter = OracleAdapter(connection=conn, cursor=cur)
-            gdf = adapter.read(table=..., aoi=...)
+            options = ReadOptions(spatial_filter=SpatialFilter(aoi=aoi_gdf))
+            gdf = adapter.read(read_options=options, table="WHSE...")
     """
 
     def __init__(self, username: str, password: str, hostname: str):
