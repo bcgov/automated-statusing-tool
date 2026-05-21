@@ -22,16 +22,15 @@ Notes:
   break distance computation, so this module avoids that path entirely.
 """
 
-from geopandas import geodataframe
 from __future__ import annotations
 
 from typing import Any, Iterable
 
 import geopandas as gpd
 
-from ..aoi import AreaOfInterest
-from ..data_adapters.base import BaseSpatialAdapter, ReadOptions
-from ..results import FeatureRecord, ProximityResult
+from core.aoi import AreaOfInterest
+from core.data_adapters.base import BaseSpatialAdapter, ReadOptions
+from core.results import FeatureRecord, ProximityResult
 
 
 _DISTANCE_COL = "_proximity_distance_m"
