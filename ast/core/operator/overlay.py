@@ -4,7 +4,7 @@ Overlay analysis Operator. There is one analysis covered in this operator:
   intersection: find every feature that intersects the AOI,
                 and puts these features in a list, sorted by area of overlap descending.
 
-It return a list of PolyOverlayResult records sorted by overlap ascending.
+It return a list of PolyOverlayResult records sorted by overlap descending.
 
 Notes:
 - This script is heavily influenced by Moez's work on the Proximity Operator. 
@@ -36,13 +36,13 @@ _AREA_COL = "_intersection_area_m2"
 
 
 def _require_projected(aoi: AreaOfInterest) -> None:
-    """Make sure the AOI is in a projected CRS for distance calulcation.
+    """Make sure the AOI is in a projected CRS for distance calculation.
     Helper function that is used later. 
     """
     crs = aoi.gdf.crs
     if crs is None or not crs.is_projected:
         raise ValueError(
-            f"AOI {aoi.aoi_id} must be in a projected CRS for proximity analysis "
+            f"AOI {aoi.aoi_id} must be in a projected CRS for overlay analysis "
             "(distances are computed in CRS units, expected metres)."
         )
 
@@ -77,19 +77,19 @@ def intersection(
     #This is where the main analysis happens 
     #Create gdf of all overlaying geometries from registry 
     aoi_geom = aoi.gdf.geometry.union_all()
+    
+    #Make a copy so nothing gets broken 
     gdf = gdf.copy()
 
-    #Complete an interesection to see what specifically overlaps the aoi 
-    gdf["_intersection_geom"] = gdf.geometry.intersection(aoi_geom)
 
-    
     gdf[_AREA_COL] = gdf.geometry.intersection(aoi_geom).area
+
     gdf = gdf[gdf[_AREA_COL] > 0]
-    gdf = gdf.sort_values(_AREA_COL)
+    gdf = gdf.sort_values(_AREA_COL, ascending=False)
 
 
 
-    # Hand the sorted rows to _build_results to turn them into the proper ProximityResult records
+    # Hand the sorted rows to _build_results to turn them into the proper PolyOverlayResult records
     return _build_results(gdf, feature_id_field, keep_properties)
 
 
@@ -112,20 +112,16 @@ def _default_read_options(
         keep.update(keep_properties)
     return ReadOptions(keep_columns=keep)
 
-
-
-
-
 def _build_results(
     gdf: gpd.GeoDataFrame,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
 ) -> list[PolyOverlayResult]:
-    """Turns the filtered/sorted GeoDataFrame into the typed ProximityResult 
+    """Turns the filtered/sorted GeoDataFrame into the typed PolyOverlayResult 
         records the rest of the system expects.
 
-        For each row of the GeoDataFrame it builds one ProximityResult containing:
-            - the distance (pulled from the _proximity_distance_m column)
+        For each row of the GeoDataFrame it builds one PolyOverlayResult containing:
+            - the area (pulled from the _intersection_area_m2 column)
             - a FeatureRecord with the feature's ID and a dict of its other properties
         
         Returns the full list."""
@@ -137,8 +133,8 @@ def _build_results(
     for idx, row in gdf.iterrows():
         results.append(
             PolyOverlayResult(
-                nearest_feature_distance=float(row[_AREA_COL]),
-                nearest_feature=FeatureRecord(
+                total_area=float(row[_AREA_COL]),
+                features=FeatureRecord(
                     feature_id=_extract_feature_id(row, idx, feature_id_field),
                     properties=_extract_properties(row, keep_list),
                 ),
