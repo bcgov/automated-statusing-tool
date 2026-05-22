@@ -44,7 +44,7 @@ class Operators(BaseModel):
 #class OperatorDistance(BaseModel):
 #    distance: Optional[Annotated[float, Gt(0)]] = None
 
-class ValidateRegistry(BaseModel):
+class RegistryDataset(BaseModel):
     # should this be uuid?
     #input must be integer greater than or equal to 0
     id: Annotated[int, Ge(0)]
@@ -60,11 +60,15 @@ class ValidateRegistry(BaseModel):
     # dict input
     datasource: dict[str, SecretStr]
     # optional, list of strings
-    columns: Optional[list[str]] = None
+    columns: Optional[list[str | None]] = None
     # optional, string
-    definition: Optional[str] = None
+    definition: Optional[str | None] = None
     geom: Geometry
-    operators: Operators
+    # operators: Operators
+
+class RegistryDatasets(BaseModel):
+    registry_ver:float
+    datasets:list[RegistryDataset]
 
 sample_dict = {
     "id": 0,
@@ -94,7 +98,7 @@ sample_dict = {
 #print(sample_dict)
 try:
     # load via kwargs
-    test = ValidateRegistry(**sample_dict)
+    test = RegistryDataset(**sample_dict)
     print(test)
 except ValidationError as e:
     print(e.errors())
