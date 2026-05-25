@@ -8,9 +8,13 @@ from wip_pydantic_structure import RegistryDatasets
 
 import pandas as pd
 
+import yaml
+
 # %%
 
 input_xlsx = None
+
+yaml_path = None
 
 template_outer_dict = {
     "registry_ver": 0.1,
@@ -97,4 +101,14 @@ for index, row in df.iterrows():
 # %%
 
 registry_model = RegistryDatasets.model_validate(template_outer_dict)
+# %%
+
+with open(yaml_path, 'w') as yaml_file:
+    yaml.dump(
+        registry_model, 
+        yaml_file, 
+        default_flow_style=False,
+        sort_keys=False,
+        )
+
 # %%
