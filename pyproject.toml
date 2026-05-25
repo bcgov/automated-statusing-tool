@@ -12,6 +12,10 @@ dependencies = [
     "shapely>=2.0",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ast_engine*"]
+
 [tool.pytest.ini_options]
 markers = [
   "unit: fast unit tests with no external dependencies"
