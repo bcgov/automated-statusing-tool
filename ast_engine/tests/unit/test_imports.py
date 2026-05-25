@@ -25,14 +25,14 @@ import pytest
 pytestmark = pytest.mark.unit
 
 AST_MODULES = [
-    "core.aoi",
-    "core.data_adapters",
-    "core.data_adapters.kml",
-    "core.data_adapters.oracle",
-    "core.operator",
-    "core.operator.adjacent",
-    "core.operator.overlay",
-    "core.operator.proximity"
+    "ast_engine.core.aoi",
+    "ast_engine.core.data_adapters",
+    "ast_engine.core.data_adapters.kml",
+    "ast_engine.core.data_adapters.oracle",
+    "ast_engine.core.operator",
+    "ast_engine.core.operator.adjacent",
+    "ast_engine.core.operator.overlay",
+    "ast_engine.core.operator.proximity"
 ]
 
 @pytest.mark.parametrize("module_name", AST_MODULES)

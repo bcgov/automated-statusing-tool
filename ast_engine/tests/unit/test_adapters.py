@@ -1,3 +1,4 @@
+#\tests\unit\test_adapters.py
 """
 File Based Adapter tests
 
@@ -22,23 +23,30 @@ def test_keep_columns()
 def test_spatial_mask()
 
 """
-
 import pytest
-import geopandas as gpd
 from pathlib import Path
+from ast_engine.core.data_adapters.kml.adapter import KMLAdapter
+from ast_engine.core.data_adapters.base import ReadOptions
+import geopandas as gpd
+# from shapely.geometry import Point
+# from typing import Iterable
 
-DATA_DIR = Path('tests/data')
-KML = 'Test_Shape_A.kml'
+
+DATA_DIR = Path(__file__).parents[1] / "data" / "Test_Shape_A"
+KML = DATA_DIR / "Test_Shape_A.kml"
 
 pytestmark = pytest.mark.unit
 
 @pytest.mark.unit
-def test_read():
-    from core.data_adapters.kml.adapter import KMLAdapter
-    source = DATA_DIR / KML
-    # TODO: test kml adapter
-    #da = KMLAdapter.read()
-    #assert (da.area > 0)
+def test_kml_adapter_read():
+    adapter = KMLAdapter()
+    read_options = ReadOptions()
+    adapter.read(path= KML, read_options=read_options)
+    gdf = adapter._read_impl(path=KML, read_options=read_options)
+
+    # Assert that the GeoDataFrame is created correctly
+    assert isinstance(gdf, gpd.GeoDataFrame)
+    # Assert geodatafram has features
 
 
 
