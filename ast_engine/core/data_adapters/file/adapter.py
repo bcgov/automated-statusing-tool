@@ -2,7 +2,7 @@
 FileSpatialAdapter
 Reads spatial features from a local file and returns a GeoDataFrame.
 
-Handles every GDAL-readable file format the AST takes as input - shapefile,
+Handles every GDAL-readable file format the AST takes as input: shapefile,
 file geodatabase, GeoPackage, GeoJSON, KML and KMZ. They are all read through
 gpd.read_file(); GDAL picks the right driver from the file extension, so one
 adapter covers them all.
