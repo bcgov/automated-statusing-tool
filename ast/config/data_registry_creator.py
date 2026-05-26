@@ -101,11 +101,12 @@ for index, row in df.iterrows():
 # %%
 
 registry_model = RegistryDatasets.model_validate(template_outer_dict)
+registry_json = registry_model.model_dump(mode="json")
 # %%
 
 with open(yaml_path, 'w') as yaml_file:
     yaml.dump(
-        registry_model, 
+        registry_json, 
         yaml_file, 
         default_flow_style=False,
         sort_keys=False,
