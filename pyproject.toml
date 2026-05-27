@@ -9,6 +9,7 @@ dependencies = [
     "oracledb>=2.0",
     "pydantic>=2.13.3",
     "pytest>=9.0.3",
+    "pyyaml>=6.0.3",
     "shapely>=2.0",
 ]
 
