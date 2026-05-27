@@ -70,15 +70,12 @@ class ReadOptions:
         self,
         *,
         spatial_filter: SpatialFilter | None = None,
-        spatial_mask: gpd.GeoDataFrame | None = None,
         definition_query: str | None = None,
         keep_columns: Iterable[str] | None = None,
     ):
-        # spatial_filter is the current way to push an AOI filter down to the
-        # source; each adapter consumes it and clears it. spatial_mask is the
-        # older field, still applied post-read by _apply_post_filters.
+        # spatial_filter pushes an AOI filter down to the source; each adapter
+        # consumes it and clears it.
         self.spatial_filter = spatial_filter
-        self.spatial_mask = spatial_mask
         self.definition_query = definition_query
         self.keep_columns = list(keep_columns) if keep_columns else None
 
@@ -131,25 +128,17 @@ class BaseSpatialAdapter(ABC):
         gdf: gpd.GeoDataFrame,
         opts: ReadOptions,
     ) -> gpd.GeoDataFrame:
+        # Adapters that pushed these down clear them first (see consume-and-clear
+        # in OracleAdapter and FileSpatialAdapter). What is left here is the
+        # fallback for fields the adapter could not handle at the source - the
+        # file adapter relies on this for definition_query and keep_columns.
         if opts.definition_query:
             gdf = gdf.query(opts.definition_query)
-
-        if opts.spatial_mask is not None:
-            gdf = self._clip(gdf, opts.spatial_mask)
 
         if opts.keep_columns:
             gdf = self._select_columns(gdf, opts.keep_columns)
 
         return gdf
-
-    def _clip(
-        self,
-        gdf: gpd.GeoDataFrame,
-        mask: gpd.GeoDataFrame,
-    ) -> gpd.GeoDataFrame:
-        if gdf.crs != mask.crs:
-            mask = mask.to_crs(gdf.crs)
-        return gpd.clip(gdf, mask)
 
     def _select_columns(
         self,
