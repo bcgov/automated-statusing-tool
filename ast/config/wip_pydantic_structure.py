@@ -6,7 +6,7 @@ from typing import Annotated, Literal, Optional
 from annotated_types import Gt, Ge
 
 from pydantic import BaseModel, SecretStr, ValidationError
-print("imports complete")
+# print("imports complete")
 
 class Geometry(BaseModel):
     # string input
@@ -70,35 +70,37 @@ class RegistryDatasets(BaseModel):
     registry_ver:float
     datasets:list[RegistryDataset]
 
-sample_dict = {
-    "id": 0,
-    "name": "Featureclass_Name",
-    "unique_id": "OBJECTID",
-    "adapter_type": "fgdb",
-    "datasource": {
-        "layer": "Datasource"
-    },
-    "columns": [
-        "Fields_to_Summarize",
-        "Fields_to_Summarize2",
-        "Fields_to_Summarize3",
-        "Fields_to_Summarize4",
-        "Fields_to_Summarize5",
-        "Fields_to_Summarize6",
-    ],
-    "geom": {
-        "geom_column": "GEOMETRY",
-        "geom_type": "point",
-        "crs": 4326
-    },
-    "operators": {"overlay": {},
-                  "buffer": {"distance": 50}
-    }
-}
-#print(sample_dict)
-try:
-    # load via kwargs
-    test = RegistryDataset(**sample_dict)
-    print(test)
-except ValidationError as e:
-    print(e.errors())
+# sample_dict = {
+#     "id": 0,
+#     "name": "Featureclass_Name",
+#     "unique_id": "OBJECTID",
+#     "adapter_type": "fgdb",
+#     "datasource": {
+#         "layer": "Datasource"
+#     },
+#     "columns": [
+#         "Fields_to_Summarize",
+#         "Fields_to_Summarize2",
+#         "Fields_to_Summarize3",
+#         "Fields_to_Summarize4",
+#         "Fields_to_Summarize5",
+#         "Fields_to_Summarize6",
+#     ],
+#     "geom": {
+#         "geom_column": "GEOMETRY",
+#         "geom_type": "point",
+#         "crs": 4326
+#     },
+#     "operators": {"overlay": {},
+#                   "buffer": {"distance": 50}
+#     }
+# }
+# #print(sample_dict)
+
+# This gives the same result as the model_validate method
+# try:
+#     # load via kwargs
+#     test = RegistryDataset(**sample_dict)
+#     print(test)
+# except ValidationError as e:
+#     print(e.errors())
