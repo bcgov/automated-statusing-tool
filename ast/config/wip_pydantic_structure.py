@@ -58,7 +58,7 @@ class RegistryDataset(BaseModel):
     # str layer or table, SecretStr for UNC paths?
     # does it need to be dict?
     # dict input
-    datasource: dict[str, SecretStr]
+    datasource: dict[str, str]
     # optional, list of strings
     columns: Optional[list[str | None]] = None
     # optional, string
