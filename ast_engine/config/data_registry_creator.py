@@ -4,7 +4,7 @@ Set up dict structure and import spreadsheet datasets into pydantic model
 '''
 
 # %%
-from wip_pydantic_structure import RegistryDatasets
+from ast_engine.config.wip_pydantic_structure import RegistryDatasets
 
 import pandas as pd
 
