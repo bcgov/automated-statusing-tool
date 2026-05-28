@@ -25,18 +25,21 @@ class OracleConnection:
     """
 
     def __init__(self, username: str, password: str, hostname: str):
+        # Password is intentionally NOT stored on self - it is only needed
+        # during _connect() and keeping it as an instance attribute would
+        # extend its lifetime unnecessarily (and trip CodeQL's taint analysis
+        # on every later self.* access).
         self.username = username
-        self.password = password
         self.hostname = hostname
         self.connection: Any = None
         self.cursor: Any = None
-        self._connect()
+        self._connect(password)
 
-    def _connect(self) -> None:
+    def _connect(self, password: str) -> None:
         try:
             self.connection = oracledb.connect(
                 user=self.username,
-                password=self.password,
+                password=password,
                 dsn=self.hostname,
             )
             self.cursor = self.connection.cursor()
