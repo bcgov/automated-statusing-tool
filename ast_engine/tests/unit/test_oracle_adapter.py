@@ -9,7 +9,9 @@ OracleAdapter unit tests (mock-test, no live Oracle connection)
 - The mock cursor returns an empty result set, so the adapter exits cleanly
   after the SQL string and bind variables have been captured.
 
-This tesst does NOT prove the SDO SQL works against BCGW. For that see:
+This test does NOT prove the SDO-SQL works against BCGW. 
+For that see we need BCGW coredentials and a real table. 
+That is tested in this seeprate script (not a pytest test) that we run manually:
   scripts/oracle_smoke.py
 
 """
@@ -88,15 +90,18 @@ def test_oracle_adapter_raises_when_no_spatial_filter(_mock_adapter):
 
 
 # ---------------------------------------------------------------------------
-# This tests the logic for clearing the ReadOptions fields already pushed down by the oracle adapter 
-# (definition_query, keep_columns, spatial_filter) 
-# otherwise the base class _apply_post_filters will apply them a second time: 
-# Query results are already filtered by the adapter, so the base class should not re-apply those filters.
+# This tests the logic for clearing definition_query, which would otherwise
+# be re-applied in pandas (.query) by the base class post-filter on top of
+# the SDO push-down.
+# keep_columns is not cleared - the SQL SELECT already returns the
+# requested columns, so the base class's slice keeps the same set the SQL
+# returned (redundent). spatial_filter is also not cleared - the base post-filter does
+# not read it.
 # ---------------------------------------------------------------------------
 
-def test_oracle_adapter_consumes_and_clears_read_options(_mock_adapter, _aoi):
-    """After the read, every ReadOptions field the adapter used must be
-    None so the base class post-filter does not re-apply it."""
+def test_oracle_adapter_clears_definition_query(_mock_adapter, _aoi):
+    """After the read, definition_query must be None so the base class
+    post-filter does not re-apply it on top of the SDO WHERE clause."""
     adapter, _ = _mock_adapter
     opts = ReadOptions(
         spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects"),
@@ -105,9 +110,7 @@ def test_oracle_adapter_consumes_and_clears_read_options(_mock_adapter, _aoi):
     )
     adapter._read_impl(read_options=opts, table=TABLE)
 
-    assert opts.spatial_filter is None
     assert opts.definition_query is None
-    assert opts.keep_columns is None
 
 
 # ---------------------------------------------------------------------------

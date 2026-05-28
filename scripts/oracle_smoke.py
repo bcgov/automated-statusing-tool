@@ -98,8 +98,8 @@ def _run_one(adapter: OracleAdapter, aoi: gpd.GeoDataFrame, predicate: str,
 
     print(f"  rows: {len(gdf)}, crs: {gdf.crs}")
     if not gdf.empty:
-        # Show the columns we asked for plus any adapter-added metadata
-        # (RESULT, DISTANCE_M). geometry left out of the printout - too long.
+        # Show the requested columns. Geometry left out of the printout -
+        # too long.
         cols = [c for c in gdf.columns if c != gdf.geometry.name]
         print(gdf[cols].head(3).to_string(index=False))
 

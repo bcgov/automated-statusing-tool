@@ -118,13 +118,11 @@ def test_file_adapter_read_kmz():
 # ---------------------------------------------------------------------------
 
 def test_file_adapter_spatial_filter():
-    """Push an AOI down to the read and confirm consume-and-clear."""
+    """Read with a SpatialFilter on the ReadOptions."""
     aoi = gpd.read_file(SHP)
     opts = ReadOptions(spatial_filter=SpatialFilter(aoi=aoi, predicate="intersects"))
     gdf = FileSpatialAdapter().read(path=SHP, read_options=opts)
     assert not gdf.empty
-    # adapter consumed the filter so the base post-filter does not re-apply it
-    assert opts.spatial_filter is None
 
 
 def test_file_adapter_keep_columns():
