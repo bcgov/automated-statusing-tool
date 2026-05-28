@@ -113,7 +113,7 @@ def main() -> None:
     user, password, host = _get_credentials()
     aoi = _load_aoi()
 
-    print(f"\nConnecting to {host} as {user} ...")
+    print("\nConnecting to Oracle ...")
     with OracleConnection(user, password, host) as (conn, cur):
         adapter = OracleAdapter(connection=conn, cursor=cur)
         print(f"Querying {TABLE} (curve fix is applied automatically; "
