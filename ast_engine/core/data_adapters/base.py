@@ -10,12 +10,11 @@ _SPATIAL_PREDICATES = ("intersects", "within_distance", "touches", "nearest")
 
 
 class SpatialFilter:
-    """How to narrow a dataset down to an area of interest before reading.
+    """How to narrow a dataset down to an AOI before reading.
 
     One SpatialFilter describes the spatial filter for every adapter. Each
     adapter pushes it down its own way - the Oracle adapter into an SDO query,
-    file adapters into a gpd.read_file bbox - and then clears it from
-    ReadOptions so the base class does not apply it a second time.
+    file adapters into a gpd.read_file bbox.
 
     aoi:       the area of interest, a GeoDataFrame.
     predicate: the spatial relationship to push down -
@@ -73,8 +72,7 @@ class ReadOptions:
         definition_query: str | None = None,
         keep_columns: Iterable[str] | None = None,
     ):
-        # spatial_filter pushes an AOI filter down to the source; each adapter
-        # consumes it and clears it.
+        # spatial_filter pushes an AOI filter down to the source.
         self.spatial_filter = spatial_filter
         self.definition_query = definition_query
         self.keep_columns = list(keep_columns) if keep_columns else None

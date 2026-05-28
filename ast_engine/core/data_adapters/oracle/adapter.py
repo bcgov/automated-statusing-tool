@@ -39,8 +39,10 @@ class OracleAdapter(BaseSpatialAdapter):
 
         The spatial filter (AOI + predicate + distance/k) is read from
         read_options.spatial_filter and the attribute filter from
-        read_options.definition_query. _read consumes and clears both, plus
-        keep_columns, so the base class post-filter does not apply them again.
+        read_options.definition_query. Both are pushed down into the SDO
+        query. _read clears definition_query afterwards so the base class
+        post-filter does not re-apply it on top of the already-filtered
+        result.
         """
         try:
             return self._read(read_options=read_options, table=table)
@@ -55,10 +57,12 @@ class OracleAdapter(BaseSpatialAdapter):
         table: str,
     ) -> gpd.GeoDataFrame:
         # 1. Read the spatial filter (AOI + predicate + distance/k) and the
-        # attribute filter from ReadOptions, then clear them. Both are pushed
-        # down into the SDO query below, so clearing them stops the base class
-        # post-filter from applying them a second time. SpatialFilter has
-        # already validated the AOI, predicate and distance/k.
+        # attribute filter from ReadOptions. Both are pushed down into the
+        # SDO query below. Clear definition_query so the base class post-
+        # filter does not re-apply it on top of the SDO WHERE clause.
+        # spatial_filter does not need clearing - the base post-filter does
+        # not read it. SpatialFilter has already validated the AOI,
+        # predicate and distance/k.
         spatial_filter = read_options.spatial_filter
         if spatial_filter is None:
             raise DataReadError(
@@ -69,7 +73,6 @@ class OracleAdapter(BaseSpatialAdapter):
         distance = spatial_filter.distance
         k = spatial_filter.k
         where = read_options.definition_query
-        read_options.spatial_filter = None
         read_options.definition_query = None
 
         # 2. AOI -> WKB + SRID for bind variables
@@ -83,12 +86,12 @@ class OracleAdapter(BaseSpatialAdapter):
                 f"Cannot determine SRID for {table} (table may be empty or have no SDO metadata)"
             )
 
-        # 4. Resolve columns from read_options.keep_columns and consume it
-        # (clearing prevents the base class post-filter from stripping the
-        # adapter-emitted RESULT/DISTANCE_M metadata columns).
+        # 4. Resolve columns from read_options.keep_columns into the SQL
+        # SELECT. Not cleared - the SDO templates project to exactly the
+        # requested columns (plus SHAPE), so the base class post-filter's
+        # keep_columns slice keeps the same set the SQL already returned.
         keep = list(read_options.keep_columns) if read_options.keep_columns else None
         cols_csv = self._resolve_columns(table, keep)
-        read_options.keep_columns = None
 
         # 5. Pick + format SQL template
         template = queries.PREDICATE_TEMPLATES.get(predicate)
