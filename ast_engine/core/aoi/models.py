@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Literal, Any, Optional, Tuple
+from pyproj import CRS
 import geopandas as gpd
 
 
@@ -24,6 +25,41 @@ class AOIRequest:
     dissolve_mode: Literal["full_union", "by_fields", "preserve_features"] = "full_union"
     dissolve_fields: tuple[str, ...] = field(default_factory=tuple)
     allow_overlaps: bool = False
+
+    def __post_init__(self) -> None:
+        crs = CRS.from_user_input(self.target_crs)
+
+        if not crs.is_projected:
+            raise ValueError(
+                f"AOIRequest.target_crs must be projected. "
+                f"Received: {self.target_crs}"
+            )
+
+        if self.dissolve_mode == "by_fields" and not self.dissolve_fields:
+            raise ValueError(
+                "AOIRequest.dissolve_fields must be provided when "
+                "dissolve_mode='by_fields'."
+            )
+
+        if self.dissolve_mode != "by_fields" and self.dissolve_fields:
+            raise ValueError(
+                "AOIRequest.dissolve_fields should only be provided when "
+                "dissolve_mode='by_fields'."
+            )
+
+        object.__setattr__(self, "_target_crs_obj", crs)
+
+    @property
+    def target_crs_obj(self) -> CRS:
+        return self._target_crs_obj
+
+    @property
+    def target_epsg(self) -> int | None:
+        return self.target_crs_obj.to_epsg()
+
+    @property
+    def is_projected(self) -> bool:
+        return self.target_crs_obj.is_projected
 
 
 # ============================================================
