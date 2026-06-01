@@ -12,9 +12,8 @@ import yaml
 
 # %%
 
-input_xlsx = None
-
-yaml_path = None
+input_xlsx = r"registry\Test_Registry.xlsx"
+yaml_path = r"registry\datasets.yaml"
 
 template_outer_dict = {
     "registry_ver": 0.1,
