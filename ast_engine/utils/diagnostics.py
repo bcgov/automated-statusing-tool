@@ -16,6 +16,30 @@ MB = 1024 * 1024
 
 @dataclass
 class DiagnosticSnapshot:
+    """
+    Container for a single diagnostic snapshot.
+
+    Attributes
+    ----------
+    timestamp : str
+        ISO timestamp when the snapshot was captured.
+
+    step : str
+        Human-readable name of the processing step.
+
+    rss_mb : float
+        Resident memory usage in MB.
+
+    vms_mb : float
+        Virtual memory usage in MB.
+
+    elapsed_s : float
+        Seconds elapsed since tracker initialization.
+
+    extra : dict[str, Any]
+        Optional metadata attached to the snapshot.
+    """
+        
     timestamp: str
     step: str
     rss_mb: float
@@ -24,6 +48,19 @@ class DiagnosticSnapshot:
     extra: dict[str, Any] = field(default_factory=dict)
 
 class DiagnosticTracker:
+    """
+    Lightweight runtime diagnostics tracker.
+
+    Tracks:
+        - Memory usage
+        - Elapsed runtime
+        - Named processing steps
+        - Optional structured JSONL output
+
+    Parameters
+    output_file : Path | None
+        Optional JSONL diagnostics output path.
+    """
     def __init__(self, jsonl_path: Path | None = None):
         self.process = psutil.Process(os.getpid())
         self.run_start = time.perf_counter()
@@ -31,6 +68,21 @@ class DiagnosticTracker:
         self.snapshots: list[DiagnosticSnapshot] = []
 
     def capture(self, step: str, **extra: Any) -> DiagnosticSnapshot:
+        """
+        Capture a diagnostic snapshot without logging it.
+
+        Parameters
+        ----------
+        step : str
+            Name of the processing step.
+
+        **extra : Any
+            Additional metadata to attach.
+
+        Returns
+        -------
+        DiagnosticSnapshot
+        """
         mem = self.process.memory_info()
         snap = DiagnosticSnapshot(
             timestamp=datetime.now().isoformat(timespec="seconds"),
@@ -44,7 +96,19 @@ class DiagnosticTracker:
         return snap
 
     def log(self, step: str, **extra: Any) -> None:
-        """Logs via the standard logger and optionally appends to JSONL."""
+        """
+        Capture and immediately log a diagnostic snapshot.
+        Logs via the standard logger and optionally appends to JSONL
+        
+        Parameters
+        ----------
+        step : str
+            Name of the processing step.
+
+        **extra : Any
+            Additional metadata to attach.
+        
+        """
         snap = self.capture(step, **extra)
 
         # formatting handeled by logger
