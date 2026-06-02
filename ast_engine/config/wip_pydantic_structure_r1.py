@@ -1,7 +1,8 @@
-# work-in-progress, flow:
-# spreadsheet class
-# intermediate model / enrichment?
-# full data model
+# work-in-progress, outline of flow:
+# spreadsheet class to
+# intermediate model to
+# enrichment to
+# full data model to yaml?
 
 # %% imports
 
@@ -48,12 +49,15 @@ class IntermediateClass(ExcelClass):
 
 class EnrichmentClass(IntermediateClass):
     # TO-DO get adapter, verify file path, get schema?
-    @computed_field
-    @property
+
     # computed field won't validate against the Literal options
     #def adapter_type(self) -> Literal["fgdb", "kml", "oracle", "shp"]:
+    @computed_field
+    @property
     def adapter_type(self) -> str:
-        # TO-DO some kind of validation to get adapter type    
+        # TO-DO some kind of validation to get adapter type
+        # don't think this is very robust...
+        # go back to pathlib if we're opening files?
         # dictionary with adapters
         file_ext = {".gdb": "fgdb", ".shp": "shp", ".kml": "kml", ".kmz": "kml"}
         for key, value in file_ext.items():
@@ -66,9 +70,10 @@ class EnrichmentClass(IntermediateClass):
         # should we throw an error or write unknown to yaml?
         return "unknown"
     
-    # TO-DO
+    # TO-DO for EnrichmentClass
     # validate file path
     # get unique id field
+    # verify if summary fields exist?
     # get geometry column, srid, etc
 # %% sample output
 
