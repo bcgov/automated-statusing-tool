@@ -70,7 +70,25 @@ class EnrichmentClass(IntermediateClass):
     # validate file path
     # get unique id field
     # get geometry column, srid, etc
-# %%
+# %% sample output
+
+# test_2 = IntermediateClass(category="Cumulative Effects - Caribou", name="Caribou Recovery Partnership Zones", datasource = r"Mtn_Caribou_Draft_Partnership_Agreement_June_2021.gdb\Partnership_Agreement_Proposed_June_2021", sum_field_1="ZONE", sum_field_6="Detail")
+# test_2.model_dump()
+# {'category': 'Cumulative Effects - Caribou',
+#  'name': 'Caribou Recovery Partnership Zones',
+#  'datasource': 'Mtn_Caribou_Draft_Partnership_Agreement_June_2021.gdb\\Partnership_Agreement_Proposed_June_2021',
+#  'definition': None,
+#  'buffer_distance': None,
+#  'columns': ['ZONE', 'Detail'],
+#  'adapter_type': 'fgdb'}
+# test_2.model_dump(exclude_none=True)
+# {'category': 'Cumulative Effects - Caribou',
+#  'name': 'Caribou Recovery Partnership Zones',
+#  'datasource': 'Mtn_Caribou_Draft_Partnership_Agreement_June_2021.gdb\\Partnership_Agreement_Proposed_June_2021',
+#  'columns': ['ZONE', 'Detail'],
+#  'adapter_type': 'fgdb'}
+
+
 # def get_adapter(file_path):
 #     # handles windows and linux paths
 #     path = PureWindowsPath(file_path)
