@@ -10,10 +10,10 @@ print(f"Adding AST to path: {ast_path}")
 if ast_path not in sys.path:
     sys.path.append(str(ast_path))
 
-from ast.core.data_adapters.base import ReadOptions
-from ast.core.data_adapters.kml.adapter import KMLAdapter
-from ast.core.aoi.models import AOIRequest
-from ast.core.aoi.aoi_builder import AOIBuilder
+from ast_engine.core.data_adapters.base import ReadOptions
+from ast_engine.core.data_adapters.kml.adapter import KMLAdapter
+from ast_engine.core.aoi.models import AOIRequest
+from ast_engine.core.aoi.aoi_builder import AOIBuilder
 
 
 

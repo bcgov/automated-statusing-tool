@@ -8,9 +8,8 @@ from typing import Any, Literal
 
 import geopandas as gpd
 import oracledb
-
-from data_adapters.base import BaseSpatialAdapter, ReadOptions
-from data_adapters.exceptions import DataCrsError, DataReadError
+from ..base import BaseSpatialAdapter, ReadOptions
+from ..exceptions import DataCrsError, DataReadError
 
 from . import queries, utils
 from .geometry import aoi_to_wkb_srid, df_to_gdf
