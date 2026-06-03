@@ -4,7 +4,7 @@ Set up dict structure and import spreadsheet datasets into pydantic model
 '''
 
 # %%
-from ast_engine.config.wip_pydantic_structure import RegistryDatasets
+from wip_pydantic_structure import RegistryDatasets
 
 import pandas as pd
 
@@ -12,9 +12,8 @@ import yaml
 
 # %%
 
-input_xlsx = None
-
-yaml_path = None
+input_xlsx = r"registry\Test_Registry.xlsx"
+yaml_path = r"registry\datasets.yaml"
 
 template_outer_dict = {
     "registry_ver": 0.1,
