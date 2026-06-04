@@ -1,0 +1,38 @@
+
+version: "1.0"
+
+datasets:
+  - id: "c574a3ea-7113-431e-b43a-85faa986c7a2"
+    name: "Mapsheet"
+    datasource: "WHSE_BASEMAPPING.BCGS_20K_GRID"
+    definition_query: "FCODE = 'RG90020000'"
+    aggregate_columns:
+      - "MAP_TILE_DISPLAY_NAME"
+    columns:
+      - "FCODE"
+      - "MAP_TILE"
+      - "MAP_TILE_DISPLAY_NAME"
+      - "OBJECTID"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "bcgw"
+
+  - id: "1201d29f-0dce-4f67-92af-520d53a3145c"
+    name: "Natural Resource Districts"
+    datasource: "WHSE_ADMIN_BOUNDARIES.ADM_NR_DISTRICTS_SP"
+    aggregate_columns:
+      - "DISTRICT_NAME"
+    columns:
+      - "DISTRICT_NAME"
+      - "ORG_UNIT"
+      - "ORG_UNIT_NAME"
+      - "REGION_ORG_UNIT"
+      - "REGION_ORG_UNIT_NAME"
+      - "FEATURE_CODE"
+      - "FEATURE_NAME"
+      - "OBJECTID"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "bcgw"
