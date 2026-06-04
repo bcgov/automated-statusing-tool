@@ -3,7 +3,6 @@ from pydantic import BaseModel
 
 class BaseDataset(BaseModel):
     # Core identifiers
-    id: str
     name: str
     # data definition
     datasource: str
@@ -14,6 +13,7 @@ class BaseDataset(BaseModel):
 
 class RegistryDataset(BaseDataset):
     # Enriched metadata
+    id: str
     columns: List[str]
     geom_column: str
     geometry_type: str
