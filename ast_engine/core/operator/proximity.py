@@ -6,16 +6,18 @@ Proximity analysis Operator. Two analyses covered in this operator:
   nearest        : find the top K closest features (regardless of distance,
                    with an optional distance cap).
 
-Both return a list of ProximityResult records sorted by distance ascending.
+Both return one ProximityResult holding the matched features, sorted nearest
+first. Each feature's `measure` is its distance to the AOI in metres; the
+result's headline measure_value is the nearest (smallest) distance.
 
 Notes:
 - The AOI CRS must be projected (metres). Distances are always reported in
   the CRS's native units, which we assume is metres for BC Albers (EPSG:3005).
 - The adapter is called as-is. For Oracle, the caller passes the SDO
   push-down kwargs (predicate / distance / k / aoi). For local file adapters
-  the dataset is read and filtered client-side 
-- gpd.clip via ReadOptions.spatial_mask would alter feature geometries and
-  break distance computation, so this module avoids that path entirely (for now!).
+  the dataset is read and filtered client-side.
+- Distances are computed client-side with shapely, so the operator never
+  alters feature geometries.
 """
 
 from __future__ import annotations
@@ -24,9 +26,9 @@ from typing import Any, Iterable
 
 import geopandas as gpd
 
-from core.aoi import AreaOfInterest
-from core.data_adapters.base import BaseSpatialAdapter, ReadOptions
-from core.results import FeatureRecord, ProximityResult
+from ..aoi import AreaOfInterest
+from ..data_adapters.base import BaseSpatialAdapter, ReadOptions
+from ..results import FeatureRecord, ProximityResult
 
 
 _DISTANCE_COL = "_proximity_distance_m"
@@ -41,8 +43,8 @@ def within_distance(
     keep_properties: Iterable[str] | None = None,
     read_options: ReadOptions | None = None,
     **adapter_kwargs,
-) -> list[ProximityResult]:
-    """Return every feature whose distance to the AOI is <= distance_m, ascending.
+) -> ProximityResult:
+    """Return one ProximityResult holding every feature within distance_m, nearest first.
 
     The caller is responsible for telling the adapter how to filter the candidate
     set. For Oracle pass predicate='within_distance', distance=distance_m,
@@ -53,7 +55,7 @@ def within_distance(
         raise ValueError("distance_m must be non-negative")
     _require_projected(aoi)
 
-    # Ask the adapter for the dataset features. 
+    # Ask the adapter for the dataset features.
     # The orchestrator can pre-tell the adapter how to filter (Oracle uses predicate="within_distance"
     gdf = adapter.read(
         read_options=read_options or _default_read_options(feature_id_field, keep_properties),
@@ -61,7 +63,7 @@ def within_distance(
         **adapter_kwargs,
     )
     if gdf.empty:
-        return []
+        return ProximityResult(features=[])
 
     aoi_geom = aoi.gdf.geometry.union_all()
     gdf = gdf.copy()
@@ -83,8 +85,8 @@ def nearest(
     keep_properties: Iterable[str] | None = None,
     read_options: ReadOptions | None = None,
     **adapter_kwargs,
-) -> list[ProximityResult]:
-    """Return up to k closest features, sorted by distance ascending.
+) -> ProximityResult:
+    """Return one ProximityResult holding up to k closest features, nearest first.
 
     If max_distance_m is given, candidates beyond that distance are dropped
     (mirrors the legacy 25 km cap on archaeology sites).
@@ -107,7 +109,7 @@ def nearest(
         **adapter_kwargs,
     )
     if gdf.empty:
-        return []
+        return ProximityResult(features=[])
 
     aoi_geom = aoi.gdf.geometry.union_all()
     gdf = gdf.copy()
@@ -154,31 +156,24 @@ def _build_results(
     gdf: gpd.GeoDataFrame,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
-) -> list[ProximityResult]:
-    """Turns the filtered/sorted GeoDataFrame into the typed ProximityResult 
-        records the rest of the system expects.
+) -> ProximityResult:
+    """Turn the filtered/sorted GeoDataFrame into a single ProximityResult.
 
-        For each row of the GeoDataFrame it builds one ProximityResult containing:
-            - the distance (pulled from the _proximity_distance_m column)
-            - a FeatureRecord with the feature's ID and a dict of its other properties
-        
-        Returns the full list."""
-    if gdf.empty:
-        return []
-
+        Each matched feature becomes one FeatureRecord whose `measure` is its
+        distance to the AOI in metres (rows arrive sorted nearest-first). The
+        result's headline measure_value (the nearest distance) is derived from
+        these by the results model.
+    """
     keep_list = list(keep_properties) if keep_properties else []
-    results: list[ProximityResult] = []
-    for idx, row in gdf.iterrows():
-        results.append(
-            ProximityResult(
-                nearest_feature_distance=float(row[_DISTANCE_COL]),
-                nearest_feature=FeatureRecord(
-                    feature_id=_extract_feature_id(row, idx, feature_id_field),
-                    properties=_extract_properties(row, keep_list),
-                ),
-            )
+    features = [
+        FeatureRecord(
+            feature_id=_extract_feature_id(row, idx, feature_id_field),
+            properties=_extract_properties(row, keep_list),
+            measure=float(row[_DISTANCE_COL]),
         )
-    return results
+        for idx, row in gdf.iterrows()
+    ]
+    return ProximityResult(features=features)
 
 
 def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str:
