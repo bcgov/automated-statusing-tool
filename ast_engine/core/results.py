@@ -26,16 +26,16 @@ class BaseOperatorResult(BaseModel):
     # Do not instantiate directly; use operator‑specific subclasses.
     analysis_timestamp: datetime = Field(default_factory=partial(datetime.now,tz=UTC))
     operator_type: OperatorType
-    features: List[FeatureRecord]
-    # path used to link to spatial data record
-    spatial_link: str
+    features: List[FeatureRecord] = Field(default_factory=list)
+    # path to the saved spatial output; set by the orchestrator, not the operator
+    spatial_link: str | None = None
     @computed_field
     def feature_count(self) -> int:
         return len(self.features)
-    @computed_field 
+    @computed_field
     def measure_value(self) -> float:
         """Returns the primary numeric result"""
-        return float(self.feature_count()) # Default for point/generic data
+        return float(self.feature_count) # Default for point/generic data
     @computed_field
     def measure_unit(self) -> str:
         """Returns the unit of measurement."""
@@ -44,6 +44,13 @@ class BaseOperatorResult(BaseModel):
 class AdjacencyResult(BaseOperatorResult):
     operator_type: Literal[OperatorType.ADJACENCY] = OperatorType.ADJACENCY
     is_adjacent: bool
+    @computed_field
+    def measure_value(self) -> float:
+        """Total shared boundary length in metres (sum of per-feature measures)."""
+        return float(sum(f.measure for f in self.features if f.measure is not None))
+    @computed_field
+    def measure_unit(self) -> str:
+        return "meters"
 
 class PointOverlayResult(BaseOperatorResult):
     operator_type: Literal[OperatorType.POINT_OVERLAY] = OperatorType.POINT_OVERLAY
@@ -70,6 +77,14 @@ class PolyOverlayResult(BaseOperatorResult):
     
 class ProximityResult(BaseOperatorResult):
     operator_type: Literal[OperatorType.PROXIMITY] = OperatorType.PROXIMITY
+    @computed_field
+    def measure_value(self) -> float:
+        """Nearest distance in metres (smallest per-feature measure)."""
+        distances = [f.measure for f in self.features if f.measure is not None]
+        return float(min(distances)) if distances else 0.0
+    @computed_field
+    def measure_unit(self) -> str:
+        return "meters"
 
 AnalysisResult = Annotated[
     Union[PointOverlayResult, LineOverlayResult, PolyOverlayResult, AdjacencyResult, ProximityResult],
