@@ -13,9 +13,11 @@ result's headline measure_value is the nearest (smallest) distance.
 Notes:
 - The AOI CRS must be projected (metres). Distances are always reported in
   the CRS's native units, which we assume is metres for BC Albers (EPSG:3005).
-- The adapter is called as-is. For Oracle, the caller passes the SDO
-  push-down kwargs (predicate / distance / k / aoi). For local file adapters
-  the dataset is read and filtered client-side.
+- The AOI push-down is built into the default ReadOptions as a SpatialFilter
+  ('within_distance' with the radius, or 'nearest' with k); each adapter applies
+  it its own way (Oracle SDO, file bbox). An orchestrator can pass its own
+  read_options instead. Dataset identity (table / path / layer) travels in
+  source_kwargs.
 - Distances are computed client-side with shapely, so the operator never
   alters feature geometries.
 """
@@ -27,7 +29,7 @@ from typing import Any, Iterable
 import geopandas as gpd
 
 from ..aoi import AreaOfInterest
-from ..data_adapters.base import BaseSpatialAdapter, ReadOptions
+from ..data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
 from ..results import FeatureRecord, ProximityResult
 
 
@@ -42,25 +44,28 @@ def within_distance(
     feature_id_field: str | None = None,
     keep_properties: Iterable[str] | None = None,
     read_options: ReadOptions | None = None,
-    **adapter_kwargs,
+    **source_kwargs,
 ) -> ProximityResult:
     """Return one ProximityResult holding every feature within distance_m, nearest first.
 
-    The caller is responsible for telling the adapter how to filter the candidate
-    set. For Oracle pass predicate='within_distance', distance=distance_m,
-    aoi=<aoi_gdf> via adapter_kwargs. For file adapters the dataset is
-    read and filtered.
+    The default ReadOptions pushes a SpatialFilter(predicate='within_distance',
+    distance=distance_m) down to the adapter; the exact distance is then checked
+    client-side (the push-down can be approximate, e.g. a file bbox). Pass your
+    own read_options to override. Dataset identity travels in source_kwargs.
     """
     if distance_m < 0:
         raise ValueError("distance_m must be non-negative")
     _require_projected(aoi)
 
-    # Ask the adapter for the dataset features.
-    # The orchestrator can pre-tell the adapter how to filter (Oracle uses predicate="within_distance"
+    # Ask the adapter for the candidate features (within_distance pushed down).
     gdf = adapter.read(
-        read_options=read_options or _default_read_options(feature_id_field, keep_properties),
+        read_options=read_options or _default_read_options(
+            SpatialFilter(aoi=aoi.gdf, predicate="within_distance", distance=distance_m),
+            feature_id_field,
+            keep_properties,
+        ),
         target_crs=str(aoi.gdf.crs),
-        **adapter_kwargs,
+        **source_kwargs,
     )
     if gdf.empty:
         return ProximityResult(features=[])
@@ -84,16 +89,17 @@ def nearest(
     feature_id_field: str | None = None,
     keep_properties: Iterable[str] | None = None,
     read_options: ReadOptions | None = None,
-    **adapter_kwargs,
+    **source_kwargs,
 ) -> ProximityResult:
     """Return one ProximityResult holding up to k closest features, nearest first.
 
     If max_distance_m is given, candidates beyond that distance are dropped
     (mirrors the legacy 25 km cap on archaeology sites).
 
-    For Oracle the caller can pass predicate='nearest', k=k, aoi=<aoi_gdf>
-    via adapter_kwargs so SDO_NN does the work push-down. For file adapters
-    the dataset is read and sorted client-side.
+    The default ReadOptions pushes a SpatialFilter(predicate='nearest', k=k) down
+    to the adapter (Oracle SDO_NN); file adapters read the dataset and the top-k is
+    taken client-side. Pass your own read_options to override. Dataset identity
+    travels in source_kwargs.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -101,12 +107,15 @@ def nearest(
         raise ValueError("max_distance_m must be non-negative")
     _require_projected(aoi)
 
-    # adapter read. For Oracle the orchestrator can use predicate="nearest" to push the work down to the database
-    # for file adapters we get the full dataset and sort it.
+    # adapter read (nearest pushed down); file adapters read all and we take top-k below.
     gdf = adapter.read(
-        read_options=read_options or _default_read_options(feature_id_field, keep_properties),
+        read_options=read_options or _default_read_options(
+            SpatialFilter(aoi=aoi.gdf, predicate="nearest", k=k),
+            feature_id_field,
+            keep_properties,
+        ),
         target_crs=str(aoi.gdf.crs),
-        **adapter_kwargs,
+        **source_kwargs,
     )
     if gdf.empty:
         return ProximityResult(features=[])
@@ -122,23 +131,23 @@ def nearest(
 
 
 def _default_read_options(
+    spatial_filter: SpatialFilter,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
 ) -> ReadOptions:
-    """Build a ReadOptions that keeps every column the operator needs downstream.
+    """Build a ReadOptions that pushes the AOI filter down and keeps the columns
+    the operator needs downstream.
 
-    Without this, passing keep_properties through `keep_columns` causes the base
-    adapter to drop feature_id_field, and the result builder falls back to the
-    row index. We always include feature_id_field in the keep set.
+    Without keep_columns, the base adapter could drop feature_id_field and the
+    result builder would fall back to the row index, so feature_id_field is always
+    included in the keep set.
     """
-    if not feature_id_field and not keep_properties:
-        return ReadOptions()
     keep: set[str] = set()
     if feature_id_field:
         keep.add(feature_id_field)
     if keep_properties:
         keep.update(keep_properties)
-    return ReadOptions(keep_columns=keep)
+    return ReadOptions(spatial_filter=spatial_filter, keep_columns=keep or None)
 
 
 def _require_projected(aoi: AreaOfInterest) -> None:
