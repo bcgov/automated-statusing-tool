@@ -31,7 +31,7 @@ def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     return [BaseDataset(**item) for item in seed]
 
 
-def ingest_spreadsheet(template: dict, inp_xlsx: str): # Or should the input be xlsx
+def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the input be xlsx
     '''
     Ingest spreadsheet and create a dictionary to hydrate the base dataset
     This assumes a flat dictionary and does not recurse
@@ -39,24 +39,20 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str): # Or should the input be 
     inp_df = pd.read_excel(inp_xlsx)
     dataset_list = []
     for index, row in inp_df.iterrows():
-        row_dataset = deepcopy(template)
+        row_dataset = {}
         if pd.notna(row["Featureclass_Name(valid characters only)"]):
             # do the lookup
             for key, value in template.items():
                 if isinstance(value, list):
+                    if key not in row_dataset.keys():
+                        row_dataset[key] = []
                     for item in value:
                         if isinstance(item, str):
-                            row_dataset[key][value.index(item)] = row[item]
-                        elif pd.isna(row[item]):
-                                del(row_dataset[key][value.index(item)]) # This may cause skipping
-                                # Drop value
-                                pass
+                            if pd.notna(row[item]):
+                                    row_dataset[key].append(row[item])
                 elif isinstance(value, str):
-                    row_dataset[key] = row[value]
-                elif pd.isna(row[value]):
-                    del(row_dataset[key]) # This may cause skipping
-                    # drop value
-                    pass
+                    if pd.notna(row[value]):
+                        row_dataset[key] = row[value]
                 else:
                     print(f"error {value} is not a string or a list")
             # Append dataset to list

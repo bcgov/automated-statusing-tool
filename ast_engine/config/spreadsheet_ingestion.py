@@ -26,5 +26,7 @@ template_dict = {
 }
 
 datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
-print(datasets)
+for value in datasets:
+    print(value)
+# print(datasets)
 print(len(datasets))
