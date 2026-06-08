@@ -5,6 +5,58 @@ from .exceptions import DataCrsError
 from typing import Iterable
 
 
+# the spatial relationships a SpatialFilter can describe
+_SPATIAL_PREDICATES = ("intersects", "within_distance", "touches", "nearest")
+
+
+class SpatialFilter:
+    """How to narrow a dataset down to an AOI before reading.
+
+    One SpatialFilter describes the spatial filter for every adapter. Each
+    adapter pushes it down its own way - the Oracle adapter into an SDO query,
+    file adapters into a gpd.read_file bbox.
+
+    aoi:       the area of interest, a GeoDataFrame.
+    predicate: the spatial relationship to push down -
+               'intersects' (default), 'within_distance', 'touches', 'nearest'.
+    distance:  search distance in metres - required for 'within_distance'.
+    k:         number of features to return - required for 'nearest'.
+    """
+
+    def __init__(
+        self,
+        *,
+        aoi: gpd.GeoDataFrame,
+        predicate: str = "intersects",
+        distance: float | None = None,
+        k: int | None = None,
+    ):
+        if aoi is None or aoi.empty:
+            raise ValueError("SpatialFilter needs a non-empty AOI")
+        if aoi.crs is None:
+            raise ValueError("SpatialFilter AOI has no CRS defined")
+        if predicate not in _SPATIAL_PREDICATES:
+            raise ValueError(
+                f"Unknown predicate {predicate!r}; expected one of "
+                f"{', '.join(_SPATIAL_PREDICATES)}"
+            )
+        if predicate == "within_distance" and (distance is None or distance <= 0):
+            raise ValueError(
+                "predicate 'within_distance' needs a positive `distance` in metres"
+            )
+        if predicate == "nearest" and (
+            k is None or not isinstance(k, int) or k <= 0
+        ):
+            raise ValueError(
+                "predicate 'nearest' needs a positive whole-number `k`"
+            )
+
+        self.aoi = aoi
+        self.predicate = predicate
+        self.distance = distance
+        self.k = k
+
+
 class ReadOptions:
     """
     Optional read controls applicable to all spatial adapters.
@@ -16,11 +68,12 @@ class ReadOptions:
     def __init__(
         self,
         *,
-        spatial_mask: gpd.GeoDataFrame | None = None,
+        spatial_filter: SpatialFilter | None = None,
         definition_query: str | None = None,
         keep_columns: Iterable[str] | None = None,
     ):
-        self.spatial_mask = spatial_mask
+        # spatial_filter pushes an AOI filter down to the source.
+        self.spatial_filter = spatial_filter
         self.definition_query = definition_query
         self.keep_columns = list(keep_columns) if keep_columns else None
 
@@ -73,25 +126,17 @@ class BaseSpatialAdapter(ABC):
         gdf: gpd.GeoDataFrame,
         opts: ReadOptions,
     ) -> gpd.GeoDataFrame:
+        # Adapters that pushed these down clear them first (see consume-and-clear
+        # in OracleAdapter and FileSpatialAdapter). What is left here is the
+        # fallback for fields the adapter could not handle at the source - the
+        # file adapter relies on this for definition_query and keep_columns.
         if opts.definition_query:
             gdf = gdf.query(opts.definition_query)
-
-        if opts.spatial_mask is not None:
-            gdf = self._clip(gdf, opts.spatial_mask)
 
         if opts.keep_columns:
             gdf = self._select_columns(gdf, opts.keep_columns)
 
         return gdf
-
-    def _clip(
-        self,
-        gdf: gpd.GeoDataFrame,
-        mask: gpd.GeoDataFrame,
-    ) -> gpd.GeoDataFrame:
-        if gdf.crs != mask.crs:
-            mask = mask.to_crs(gdf.crs)
-        return gpd.clip(gdf, mask)
 
     def _select_columns(
         self,
