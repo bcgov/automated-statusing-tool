@@ -43,7 +43,7 @@ class OracleConnection:
                 dsn=self.hostname,
             )
             self.cursor = self.connection.cursor()
-            logger.info("Connected to Oracle database at %s", self.hostname)
+            logger.info("Connected to Oracle database")
         except oracledb.DatabaseError as exc:
             raise ConnectionError(
                 f"Oracle connection failed for {self.hostname}: {exc}"
