@@ -32,11 +32,10 @@ ALL_TAB_COLUMNS = """
 
 
 # Predicate templates. All emit the same final columns:
-#   <user-selected cols>, RESULT, SHAPE  (plus DISTANCE_M for nearest).
+#   <user-selected cols>, SHAPE.
 
 OVERLAY_INTERSECTS = """
     SELECT {cols},
-           'INTERSECT' AS RESULT,
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_FILTER({geom_col},
@@ -50,13 +49,6 @@ OVERLAY_INTERSECTS = """
 
 OVERLAY_WITHIN_DISTANCE = """
     SELECT {cols},
-           CASE
-               WHEN SDO_RELATE({geom_col},
-                               SDO_GEOMETRY(:wkb_aoi, :srid),
-                               'mask=ANYINTERACT') = 'TRUE'
-               THEN 'INTERSECT'
-               ELSE 'Within {distance} m'
-           END AS RESULT,
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_WITHIN_DISTANCE({geom_col},
@@ -67,7 +59,6 @@ OVERLAY_WITHIN_DISTANCE = """
 
 OVERLAY_TOUCHES = """
     SELECT {cols},
-           'TOUCH' AS RESULT,
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_RELATE({geom_col},
@@ -79,15 +70,13 @@ OVERLAY_TOUCHES = """
 OVERLAY_NEAREST = """
     SELECT * FROM (
         SELECT {cols},
-               'NEAREST' AS RESULT,
-               SDO_NN_DISTANCE(1) AS DISTANCE_M,
                SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
         FROM {tab}
         WHERE SDO_NN({geom_col},
                      SDO_GEOMETRY(:wkb_aoi, :srid),
                      'sdo_num_res=' || :k, 1) = 'TRUE'
             {def_query}
-        ORDER BY DISTANCE_M
+        ORDER BY SDO_NN_DISTANCE(1)
     ) WHERE ROWNUM <= :k
 """
 
