@@ -9,12 +9,12 @@ from pathlib import Path
 
 # ingest spreadshet
 
-xlsx_in = "ast_engine/config/data/Test_Registry.xlsx"
+xlsx_in = "ast_engine/tests/data/Test_Registry.xlsx"
 
 template_dict = {
     "name": "Featureclass_Name(valid characters only)",
     "datasource": "Datasource",
-    "columns": [
+    "aggregate_columns": [
         "Fields_to_Summarize",
         "Fields_to_Summarize2",
         "Fields_to_Summarize3",
@@ -26,7 +26,17 @@ template_dict = {
 }
 
 datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
-for value in datasets:
-    print(value)
+# for value in datasets:
+    # print(value)
 # print(datasets)
-print(len(datasets))
+# print(len(datasets))
+
+hydrated = utils.hydrate_base_datasets(datasets)
+# print(hydrated)
+
+for dataset in hydrated:
+    print(dataset)
+    enriched = enrichment.Enrich(dataset)
+    enriched.enrich()
+
+# utils.dump_yaml()
