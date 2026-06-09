@@ -44,4 +44,4 @@ for dataset in hydrated:
 
 Registry = models.Registry(version= "0.1", datasets= base_datasets_list)
 
-# utils.dump_yaml()
+utils.dump_yaml(Registry, Path("ast_engine/tests/data/Test_Registry.yaml"))
