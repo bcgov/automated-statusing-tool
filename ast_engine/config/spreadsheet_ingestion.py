@@ -34,9 +34,14 @@ datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
 hydrated = utils.hydrate_base_datasets(datasets)
 # print(hydrated)
 
+
+base_datasets_list = []
 for dataset in hydrated:
     print(dataset)
     enriched = enrichment.Enrich(dataset)
     enriched.enrich()
+    base_datasets_list.append(enriched.build())
+
+Registry = models.Registry(version= "0.1", datasets= base_datasets_list)
 
 # utils.dump_yaml()

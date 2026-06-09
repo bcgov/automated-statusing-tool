@@ -1,7 +1,7 @@
 import logging
 from .models import BaseDataset, RegistryDataset
 from typing import Optional
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -27,13 +27,14 @@ class Enrich():
         if self.base.datasource.upper().startswith("WHSE"):
             return "ORACLE"
         else:
-            ds =Path(self.base.datasource)
+            ds = PureWindowsPath(self.base.datasource)
             if ds.suffix.lower() in self.FILE_TYPES:
                 return 'FILE'
             else:
                 for part in ds.parts:
-                    if part.lower() in self.FILE_TYPES:
-                        return 'FILE'
+                    for FILE_TYPE in self.FILE_TYPES:
+                        if FILE_TYPE in part.lower():
+                            return 'FILE'
                 raise ValueError('Datasource data adapter could not be resolved')  
     def enrich_from_file(self):
         # use the file data adapter to get this info
