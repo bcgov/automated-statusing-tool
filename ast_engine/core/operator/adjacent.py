@@ -1,4 +1,3 @@
-
 """
 Adjacency analysis Operator. One analysis covered in this operator:
 
