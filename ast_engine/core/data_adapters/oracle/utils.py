@@ -67,6 +67,69 @@ def get_columns(connection: Any, cursor: Any, table: str) -> list[str]:
     return df["COLUMN_NAME"].tolist() if not df.empty else []
 
 
+# SDO_GTYPE type code -> normalized geometry type. SDO_GTYPE is a 4-digit
+# number (DLTT); its last two digits are the geometry type: 1/5 point,
+# 2/6 line, 3/7 polygon. Multipart variants (5/6/7) collapse to their
+# single-part name. 4 (collection) and anything else is not handled here.
+_GTYPE_TO_GEOMETRY_TYPE = {
+    1: "point",
+    5: "point",
+    2: "line",
+    6: "line",
+    3: "polygon",
+    7: "polygon",
+}
+
+
+def _gtype_to_geometry_type(gtype: int) -> str | None:
+    """Map an Oracle SDO_GTYPE number to point, line or polygon.
+
+    Returns None for geometry types AST does not handle (e.g. 4, a mixed
+    collection).
+    """
+    return _GTYPE_TO_GEOMETRY_TYPE.get(int(gtype) % 100)
+
+
+def get_geometry_type(
+    connection: Any, cursor: Any, table: str, geom_col: str
+) -> str | None:
+    """Return the table's geometry type (point/line/polygon), or None.
+
+    Reads SDO_GTYPE from the first row - no full scan. Returns None when the
+    table is empty or holds a geometry type AST does not handle.
+    """
+    sql = queries.SDO_GTYPE.format(tab=table, geom_col=geom_col)
+    try:
+        df = _read_query(cursor, sql, {})
+    except Exception as exc:
+        logger.warning("Cannot determine geometry type for %s: %s", table, exc)
+        return None
+    if df.empty or df["GTYPE"].iloc[0] is None:
+        logger.warning("Table %s is empty; cannot determine geometry type", table)
+        return None
+    return _gtype_to_geometry_type(df["GTYPE"].iloc[0])
+
+
+def get_row_count(connection: Any, cursor: Any, table: str) -> int | None:
+    """Return the optimizer's estimated row count, or None.
+
+    A fast lookup from ALL_TABLES - no COUNT(*) scan. This is an estimate, and
+    it is null for views (the common BCGW case) and for tables whose stats have
+    never been gathered, in which case this returns None.
+    """
+    owner, tab_name = _split_table(table)
+    try:
+        df = _read_query(
+            cursor, queries.NUM_ROWS, {"owner": owner, "tab_name": tab_name}
+        )
+    except Exception as exc:
+        logger.warning("Cannot determine row count for %s: %s", table, exc)
+        return None
+    if df.empty or df["NUM_ROWS"].iloc[0] is None:
+        return None
+    return int(df["NUM_ROWS"].iloc[0])
+
+
 def apply_geometry_fix(query: str, table: str, geom_col: str) -> str:
     """Densify + rectify the output geometry for tables in PROBLEMATIC_TABLES.
 
