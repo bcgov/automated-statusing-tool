@@ -30,6 +30,22 @@ ALL_TAB_COLUMNS = """
       AND table_name = :tab_name
 """
 
+# Geometry type of the first row, read from SDO_GTYPE - no full scan.
+SDO_GTYPE = """
+    SELECT s.{geom_col}.sdo_gtype AS GTYPE
+    FROM {tab} s
+    WHERE rownum = 1
+"""
+
+# Optimizer's estimated row count - a fast lookup, no COUNT(*) scan.
+# Null for views and for tables whose stats have never been gathered.
+NUM_ROWS = """
+    SELECT num_rows AS NUM_ROWS
+    FROM all_tables
+    WHERE owner = :owner
+      AND table_name = :tab_name
+"""
+
 
 # Predicate templates. All emit the same final columns:
 #   <user-selected cols>, SHAPE.
