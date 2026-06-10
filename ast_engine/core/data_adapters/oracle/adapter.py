@@ -8,7 +8,7 @@ from typing import Any
 
 import geopandas as gpd
 import oracledb
-from ..base import BaseSpatialAdapter, ReadOptions
+from ..base import BaseSpatialAdapter, DatasetInfo, ReadOptions
 from ..exceptions import DataCrsError, DataReadError
 
 from . import queries, utils
@@ -143,6 +143,36 @@ class OracleAdapter(BaseSpatialAdapter):
         # 9. Build GeoDataFrame from WKT (target_crs reprojection
         # is handled by the base class wrapper).
         return df_to_gdf(df, srid=srid)
+
+    def describe(self, *, table: str, **_) -> DatasetInfo:
+        """Return a BCGW table's metadata without reading its features.
+
+        Reads the geometry column, SRID, geometry type, columns and an
+        estimated row count from Oracle's SDO and data-dictionary metadata.
+        Used at build time by the registry. Reuses the same metadata helpers
+        the read path uses, plus the geometry type and row count.
+        """
+        geom_col = utils.get_geometry_column(self.connection, self.cursor, table)
+        srid = utils.get_srid(self.connection, self.cursor, table, geom_col)
+        if srid is None:
+            raise DataReadError(
+                f"Cannot determine SRID for {table} (table may be empty or have no SDO metadata)"
+            )
+        geometry_type = utils.get_geometry_type(
+            self.connection, self.cursor, table, geom_col
+        )
+        if geometry_type is None:
+            raise DataReadError(
+                f"Cannot determine geometry type for {table} "
+                "(table may be empty or hold a geometry type AST does not handle)"
+            )
+        return DatasetInfo(
+            geom_column=geom_col,
+            crs=f"EPSG:{srid}",
+            geometry_type=geometry_type,
+            columns=utils.get_columns(self.connection, self.cursor, table),
+            row_count=utils.get_row_count(self.connection, self.cursor, table),
+        )
 
     # Resolve columns discrepancies between requested columns (from xlxs) and actual table columns - Review this later: will be handled upstream by Data inventory module!
     def _resolve_columns(
