@@ -1,7 +1,9 @@
 import logging
 from .models import BaseDataset, RegistryDataset
+from ...core.data_adapters.base import DatasetInfo
+from ...core.data_adapters.file.adapter import FileSpatialAdapter
+from ...core.data_adapters.oracle.adapter import OracleAdapter
 from typing import Optional
-from pathlib import Path, PureWindowsPath
 import uuid
 
 logger = logging.getLogger(__name__)
@@ -11,8 +13,10 @@ class Enrich():
     TODO: might be nice if enrich had parameters (version: str, dataset_list: List)
     amd returned a Registry
     '''
-    FILE_TYPES=['.gdb','.shp']
-    def __init__(self, base: BaseDataset):
+    # File datasources end in one of these, or carry a path; everything else is
+    # a BCGW table named SCHEMA.TABLE.
+    GEO_EXTENSIONS = (".gdb", ".gpkg", ".shp", ".geojson", ".kml", ".kmz")
+    def __init__(self, base: BaseDataset, connection=None, cursor=None):
         # enrichment state
         self.id: Optional[str]
         self.columns: Optional[list[str]] = None
@@ -22,36 +26,45 @@ class Enrich():
         self.data_adapter: Optional[str] = None
         self.row_count: Optional[int] = None
         self.base = base
+        # A live BCGW connection is only needed to enrich Oracle datasets. The
+        # caller opens one connection and reuses it across every dataset in the
+        # build, the same way the read path does. File datasets ignore it.
+        self.connection = connection
+        self.cursor = cursor
     def resolve_adapter(self):
-        # resolve the data adapter based on the datasource
-        if self.base.datasource.upper().startswith("WHSE"):
+        # File datasources carry a path (slashes) or a known geo file type;
+        # everything else is a BCGW table named SCHEMA.TABLE.
+        ds = self.base.datasource.strip()
+        if "/" in ds or "\\" in ds or ds.lower().endswith(self.GEO_EXTENSIONS):
+            return "FILE"
+        if "." in ds:
             return "ORACLE"
-        else:
-            ds = PureWindowsPath(self.base.datasource)
-            if ds.suffix.lower() in self.FILE_TYPES:
-                return 'FILE'
-            else:
-                if any(part.endswith(ext) for part in ds.parts for ext in self.FILE_TYPES):
-                    return 'FILE'
-                # for part in ds.parts:
-                #     for FILE_TYPE in self.FILE_TYPES:
-                #         if FILE_TYPE in part.lower():
-                #             return 'FILE'
-                raise ValueError('Datasource data adapter could not be resolved')  
+        raise ValueError(f"Could not resolve a data adapter for: {ds!r}")
+    def _set_metadata(self, info: DatasetInfo):
+        # Map the adapter's DatasetInfo onto the enrichment fields. The field
+        # names line up 1:1, and geometry_type is already lowercase
+        # ("point" / "line" / "polygon").
+        self.columns = info.columns
+        self.crs = info.crs
+        self.geom_column = info.geom_column
+        self.geometry_type = info.geometry_type
+        self.row_count = info.row_count
     def enrich_from_file(self):
-        # use the file data adapter to get this info
-        self.columns = ['FOO','BAR']
-        self.crs = 'EPSG:3005'
-        self.geom_column = 'GEOMETRY'
-        self.geometry_type = 'POLYGON'
-        self.row_count = 200
+        # read the file's metadata without loading all of its features
+        info = FileSpatialAdapter().describe(path=self.base.datasource)
+        self._set_metadata(info)
     def enrich_from_oracle(self):
-        # use the oracle data adapter to get this info
-        self.columns = ['FOO','BAR']
-        self.crs = 'EPSG:3005'
-        self.geom_column = 'GEOMETRY'
-        self.geometry_type = 'POLYGON'
-        self.row_count = 400
+        # read the BCGW table's metadata over a live connection
+        if self.connection is None or self.cursor is None:
+            raise ValueError(
+                "Enriching a BCGW (Oracle) dataset needs a live database "
+                "connection. Open an OracleConnection during the build and pass "
+                f"it to Enrich. Dataset: {self.base.datasource!r}"
+            )
+        info = OracleAdapter(self.connection, self.cursor).describe(
+            table=self.base.datasource
+        )
+        self._set_metadata(info)
     def enrich(self):
         '''Resolves data adapter and enriches object with metadata'''
         # TODO: Do we need to somehow enforce unique? or move this up to the 
