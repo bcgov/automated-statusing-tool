@@ -23,6 +23,7 @@ from shapely.geometry import Polygon
 
 from ast_engine.core.data_adapters.oracle.adapter import OracleAdapter
 from ast_engine.core.data_adapters.oracle import utils
+from ast_engine.core.data_adapters.oracle.utils import _gtype_to_geometry_type
 from ast_engine.core.data_adapters.base import ReadOptions, SpatialFilter
 from ast_engine.core.data_adapters.exceptions import DataReadError
 
@@ -159,3 +160,50 @@ def test_oracle_adapter_passes_k_for_nearest(_mock_adapter, _aoi):
 
     bind_vars = cursor.execute.call_args.args[1]
     assert bind_vars.get("k") == 5
+
+
+# ---------------------------------------------------------------------------
+# describe() - build-time metadata
+# (the metadata helpers are patched, so no Oracle is touched; we check that
+# describe() assembles them into a DatasetInfo.)
+# ---------------------------------------------------------------------------
+
+def test_oracle_adapter_describe(monkeypatch):
+    """describe() assembles DatasetInfo from the metadata helpers."""
+    monkeypatch.setattr(utils, "get_geometry_column", lambda *a, **k: "SHAPE")
+    monkeypatch.setattr(utils, "get_srid", lambda *a, **k: 3005)
+    monkeypatch.setattr(utils, "get_geometry_type", lambda *a, **k: "polygon")
+    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID", "SHAPE"])
+    monkeypatch.setattr(utils, "get_row_count", lambda *a, **k: 42)
+
+    adapter = OracleAdapter(connection=MagicMock(), cursor=MagicMock())
+    info = adapter.describe(table=TABLE)
+
+    assert info.geom_column == "SHAPE"
+    assert info.crs == "EPSG:3005"
+    assert info.geometry_type == "polygon"
+    assert info.columns == ["OBJECTID", "SHAPE"]
+    assert info.row_count == 42
+
+
+# ---------------------------------------------------------------------------
+# SDO_GTYPE -> point/line/polygon mapping (pure, no Oracle)
+# SDO_GTYPE is DLTT; the last two digits are the type. Multipart (5/6/7)
+# collapses to its single-part name; 4 (collection) is not handled.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "gtype, expected",
+    [
+        (2001, "point"),
+        (2002, "line"),
+        (2003, "polygon"),
+        (2005, "point"),    # multipoint
+        (2006, "line"),     # multiline
+        (2007, "polygon"),  # multipolygon
+        (3003, "polygon"),  # 3D polygon
+        (2004, None),       # collection - unsupported
+    ],
+)
+def test_gtype_to_geometry_type(gtype, expected):
+    assert _gtype_to_geometry_type(gtype) == expected
