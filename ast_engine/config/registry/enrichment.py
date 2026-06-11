@@ -68,7 +68,7 @@ class Enrich():
         '''
         
         return RegistryDataset(
-            **self.base.model_dump(),
+            **self.base.model_dump(by_alias=True),
             id=self.id,
             columns=self.columns,
             geom_column=self.geom_column,

@@ -18,29 +18,42 @@ class BaseDataset(BaseModel):
     where: Optional[WhereClause | LogicalGroup] = None
     
     @model_validator(mode="after")
-
     def normalize_where(self):
         if self.where is None and self.definition_query:
             logger.warning(
                 f"[Future Deprecation] Dataset '{self.name}' uses definition_query. "
                 "Future versions Please migrate to 'where'."
             )
+
         # Already canonical → do nothing
         if self.where is not None:
             return self
+
         # Derive from legacy field
         if self.definition_query:
             parsed = definition_to_where(self.definition_query)
 
-            # IMPORTANT: wrap consistently
             if isinstance(parsed, dict):
-                # logical group
-                self.where = LogicalGroup(**parsed)
+                logic_key = list(parsed.keys())[0]  # "and" or "or"
+                conditions = parsed[logic_key]
+
+                # ✅ FIX: use alias name ("and"/"or"), not "and_"/"or_"
+                self.where = LogicalGroup(
+                    **{
+                        logic_key: [
+                            WhereClause(
+                                conditions=[Condition(**c)]
+                            )
+                            for c in conditions
+                        ]
+                    }
+                )
+
             elif isinstance(parsed, list):
-                # flat conditions → WhereClause
                 self.where = WhereClause(
                     conditions=[Condition(**c) for c in parsed]
                 )
+
             else:
                 raise ValueError("Unsupported where structure from parser")
 
