@@ -1,5 +1,9 @@
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import Optional, List, Union
+from pydantic import BaseModel,model_validator
+from .query import WhereClause, LogicalGroup, Condition,definition_to_where
+
+import logging
+logger = logging.getLogger(__name__)
 
 class BaseDataset(BaseModel):
     # Core identifiers
@@ -9,6 +13,40 @@ class BaseDataset(BaseModel):
     definition_query: Optional[str] = None
     # Aggregation
     aggregate_columns: List[str] = []
+    
+    # added
+    where: Optional[WhereClause | LogicalGroup] = None
+    
+    @model_validator(mode="after")
+
+    def normalize_where(self):
+        if self.where is None and self.definition_query:
+            logger.warning(
+                f"[Future Deprecation] Dataset '{self.name}' uses definition_query. "
+                "Future versions Please migrate to 'where'."
+            )
+        # Already canonical → do nothing
+        if self.where is not None:
+            return self
+        # Derive from legacy field
+        if self.definition_query:
+            parsed = definition_to_where(self.definition_query)
+
+            # IMPORTANT: wrap consistently
+            if isinstance(parsed, dict):
+                # logical group
+                self.where = LogicalGroup(**parsed)
+            elif isinstance(parsed, list):
+                # flat conditions → WhereClause
+                self.where = WhereClause(
+                    conditions=[Condition(**c) for c in parsed]
+                )
+            else:
+                raise ValueError("Unsupported where structure from parser")
+
+        return self
+
+
 
 
 class RegistryDataset(BaseDataset):
