@@ -111,23 +111,31 @@ def get_geometry_type(
 
 
 def get_row_count(connection: Any, cursor: Any, table: str) -> int | None:
-    """Return the optimizer's estimated row count, or None.
+    """Return the row count: the fast estimate when available, else an exact count.
 
-    A fast lookup from ALL_TABLES - no COUNT(*) scan. This is an estimate, and
-    it is null for views (the common BCGW case) and for tables whose stats have
-    never been gathered, in which case this returns None.
+    First reads NUM_ROWS from ALL_TABLES - a fast lookup with no scan. That is
+    null for views (the common BCGW case) and for tables whose stats have never
+    been gathered; in that case it falls back to a COUNT(*). A COUNT(*) on a
+    BCGW view is acceptable here because this runs once at registry build time,
+    not per analysis. Returns None only if both the estimate and the count fail.
     """
     owner, tab_name = _split_table(table)
     try:
         df = _read_query(
             cursor, queries.NUM_ROWS, {"owner": owner, "tab_name": tab_name}
         )
+        if not df.empty and df["NUM_ROWS"].iloc[0] is not None:
+            return int(df["NUM_ROWS"].iloc[0])
     except Exception as exc:
-        logger.warning("Cannot determine row count for %s: %s", table, exc)
+        logger.warning("NUM_ROWS lookup failed for %s: %s", table, exc)
+
+    # No estimate (view, or stats never gathered) - fall back to an exact count.
+    try:
+        df = _read_query(cursor, queries.ROW_COUNT.format(tab=table), {})
+        return int(df["N"].iloc[0])
+    except Exception as exc:
+        logger.warning("COUNT(*) failed for %s: %s", table, exc)
         return None
-    if df.empty or df["NUM_ROWS"].iloc[0] is None:
-        return None
-    return int(df["NUM_ROWS"].iloc[0])
 
 
 def apply_geometry_fix(query: str, table: str, geom_col: str) -> str:

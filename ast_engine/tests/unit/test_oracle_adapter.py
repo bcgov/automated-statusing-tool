@@ -207,3 +207,36 @@ def test_oracle_adapter_describe(monkeypatch):
 )
 def test_gtype_to_geometry_type(gtype, expected):
     assert _gtype_to_geometry_type(gtype) == expected
+
+
+# ---------------------------------------------------------------------------
+# Row count: fast NUM_ROWS estimate, with a COUNT(*) fallback for views
+# (the metadata query is faked so no Oracle is touched)
+# ---------------------------------------------------------------------------
+
+def test_oracle_row_count_uses_estimate_when_available(monkeypatch):
+    """A table with a NUM_ROWS estimate is returned directly - no COUNT(*)."""
+    import pandas as pd
+
+    def fake_read_query(cursor, sql, binds):
+        if "num_rows" in sql.lower():
+            return pd.DataFrame({"NUM_ROWS": [500]})
+        raise AssertionError("COUNT(*) should not run when an estimate exists")
+
+    monkeypatch.setattr(utils, "_read_query", fake_read_query)
+    assert utils.get_row_count(MagicMock(), MagicMock(), "WHSE_TEST.SOME_TABLE") == 500
+
+
+def test_oracle_row_count_falls_back_to_count_for_views(monkeypatch):
+    """A view has no NUM_ROWS estimate, so the exact COUNT(*) is used."""
+    import pandas as pd
+
+    def fake_read_query(cursor, sql, binds):
+        if "num_rows" in sql.lower():
+            return pd.DataFrame({"NUM_ROWS": [None]})   # view -> no estimate
+        if "count(*)" in sql.lower():
+            return pd.DataFrame({"N": [1234]})
+        raise AssertionError(f"unexpected query: {sql}")
+
+    monkeypatch.setattr(utils, "_read_query", fake_read_query)
+    assert utils.get_row_count(MagicMock(), MagicMock(), "WHSE_TEST.SOME_VIEW") == 1234
