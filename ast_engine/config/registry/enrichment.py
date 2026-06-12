@@ -31,10 +31,12 @@ class Enrich():
             if ds.suffix.lower() in self.FILE_TYPES:
                 return 'FILE'
             else:
-                for part in ds.parts:
-                    for FILE_TYPE in self.FILE_TYPES:
-                        if FILE_TYPE in part.lower():
-                            return 'FILE'
+                if any(part.endswith(ext) for part in ds.parts for ext in self.FILE_TYPES):
+                    return 'FILE'
+                # for part in ds.parts:
+                #     for FILE_TYPE in self.FILE_TYPES:
+                #         if FILE_TYPE in part.lower():
+                #             return 'FILE'
                 raise ValueError('Datasource data adapter could not be resolved')  
     def enrich_from_file(self):
         # use the file data adapter to get this info
@@ -68,7 +70,7 @@ class Enrich():
         '''
         
         return RegistryDataset(
-            **self.base.model_dump(),
+            **self.base.model_dump(by_alias=True),
             id=self.id,
             columns=self.columns,
             geom_column=self.geom_column,

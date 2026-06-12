@@ -4,13 +4,18 @@ import pandas as pd
 from pathlib import Path
 import yaml
 
+import logging
+logger = logging.getLogger(__name__)
+
 def load_yaml(file_path: Path) -> Registry:
-    with open("registry.yaml", "r") as f:
+    logger.debug(f"Loading YAML file {file_path}")
+    with open(file_path, "r") as f:
         data = yaml.safe_load(f)
     registry = Registry(**data)
     return registry
 
 def dump_yaml(registry: Registry, file_path: Path):
+    logger.debug(f"Dumping YAML file {file_path}")
     with open(file_path, "w") as f:
         yaml.dump(registry.model_dump(), f, sort_keys=False)
 
@@ -28,6 +33,7 @@ def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     },
     ]
     '''
+    logger.debug(f"Hydrating datasets: Count {len(seed)}")
     return [BaseDataset(**item) for item in seed]
 
 
@@ -54,7 +60,7 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
                     if pd.notna(row[value]):
                         row_dataset[key] = row[value]
                 else:
-                    print(f"error {value} is not a string or a list")
+                    logger.error(f"error {value} is not a string or a list")
             # Append dataset to list
             dataset_list.append(row_dataset)
     return dataset_list

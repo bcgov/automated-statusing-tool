@@ -36,7 +36,8 @@ AST_MODULES = [
     "ast_engine.config.registry",
     "ast_engine.config.registry.enrichment",
     "ast_engine.config.registry.models",
-    "ast_engine.config.registry.utils"
+    "ast_engine.config.registry.utils",
+    "ast_engine.config.registry.query",
 ]
 
 @pytest.mark.parametrize("module_name", AST_MODULES)
