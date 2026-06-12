@@ -1,6 +1,6 @@
 from typing import Optional, List, Union
-from pydantic import BaseModel,model_validator
-from .query import WhereClause, LogicalGroup, Condition,definition_to_where
+from pydantic import BaseModel,model_validator,field_validator
+from .query import WhereClause, LogicalGroup,definition_to_where
 
 import logging
 logger = logging.getLogger(__name__)
@@ -17,48 +17,32 @@ class BaseDataset(BaseModel):
     # added
     where: Optional[WhereClause | LogicalGroup] = None
     
+    # early ensure aggregate_columns is a list
+    @field_validator("aggregate_columns", mode="before")
+    @classmethod
+    def ensure_list(cls, v):
+        if isinstance(v, str):
+            return [v]
+        return v
+
     @model_validator(mode="after")
     def normalize_where(self):
+
         if self.where is None and self.definition_query:
             logger.warning(
                 f"[Future Deprecation] Dataset '{self.name}' uses definition_query. "
                 "Future versions Please migrate to 'where'."
             )
 
-        # Already canonical → do nothing
-        if self.where is not None:
+        # correct type → do nothing
+        if isinstance(self.where, (WhereClause, LogicalGroup)):
             return self
 
-        # Derive from legacy field
+        # call parser
         if self.definition_query:
-            parsed = definition_to_where(self.definition_query)
-
-            if isinstance(parsed, dict):
-                logic_key = list(parsed.keys())[0]  # "and" or "or"
-                conditions = parsed[logic_key]
-
-                # ✅ FIX: use alias name ("and"/"or"), not "and_"/"or_"
-                self.where = LogicalGroup(
-                    **{
-                        logic_key: [
-                            WhereClause(
-                                conditions=[Condition(**c)]
-                            )
-                            for c in conditions
-                        ]
-                    }
-                )
-
-            elif isinstance(parsed, list):
-                self.where = WhereClause(
-                    conditions=[Condition(**c) for c in parsed]
-                )
-
-            else:
-                raise ValueError("Unsupported where structure from parser")
+            self.where = definition_to_where(self.definition_query)
 
         return self
-
 
 
 

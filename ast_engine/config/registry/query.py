@@ -1,6 +1,7 @@
 from typing import Optional, List, Union, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
-import re
+import sqlglot
+from sqlglot import exp
 
 import logging
 logger = logging.getLogger(__name__)
@@ -109,90 +110,175 @@ def split_clauses(sql: str):
         return None, [sql]
 
 
-def parse_condition(clause: str) -> dict:
-    ''' Parse clause into operator, field, value
+def sqlglot_to_where(expression):
+    from .query import Condition, WhereClause, LogicalGroup
 
-    '''
-    # Thanks AI
-
-    clause = clause.strip()
-
-    # NOT LIKE
-    m = re.match(r"(\w+)\s+NOT\s+LIKE\s+'([^']+)'", clause, re.I)
-    if m:
+    if isinstance(expression, exp.And):
         return {
-            "field": m.group(1),
-            "op": "not_like",
-            "value": m.group(2),
+            "and": [
+                sqlglot_to_where(expression.left),
+                sqlglot_to_where(expression.right),
+            ]
         }
 
-    # LIKE
-    m = re.match(r"(\w+)\s+LIKE\s+'([^']+)'", clause, re.I)
-    if m:
+    if isinstance(expression, exp.Or):
         return {
-            "field": m.group(1),
-            "op": "like",
-            "value": m.group(2),
+            "or": [
+                sqlglot_to_where(expression.left),
+                sqlglot_to_where(expression.right),
+            ]
         }
 
-    # IN
-    m = re.match(r"(\w+)\s+IN\s*\(([^)]+)\)", clause, re.I)
-    if m:
-        values = [v.strip().strip("'") for v in m.group(2).split(",")]
+    if isinstance(expression, exp.EQ):
         return {
-            "field": m.group(1),
-            "op": "in",
-            "value": values,
+            "conditions": [
+                Condition(
+                    field=expression.left.name,
+                    op="=",
+                    value=expression.right.name if expression.right.is_string else expression.right.this,
+                )
+            ]
         }
 
-    # NOT EQUAL
-    m = re.match(r"(\w+)\s*(<>|!=)\s*'([^']+)'", clause, re.I)
-    if m:
+    if isinstance(expression, exp.In):
         return {
-            "field": m.group(1),
-            "op": "!=",
-            "value": m.group(3),
+            "conditions": [
+                Condition(
+                    field=expression.this.name,
+                    op="in",
+                    value=[v.name if v.is_string else v.this for v in expression.expressions],
+                )
+            ]
         }
 
-    # EQUAL
-    m = re.match(r"(\w+)\s*=\s*'([^']+)'", clause, re.I)
-    if m:
-        return {
-            "field": m.group(1),
-            "op": "=",
-            "value": m.group(2),
-        }
+    raise NotImplementedError(f"Unsupported expression: {type(expression)}")
 
-    # IS NULL
-    m = re.match(r"(\w+)\s+IS\s+NULL", clause, re.I)
-    if m:
-        return {
-            "field": m.group(1),
-            "op": "is_null",
-        }
 
-    # IS NOT NULL
-    m = re.match(r"(\w+)\s+IS\s+NOT\s+NULL", clause, re.I)
-    if m:
-        return {
-            "field": m.group(1),
-            "op": "is_not_null",
-        }
+def _convert(expr):
+    """
+    Converts a sqlglot expression into WhereClause or LogicalGroup.
 
-    raise ValueError(f"Unsupported clause: {clause}")
+    Supported:
+    - AND / OR
+    - =, >, <, >=, <=
+    - IN
+    - LIKE / NOT LIKE
+    """
 
+    # ------------------------
+    # Logical groups
+    # ------------------------
+    
+    if isinstance(expr, exp.Is):
+        if isinstance(expr.expression, exp.Null):
+            return WhereClause(
+                conditions=[
+                    Condition(
+                        field=expr.this.name,
+                        op="is_null",
+                    )
+                ]
+            )
+
+    if isinstance(expr, exp.And):
+        return LogicalGroup(**{
+            "and": [
+                _convert(expr.left),
+                _convert(expr.right),
+            ]
+        })
+
+    if isinstance(expr, exp.Or):
+        return LogicalGroup(**{
+            "or": [
+                _convert(expr.left),
+                _convert(expr.right),
+            ]
+        })
+
+    # ------------------------
+    # NOT wrapper
+    # ------------------------
+    if isinstance(expr, exp.Not):
+        inner = expr.this
+
+        # Handle NOT LIKE
+        if isinstance(inner, exp.Like):
+            return WhereClause(
+                conditions=[
+                    Condition(
+                        field=inner.this.name,
+                        op="not_like",
+                        value=_get_value(inner.expression),
+                    )
+                ]
+            )
+
+        # Future: NOT IN, NOT BETWEEN, etc.
+        raise NotImplementedError(f"Unsupported NOT expression: {type(inner)}")
+
+    # ------------------------
+    # Generic binary operators
+    # ------------------------
+    BINARY_OPS = {
+        exp.EQ: "=",
+        exp.GT: ">",
+        exp.LT: "<",
+        exp.GTE: ">=",
+        exp.LTE: "<=",
+    }
+
+    for op_type, op_name in BINARY_OPS.items():
+        if isinstance(expr, op_type):
+            return WhereClause(
+                conditions=[
+                    Condition(
+                        field=expr.left.name,
+                        op=op_name,
+                        value=_get_value(expr.right),
+                    )
+                ]
+            )
+
+    # ------------------------
+    # IN operator
+    # ------------------------
+    if isinstance(expr, exp.In):
+        return WhereClause(
+            conditions=[
+                Condition(
+                    field=expr.this.name,
+                    op="in",
+                    value=[_get_value(v) for v in expr.expressions],
+                )
+            ]
+        )
+
+    # ------------------------
+    # LIKE operator
+    # ------------------------
+    if isinstance(expr, exp.Like):
+        return WhereClause(
+            conditions=[
+                Condition(
+                    field=expr.this.name,
+                    op="like",
+                    value=_get_value(expr.expression),
+                )
+            ]
+        )
+
+    # ------------------------
+    # Fallback
+    # ------------------------
+    raise NotImplementedError(f"Unsupported expression: {type(expr)}")
+
+def _get_value(node):
+    if hasattr(node, "name"):
+        return node.name
+    return node.this
 
 def definition_to_where(definition_query: str):
-    sql = normalize(definition_query)
-
-    logic, clauses = split_clauses(sql)
-
-    parsed = [parse_condition(c) for c in clauses]
-
-    # no AND/OR → simple list
-    if not logic:
-        return parsed
-
-    return {
-        logic: parsed
-    }
+    parsed = sqlglot.parse_one(definition_query)
+    #return sqlglot_to_where(parsed)
+    return _convert(parsed)
