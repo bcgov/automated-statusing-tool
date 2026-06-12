@@ -150,6 +150,7 @@ def _default_read_options(
     return ReadOptions(spatial_filter=spatial_filter, keep_columns=keep or None)
 
 
+
 def _require_projected(aoi: AreaOfInterest) -> None:
     """Make sure the AOI is in a projected CRS for distance calulcation.
     """

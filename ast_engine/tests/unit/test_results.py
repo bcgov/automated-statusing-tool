@@ -12,7 +12,6 @@ Purpose:
 - An empty proximity result should report 0; `spatial_link` will be empty (orchestrator fills it);
 - A result bundle can be saved to JSON and read back with each result keeping its type.
 
-
 HOW TO EXTEND:
 -------------
 1. Create a new test function per result type to validate. 
