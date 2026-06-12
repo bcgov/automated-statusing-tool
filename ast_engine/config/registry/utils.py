@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 def load_yaml(file_path: Path) -> Registry:
     logger.debug(f"Loading YAML file {file_path}")
-    with open("registry.yaml", "r") as f:
+    with open(file_path, "r") as f:
         data = yaml.safe_load(f)
     registry = Registry(**data)
     return registry
@@ -60,7 +60,7 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
                     if pd.notna(row[value]):
                         row_dataset[key] = row[value]
                 else:
-                    print(f"error {value} is not a string or a list")
+                    logger.error(f"error {value} is not a string or a list")
             # Append dataset to list
             dataset_list.append(row_dataset)
     return dataset_list
