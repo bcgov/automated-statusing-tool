@@ -55,3 +55,41 @@ def test_registry_creation():
     output = models.Registry(version="0.1", datasets=registry_datasets)
     assert output.version == "0.1"
     assert len(output.datasets) == 2
+
+def test_ingest_spreadsheet():
+    ''' Test spreadsheet ingestion'''
+    template_dict = {
+        "name": "Featureclass_Name(valid characters only)",
+        "datasource": "Datasource",
+        "aggregate_columns": [
+            "Fields_to_Summarize",
+            "Fields_to_Summarize2",
+            "Fields_to_Summarize3",
+            "Fields_to_Summarize4",
+            "Fields_to_Summarize5",
+            "Fields_to_Summarize6",
+        ],
+        "definition":"Definition_Query",
+    }
+
+    data = utils.ingest_spreadsheet(template=template_dict, xlsx_in='./tests/data/Test_Registry.xlsx')
+    assert len(data)>0
+def test_ingest_spreadsheet_to_model():
+    ''' Test spreadsheet ingestion'''
+    template_dict = {
+        "name": "Featureclass_Name(valid characters only)",
+        "datasource": "Datasource",
+        "aggregate_columns": [
+            "Fields_to_Summarize",
+            "Fields_to_Summarize2",
+            "Fields_to_Summarize3",
+            "Fields_to_Summarize4",
+            "Fields_to_Summarize5",
+            "Fields_to_Summarize6",
+        ],
+        "definition":"Definition_Query",
+    }
+
+    data = utils.ingest_spreadsheet(template=template_dict, xlsx_in='./tests/data/Test_Registry.xlsx')
+    dsets = utils.hydrate_base_datasets(data)
+    assert len(dsets) > 0
