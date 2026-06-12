@@ -15,7 +15,10 @@ Purpose:
 
 HOW TO EXTEND:
 -------------
-1. A
+1. Create a new test function per result type to validate. 
+2. Ensure to test any special circumstance (i.e. empty proximity results).
+3. Keep test names short and readable
+4. Should have no need to use test data (can create dummy result objects)
 
 Example:
 def test_point_overlay_count()
@@ -30,7 +33,6 @@ def test_bundle_roundtrip_json()
 """
 
 import pytest
-from datetime import datetime, UTC
 from ast_engine.core.results import (
     AstResults, PointOverlayResult, PolyOverlayResult, LineOverlayResult,
     ProximityResult, AdjacencyResult, FeatureRecord, DatasetResultGroup
@@ -52,12 +54,10 @@ def test_polygon_overlay_area():
     assert result.measure_value == 1500.5
     assert result.measure_unit == "square meters"
 
-
 def test_line_overlay_length():
     result = LineOverlayResult(total_length=2000.0)
     assert result.measure_value == 2000.0
     assert result.measure_unit == "meters"
-
 
 def test_proximity_nearest_distance():
     result = ProximityResult(
