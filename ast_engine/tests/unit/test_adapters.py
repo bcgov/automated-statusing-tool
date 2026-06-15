@@ -27,7 +27,11 @@ import pytest
 from pathlib import Path
 import geopandas as gpd
 
-from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
+from ast_engine.core.data_adapters.file.adapter import (
+    FileSpatialAdapter,
+    _split_datasource,
+    _normalize_geometry_type,
+)
 from ast_engine.core.data_adapters.base import ReadOptions, SpatialFilter
 
 
@@ -144,3 +148,108 @@ def test_file_adapter_definition_query():
         read_options=ReadOptions(definition_query='Name == "no such shape"'),
     )
     assert len(no_match) == 0
+
+
+# ---------------------------------------------------------------------------
+# FileSpatialAdapter.describe() - metadata without a full read
+# (one test per format; Test_Shape_A is a single polygon in every format,
+# EPSG:3005 except KML/KMZ which are EPSG:4326. KML/KMZ report "Unknown" from
+# GDAL, so they also exercise the one-feature geometry-type fallback.)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "path, expected_crs",
+    [
+        (SHP, "EPSG:3005"),
+        (GPKG, "EPSG:3005"),
+        (GEOJSON, "EPSG:3005"),
+        (KML, "EPSG:4326"),
+        (KMZ, "EPSG:4326"),
+    ],
+)
+def test_file_adapter_describe(path, expected_crs):
+    info = FileSpatialAdapter().describe(path=path)
+    assert info.geometry_type == "polygon"
+    assert info.crs == expected_crs
+    assert "Name" in info.columns
+    assert info.geom_column
+    assert info.row_count == 1
+
+
+def test_file_adapter_describe_gpkg_with_layer():
+    """A GeoPackage datasource that names its layer is split, then inspected."""
+    info = FileSpatialAdapter().describe(path=f"{GPKG}/Test_Shape_A")
+    assert info.geometry_type == "polygon"
+    assert info.crs == "EPSG:3005"
+
+
+def test_file_adapter_read_gpkg_with_layer():
+    """The same combined path/layer string also reads through to features."""
+    gdf = FileSpatialAdapter().read(
+        path=f"{GPKG}/Test_Shape_A", read_options=ReadOptions()
+    )
+    assert not gdf.empty
+
+
+# ---------------------------------------------------------------------------
+# Datasource path / layer splitting
+# (the registry stores one string; the adapter splits the file path from the
+# optional layer. Pure string tests - no files are read.)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "datasource, expected",
+    [
+        # file geodatabase with a layer (forward + back slashes)
+        ("W:/data/foo.gdb/roads", ("W:/data/foo.gdb", "roads")),
+        (r"W:\data\foo.gdb\roads", (r"W:\data\foo.gdb", "roads")),
+        # geopackage with a layer
+        ("W:/data/foo.gpkg/lakes", ("W:/data/foo.gpkg", "lakes")),
+        # UNC path with a layer
+        (r"\\server\share\foo.gdb\rivers", (r"\\server\share\foo.gdb", "rivers")),
+        # feature class inside a feature dataset -> layer is the last segment
+        # (GDAL addresses the feature class by name; the feature dataset is
+        # not part of the layer path)
+        ("W:/data/foo.gdb/dataset/roads", ("W:/data/foo.gdb", "roads")),
+        (r"\\server\share\foo.gdb\dataset\roads", (r"\\server\share\foo.gdb", "roads")),
+        # container with no layer -> default / only layer
+        ("W:/data/foo.gdb", ("W:/data/foo.gdb", None)),
+        ("W:/data/foo.gdb/", ("W:/data/foo.gdb", None)),
+        # flat files -> whole string, no layer
+        ("C:/data/bar.shp", ("C:/data/bar.shp", None)),
+        ("C:/data/bar.geojson", ("C:/data/bar.geojson", None)),
+        ("C:/data/bar.kml", ("C:/data/bar.kml", None)),
+        ("C:/data/bar.kmz", ("C:/data/bar.kmz", None)),
+        # case-insensitive extension
+        ("W:/data/FOO.GDB/Roads", ("W:/data/FOO.GDB", "Roads")),
+        ("W:/data/foo.GPKG/lakes", ("W:/data/foo.GPKG", "lakes")),
+        # mixed forward / back slashes
+        (r"W:\data/foo.gdb/roads", (r"W:\data/foo.gdb", "roads")),
+    ],
+)
+def test_split_datasource(datasource, expected):
+    assert _split_datasource(datasource) == expected
+
+
+# ---------------------------------------------------------------------------
+# Geometry-type normalization (GDAL names -> point/line/polygon)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("Point", "point"),
+        ("MultiPoint", "point"),
+        ("3D Point", "point"),
+        ("LineString", "line"),
+        ("MultiLineString", "line"),
+        ("Polygon", "polygon"),
+        ("Polygon Z", "polygon"),
+        ("MultiPolygon", "polygon"),
+        ("Unknown", None),
+        ("GeometryCollection", None),
+        (None, None),
+    ],
+)
+def test_normalize_geometry_type(name, expected):
+    assert _normalize_geometry_type(name) == expected

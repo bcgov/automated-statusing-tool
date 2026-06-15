@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import geopandas as gpd
 from .exceptions import DataCrsError
 
@@ -76,6 +77,27 @@ class ReadOptions:
         self.keep_columns = list(keep_columns) if keep_columns else None
 
 
+@dataclass(frozen=True)
+class DatasetInfo:
+    """A dataset's metadata, read without loading all of its features.
+
+    Filled in by an adapter's describe() and used at build time by the
+    registry to record what each dataset looks like.
+
+    geom_column:   name of the geometry column.
+    crs:           coordinate reference system as an EPSG string, e.g. "EPSG:3005".
+    geometry_type: "point", "line" or "polygon" - multipart geometries are
+                   collapsed to their single-part name.
+    columns:       the attribute (non-geometry) column names.
+    row_count:     number of features, or None when the source cannot report it.
+    """
+
+    geom_column: str
+    crs: str
+    geometry_type: str
+    columns: list[str]
+    row_count: int | None
+
 
 class BaseSpatialAdapter(ABC):
     """
@@ -114,6 +136,16 @@ class BaseSpatialAdapter(ABC):
         **source_kwargs,
     ) -> gpd.GeoDataFrame:
         """Adapter-specific read implementation"""
+
+    @abstractmethod
+    def describe(self, **source_kwargs) -> DatasetInfo:
+        """Return a dataset's metadata without reading all of its features.
+
+        Used at build time by the registry to record geometry type, CRS,
+        columns and feature count per dataset. Each adapter reads this from
+        its own source - the Oracle adapter from SDO metadata, the file
+        adapter from the file's layer information.
+        """
 
     # -----------------------------
     # Shared fallback behavior
