@@ -28,9 +28,9 @@ from typing import Any, Iterable
 
 import geopandas as gpd
 
-from core.aoi import AreaOfInterest
-from core.data_adapters.base import BaseSpatialAdapter, ReadOptions
-from core.results import FeatureRecord, ProximityResult
+from ast_engine.core.aoi import AreaOfInterest
+from ast_engine.core.data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
+from ast_engine.core.results import FeatureRecord, ProximityResult
 
 
 _DISTANCE_COL = "_proximity_distance_m"

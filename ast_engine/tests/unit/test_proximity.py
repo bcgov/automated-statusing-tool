@@ -40,7 +40,7 @@ from pathlib import Path
 import geopandas as gpd
 
 import pytest
-from ast_engine.core.data_adapters.base import BaseSpatialAdapter
+from ast_engine.core.data_adapters.file.adapter import SpatialFileAdapter
 from ast_engine.core.operator.proximity import (
     within_distance, _require_projected, _default_read_options 
 )
@@ -49,20 +49,25 @@ from ast_engine.core.operator.proximity import (
 # Test data folder + one data source per scenario 
 # 
 DATA_DIR = Path(__file__).parents[1] / "data" 
-SHP = DATA_DIR / "Test_Shape_A_shp" / "Test_Shape_A.shp"
+SHP = DATA_DIR / "Test_Shape_A" / "Test_Shape_A_shp" / "Test_Shape_A.shp"
+
 THREEM =  DATA_DIR / "Test_Proximity" / "proximity_3_m.shp"
 TENM =  DATA_DIR / "Test_Proximity" / "proximity_10_m.shp"
 TWOKM =  DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
-
 
 # Tags every test in this file as "unit"
 # replaces a per-function @pytest.mark.unit decorator on each test
 pytestmark = pytest.mark.unit
 
+
+def _valid_aoi() -> gpd.GeoDataFrame:
+    """Re-read the test shapefile as a projected AOI for SpatialFilter cases."""
+    return gpd.read_file(SHP)
+
 def test_3_within_distance():
     test   = within_distance(
-        aoi=AreaOfInterest(gpd.read_file(DATA_DIR / "aoi_1km.shp")),
-        adapter=BaseSpatialAdapter(),  # This would be a mock or fixture in a real test
+        aoi=_valid_aoi(),
+        adapter=SpatialFileAdapter(),  # This would be a mock or fixture in a real test
         distance_m=12,
         feature_id_field="id",
         keep_properties=["name"],
@@ -71,6 +76,7 @@ def test_3_within_distance():
 
     print(test)
     
+test_3_within_distance()
 
 
 def test_10_within_distance():

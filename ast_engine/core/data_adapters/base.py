@@ -4,10 +4,8 @@ from .exceptions import DataCrsError
 
 from typing import Iterable
 
-
 # the spatial relationships a SpatialFilter can describe
 _SPATIAL_PREDICATES = ("intersects", "within_distance", "touches", "nearest")
-
 
 class SpatialFilter:
     """How to narrow a dataset down to an AOI before reading.
