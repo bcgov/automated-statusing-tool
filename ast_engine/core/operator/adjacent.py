@@ -1,45 +1,44 @@
 """
 Adjacency analysis Operator. One analysis covered in this operator:
 
-shared_border_summary: checks whether an Interest layer and a Query_Layer
-share a boundary, and reports the total shared
-border length.
+adjacency: checks whether a dataset shares a boundary with the AOI, and
+reports the total shared border length.
 
-The operator returns either a JSON string or a Python dictionary with:
-
-LayerName : reported name of the query layer.
-Shared_Border : true when shared boundary length is greater than zero.
-Total_Length_m : total measured shared boundary length.
-Count_Segments : number of merged shared boundary segments.
+Returns ONE AdjacencyResult per dataset. Each adjacent feature is one feature
+record carrying the length of the boundary it shares with the AOI, in metres;
+the result's measure_value is the total shared border length (the sum) and
+is_adjacent is true when that total is above zero. Features are reported with
+the longest shared border first.
 
 Notes:
 
-- Inputs may be GeoDataFrames or pandas DataFrames with a geometry column.
-- The Interest and Query_Layer geometries are dissolved before comparison so
-- internal polygon boundaries are not counted as shared borders.
+- The dataset is read through its adapter. The AOI is dissolved before
+  comparison and each dataset feature is measured against it, so a boundary
+  shared between two dataset features is not counted as a shared border.
 - Null, empty, and invalid geometries are removed or repaired before analysis.
-- If distance_m is 0, boundaries must intersect exactly.
-- If distance_m is greater than 0, Query_Layer boundary segments within that
-- distance of the Interest boundary are counted as shared. This helps handle
-  small slivers, minor misalignment, and coordinate precision issues.
-- Measurements should be performed in a projected, metre-based CRS. Pass
-  metric_crs='EPSG:3005' or another appropriate projected CRS when needed.
-- Geographic CRS inputs are rejected because measuring boundary length in
-  latitude/longitude would produce misleading results.
+- If tolerance_m is 0, boundaries must intersect exactly (a true touch); the
+  'touches' filter is pushed down to the adapter.
+- If tolerance_m is greater than 0, dataset boundary segments within that
+  distance of the AOI boundary are counted as shared. This helps handle small
+  slivers, minor misalignment, and coordinate precision issues; the
+  'within_distance' filter is pushed down so those near-misses are not dropped
+  at the source.
+- Measurements should be performed in a projected, metre-based CRS. The adapter
+  reprojects the dataset to the AOI CRS; a non-projected AOI is rejected.
 """
 
-import json
-from typing import Union
+from __future__ import annotations
 
-import pandas as pd
+from typing import Any, Iterable
+
 import geopandas as gpd
 
 from shapely.ops import unary_union, linemerge
-from shapely.geometry import (
-    LineString,
-    MultiLineString,
-    GeometryCollection,
-)
+from shapely.geometry import LineString, MultiLineString, GeometryCollection
+
+from ..aoi import AreaOfInterest
+from ..data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
+from ..results import AdjacencyResult, FeatureRecord
 
 try:
     from shapely.validation import make_valid
@@ -47,187 +46,160 @@ except ImportError:
     make_valid = None
 
 
-def shared_border_summary(
-    Interest: Union[pd.DataFrame, gpd.GeoDataFrame],
-    Query_Layer: Union[pd.DataFrame, gpd.GeoDataFrame],
-    distance_m: int = 0,
-    layer_name: str = "Query_Layer",
-    geometry_col: str = "geometry",
-    metric_crs: str | int | None = None,
-    return_json: bool = True,
-) -> dict | str:
+def adjacency(
+    *,
+    aoi: AreaOfInterest,
+    adapter: BaseSpatialAdapter,
+    tolerance_m: float = 0,
+    feature_id_field: str | None = None,
+    keep_properties: Iterable[str] | None = None,
+    read_options: ReadOptions | None = None,
+    **source_kwargs,
+) -> AdjacencyResult:
+    """Return one AdjacencyResult for the dataset, features sorted by shared length descending.
+
+    tolerance_m chooses the match: 0 is a true touch (exact shared edge), above 0
+    counts dataset boundary within that distance of the AOI boundary as shared.
+
+    feature_id_field (the registry unique_id) names the column that identifies each
+    feature; keep_properties names attribute columns to carry onto the records. The
+    spatial push-down is built into the default ReadOptions ('touches', or
+    'within_distance' when tolerance_m > 0); an orchestrator can pass its own
+    read_options instead. Dataset identity (table for Oracle, path/layer for files)
+    travels in source_kwargs.
     """
-    Checks whether Interest and Query_Layer share border/perimeter length.
+    if tolerance_m < 0:
+        raise ValueError("tolerance_m must be non-negative")
+    _require_projected(aoi)
 
-    Parameters
-    ----------
-    Interest:
-        GeoDataFrame or pandas DataFrame with a geometry column.
+    # Ask the adapter for the candidate features (touches / within_distance pushed down).
+    gdf = adapter.read(
+        read_options=read_options or _default_read_options(
+            aoi, tolerance_m, feature_id_field, keep_properties
+        ),
+        target_crs=str(aoi.gdf.crs),
+        **source_kwargs,
+    )
+    if gdf.empty:
+        return AdjacencyResult(is_adjacent=False, features=[])
 
-    Query_Layer:
-        GeoDataFrame or pandas DataFrame with a geometry column.
+    gdf = _clean_geometries(gdf)
+    if gdf.empty:
+        return AdjacencyResult(is_adjacent=False, features=[])
 
-    distance_m:
-        Distance tolerance in metres.
-        - 0 means boundaries must exactly intersect.
-        - >0 means Query_Layer boundary segments within this distance
-          of Interest boundary count as shared.
-
-    layer_name:
-        Name to report in the JSON output.
-
-    geometry_col:
-        Name of the geometry column.
-
-    metric_crs:
-        Optional CRS to project both layers into before measuring.
-        Example: "EPSG:3005" for BC Albers.
-
-    return_json:
-        If True, returns a JSON string.
-        If False, returns a Python dictionary.
-
-    Returns
-    -------
-    dict or JSON string in the format:
-
-    {
-        "LayerName": "Query_Layer",
-        "Shared_Border": true,
-        "Total_Length_m": 123.45,
-        "Count_Segments": 3
-    }
-    """
-
-    if not isinstance(distance_m, int) or distance_m < 0:
-        raise ValueError("distance_m must be an integer greater than or equal to 0.")
-
-    interest_gdf = _ensure_geodataframe(Interest, geometry_col, "Interest")
-    query_gdf = _ensure_geodataframe(Query_Layer, geometry_col, "Query_Layer")
-
-    interest_gdf = _clean_geometries(interest_gdf)
-    query_gdf = _clean_geometries(query_gdf)
-
-    if interest_gdf.empty:
-        raise ValueError("Interest has no valid geometries.")
-
-    if query_gdf.empty:
-        raise ValueError("Query_Layer has no valid geometries.")
-
-    # Project both layers if a metric CRS is provided.
-    if metric_crs is not None:
-        interest_gdf = interest_gdf.to_crs(metric_crs)
-        query_gdf = query_gdf.to_crs(metric_crs)
-
-    # Otherwise, align Query_Layer to Interest CRS if possible.
-    elif interest_gdf.crs is not None and query_gdf.crs is not None:
-        if interest_gdf.crs != query_gdf.crs:
-            query_gdf = query_gdf.to_crs(interest_gdf.crs)
-
-    # Check that we are not measuring in latitude/longitude.
-    if interest_gdf.crs is not None and interest_gdf.crs.is_geographic:
-        raise ValueError(
-            "Interest is in a geographic CRS. Reproject to a metre-based CRS first, "
-            "or pass metric_crs='EPSG:3005' or another appropriate projected CRS."
-        )
-
-    if query_gdf.crs is not None and query_gdf.crs.is_geographic:
-        raise ValueError(
-            "Query_Layer is in a geographic CRS. Reproject to a metre-based CRS first, "
-            "or pass metric_crs='EPSG:3005' or another appropriate projected CRS."
-        )
-
-    # Dissolve each layer so internal polygon boundaries are not counted.
-    interest_union = unary_union(interest_gdf.geometry)
-    query_union = unary_union(query_gdf.geometry)
-
-    interest_boundary = interest_union.boundary
-    query_boundary = query_union.boundary
-
-    if distance_m == 0:
-        # Exact shared boundary only.
-        shared_geom = interest_boundary.intersection(query_boundary)
-
+    # Dissolve the AOI so a boundary shared between two of its parts is not
+    # counted; each dataset feature is then measured against it on its own, which
+    # keeps the per-feature identity the records need.
+    aoi_boundary = aoi.gdf.geometry.union_all().boundary
+    if tolerance_m > 0:
+        # Tolerant match: the dataset boundary that falls within tolerance_m of
+        # the AOI boundary. Absorbs slivers, precision noise and small misalignment.
+        match_target = aoi_boundary.buffer(tolerance_m, cap_style="flat", join_style="mitre")
     else:
-        # Tolerant shared boundary:
-        # take parts of the Query_Layer boundary that fall within distance_m
-        # of the Interest boundary.
-        #
-        # This handles small slivers, coordinate precision issues, and
-        # slightly misaligned source datasets.
-        interest_boundary_zone = interest_boundary.buffer(
-            distance_m,
-            cap_style="flat",
-            join_style="mitre",
+        # Exact match: only boundary the feature shares with the AOI precisely.
+        match_target = aoi_boundary
+
+    return _build_result(gdf, match_target, feature_id_field, keep_properties)
+
+
+def _build_result(
+    gdf: gpd.GeoDataFrame,
+    match_target,
+    feature_id_field: str | None,
+    keep_properties: Iterable[str] | None,
+) -> AdjacencyResult:
+    """Turn the cleaned rows into one AdjacencyResult, longest shared border first.
+
+    Each feature's shared boundary is merged into clean segments and its length
+    summed into the feature's `measure`; features that share no boundary are
+    dropped. The result's total shared border (measure_value) is the sum, derived
+    by the results model. is_adjacent is True when at least one feature shares a
+    boundary.
+    """
+    keep_list = list(keep_properties) if keep_properties else []
+    features = []
+    for idx, row in gdf.iterrows():
+        shared_lines = _merge_shared_lines(row.geometry.boundary.intersection(match_target))
+        length = sum(line.length for line in shared_lines)
+        if length <= 0:
+            continue
+        features.append(
+            FeatureRecord(
+                feature_id=_extract_feature_id(row, idx, feature_id_field),
+                properties=_extract_properties(row, keep_list),
+                measure=float(length),
+            )
         )
 
-        shared_geom = query_boundary.intersection(interest_boundary_zone)
+    features.sort(key=lambda feature: feature.measure, reverse=True)
+    return AdjacencyResult(is_adjacent=bool(features), features=features)
 
+
+def _default_read_options(
+    aoi: AreaOfInterest,
+    tolerance_m: float,
+    feature_id_field: str | None,
+    keep_properties: Iterable[str] | None,
+) -> ReadOptions:
+    """Build a ReadOptions that pushes the AOI filter down and keeps the columns
+    the operator needs downstream.
+
+    'touches' for an exact match (tolerance_m == 0); 'within_distance' for a
+    tolerant match, so the slivers a tolerance is meant to catch are not filtered
+    out at the source. Without keep_columns, the base adapter could drop
+    feature_id_field and the result builder would fall back to the row index, so
+    feature_id_field is always included in the keep set.
+    """
+    keep: set[str] = set()
+    if feature_id_field:
+        keep.add(feature_id_field)
+    if keep_properties:
+        keep.update(keep_properties)
+    if tolerance_m > 0:
+        spatial_filter = SpatialFilter(
+            aoi=aoi.gdf, predicate="within_distance", distance=tolerance_m
+        )
+    else:
+        spatial_filter = SpatialFilter(aoi=aoi.gdf, predicate="touches")
+    return ReadOptions(spatial_filter=spatial_filter, keep_columns=keep or None)
+
+
+def _require_projected(aoi: AreaOfInterest) -> None:
+    """Make sure the AOI is in a projected CRS for shared boundary length calculation."""
+    crs = aoi.gdf.crs
+    if crs is None or not crs.is_projected:
+        raise ValueError(
+            f"AOI {aoi.aoi_id} must be in a projected CRS for adjacency analysis "
+            "(shared boundary length is computed in CRS units, expected metres)."
+        )
+
+
+def _merge_shared_lines(shared_geom) -> list:
+    """Merge the shared linework into clean, continuous segments.
+
+    Pulls the line pieces out of the shared geometry (ignoring stray points or
+    polygons), then stitches touching pieces together so one continuous shared
+    edge is reported as one segment rather than many small ones.
+    """
     shared_lines = _extract_linework(shared_geom)
+    if not shared_lines:
+        return []
 
-    if shared_lines:
-        unioned_lines = unary_union(shared_lines)
+    unioned_lines = unary_union(shared_lines)
+    if isinstance(unioned_lines, LineString):
+        return [unioned_lines]
 
-        if isinstance(unioned_lines, LineString):
-            merged_lines = [unioned_lines]
-
-        else:
-            merged = linemerge(unioned_lines)
-            merged_lines = _extract_linework(merged)
-
-    else:
-        merged_lines = []
-
-    total_length_m = sum(line.length for line in merged_lines)
-    count_segments = len(merged_lines)
-
-    result = {
-        "LayerName": layer_name,
-        "Shared_Border": total_length_m > 0,
-        "Total_Length_m": round(total_length_m, 3),
-        "Count_Segments": count_segments,
-    }
-
-    if return_json:
-        return json.dumps(result, indent=4)
-
-    return result
-
-
-def _ensure_geodataframe(
-    df: Union[pd.DataFrame, gpd.GeoDataFrame],
-    geometry_col: str,
-    name: str,
-) -> gpd.GeoDataFrame:
-    """
-    Ensures input is a GeoDataFrame.
-    """
-
-    if isinstance(df, gpd.GeoDataFrame):
-        if df.geometry.name != geometry_col and geometry_col in df.columns:
-            return df.set_geometry(geometry_col)
-        return df
-
-    if isinstance(df, pd.DataFrame):
-        if geometry_col not in df.columns:
-            raise ValueError(f"{name} must contain a '{geometry_col}' column.")
-
-        return gpd.GeoDataFrame(df, geometry=geometry_col)
-
-    raise TypeError(f"{name} must be a pandas DataFrame or GeoPandas GeoDataFrame.")
+    merged = linemerge(unioned_lines)
+    return _extract_linework(merged)
 
 
 def _clean_geometries(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     """
     Removes null/empty geometries and attempts to repair invalid geometries.
     """
-
     gdf = gdf.copy()
 
-    gdf = gdf[
-        gdf.geometry.notna()
-        & ~gdf.geometry.is_empty
-    ].copy()
+    gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty].copy()
 
     if make_valid is not None:
         gdf.geometry = gdf.geometry.apply(
@@ -238,20 +210,16 @@ def _clean_geometries(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
             lambda geom: geom.buffer(0) if not geom.is_valid else geom
         )
 
-    gdf = gdf[
-        gdf.geometry.notna()
-        & ~gdf.geometry.is_empty
-    ].copy()
+    gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty].copy()
 
     return gdf
 
 
-def _extract_linework(geom):
+def _extract_linework(geom) -> list:
     """
     Extracts LineString objects from a Shapely geometry.
     Ignores points, polygons, and empty geometries.
     """
-
     if geom is None or geom.is_empty:
         return []
 
@@ -268,3 +236,45 @@ def _extract_linework(geom):
         return lines
 
     return []
+
+
+def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str:
+    """Figures out the right ID for a feature.
+
+        Tries in this order:
+        1. If the caller told us which column holds the ID (e.g., "OBJECTID")
+           and that column exists on this row with a non-null value, use it.
+        2. Otherwise, fall back to the row's positional index ("0", "1", …) so we always have some ID
+
+    """
+    if feature_id_field and feature_id_field in row.index:
+        value = row[feature_id_field]
+        if value is not None:
+            return str(value)
+    return str(idx)
+
+
+def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | float]:
+    """Picks attribute columns to surface on the output record.
+
+       Walks the list of column names the caller asked to keep. For each:
+        - Skip if the column isn't on this row.
+        - Skip if the value is null.
+        - If the value is already a string/int/float, keep it as-is.
+        - Anything else (dates, geometries, etc.), convert to string.
+           This matches the FeatureRecord.properties type signature.
+
+     Returns a {column_name: value} dict.
+    """
+    props: dict[str, str | int | float] = {}
+    for col in keep:
+        if col not in row.index:
+            continue
+        value = row[col]
+        if value is None:
+            continue
+        if isinstance(value, (int, float, str)):
+            props[col] = value
+        else:
+            props[col] = str(value)
+    return props
