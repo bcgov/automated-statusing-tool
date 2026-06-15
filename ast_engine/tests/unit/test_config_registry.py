@@ -52,12 +52,26 @@ def test_hydrate_base_datasets():
     assert dsets[0].name == DATA_DICT[0]["name"]
     assert dsets[0].datasource == DATA_DICT[0]["datasource"]
 
-def test_registry_creation():
+@pytest.mark.unit
+def test_registry_creation(monkeypatch):
     ''' Test registry creation'''
+    # DATA_DICT is all BCGW (Oracle) tables; patch describe() and pass a mock
+    # connection so the build runs offline (no live database).
+    info = DatasetInfo(
+        geom_column="SHAPE",
+        crs="EPSG:3005",
+        geometry_type="polygon",
+        columns=["OBJECTID"],
+        row_count=10,
+    )
+    monkeypatch.setattr(
+        enrichment.OracleAdapter, "describe", lambda self, *, table: info
+    )
+
     dsets = utils.hydrate_base_datasets(DATA_DICT)
     registry_datasets = []
     for d in dsets:
-        enrich_data = enrichment.Enrich(d)
+        enrich_data = enrichment.Enrich(d, connection=MagicMock(), cursor=MagicMock())
         enrich_data.enrich()
         rd = enrich_data.build()
         registry_datasets.append(rd)
