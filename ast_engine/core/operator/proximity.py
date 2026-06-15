@@ -154,7 +154,7 @@ def _default_read_options(
 def _require_projected(aoi: AreaOfInterest) -> None:
     """Make sure the AOI is in a projected CRS for distance calulcation.
     """
-    crs = aoi.gdf.crs
+    crs = aoi.crs
     if crs is None or not crs.is_projected:
         raise ValueError(
             f"AOI {aoi.aoi_id} must be in a projected CRS for proximity analysis "

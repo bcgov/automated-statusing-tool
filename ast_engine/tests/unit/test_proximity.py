@@ -40,7 +40,7 @@ from pathlib import Path
 import geopandas as gpd
 
 import pytest
-from ast_engine.core.data_adapters.file.adapter import SpatialFileAdapter
+from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter, SpatialFilter
 from ast_engine.core.operator.proximity import (
     within_distance, _require_projected, _default_read_options 
 )
@@ -67,7 +67,7 @@ def _valid_aoi() -> gpd.GeoDataFrame:
 def test_3_within_distance():
     test   = within_distance(
         aoi=_valid_aoi(),
-        adapter=SpatialFileAdapter(),  # This would be a mock or fixture in a real test
+        adapter=FileSpatialAdapter(),  # This would be a mock or fixture in a real test
         distance_m=12,
         feature_id_field="id",
         keep_properties=["name"],
