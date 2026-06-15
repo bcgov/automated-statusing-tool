@@ -30,13 +30,36 @@ ALL_TAB_COLUMNS = """
       AND table_name = :tab_name
 """
 
+# Geometry type of the first row, read from SDO_GTYPE - no full scan.
+SDO_GTYPE = """
+    SELECT s.{geom_col}.sdo_gtype AS GTYPE
+    FROM {tab} s
+    WHERE rownum = 1
+"""
+
+# Optimizer's estimated row count - a fast lookup, no scan. Null for views
+# and for tables whose stats have never been gathered; get_row_count then
+# falls back to ROW_COUNT below.
+NUM_ROWS = """
+    SELECT num_rows AS NUM_ROWS
+    FROM all_tables
+    WHERE owner = :owner
+      AND table_name = :tab_name
+"""
+
+# Exact row count - the fallback when NUM_ROWS has no estimate (views).
+# {tab} is a table/view name, not a bind variable.
+ROW_COUNT = """
+    SELECT COUNT(*) AS N
+    FROM {tab}
+"""
+
 
 # Predicate templates. All emit the same final columns:
-#   <user-selected cols>, RESULT, SHAPE  (plus DISTANCE_M for nearest).
+#   <user-selected cols>, SHAPE.
 
 OVERLAY_INTERSECTS = """
     SELECT {cols},
-           'INTERSECT' AS RESULT,
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_FILTER({geom_col},
@@ -50,13 +73,6 @@ OVERLAY_INTERSECTS = """
 
 OVERLAY_WITHIN_DISTANCE = """
     SELECT {cols},
-           CASE
-               WHEN SDO_RELATE({geom_col},
-                               SDO_GEOMETRY(:wkb_aoi, :srid),
-                               'mask=ANYINTERACT') = 'TRUE'
-               THEN 'INTERSECT'
-               ELSE 'Within {distance} m'
-           END AS RESULT,
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_WITHIN_DISTANCE({geom_col},
@@ -67,7 +83,6 @@ OVERLAY_WITHIN_DISTANCE = """
 
 OVERLAY_TOUCHES = """
     SELECT {cols},
-           'TOUCH' AS RESULT,
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_RELATE({geom_col},
@@ -79,15 +94,13 @@ OVERLAY_TOUCHES = """
 OVERLAY_NEAREST = """
     SELECT * FROM (
         SELECT {cols},
-               'NEAREST' AS RESULT,
-               SDO_NN_DISTANCE(1) AS DISTANCE_M,
                SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
         FROM {tab}
         WHERE SDO_NN({geom_col},
                      SDO_GEOMETRY(:wkb_aoi, :srid),
                      'sdo_num_res=' || :k, 1) = 'TRUE'
             {def_query}
-        ORDER BY DISTANCE_M
+        ORDER BY SDO_NN_DISTANCE(1)
     ) WHERE ROWNUM <= :k
 """
 

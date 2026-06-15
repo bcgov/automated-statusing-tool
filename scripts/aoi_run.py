@@ -11,7 +11,7 @@ if ast_path not in sys.path:
     sys.path.append(str(ast_path))
 
 from ast_engine.core.data_adapters.base import ReadOptions
-from ast_engine.core.data_adapters.kml.adapter import KMLAdapter
+from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
 from ast_engine.core.aoi.models import AOIRequest
 from ast_engine.core.aoi.aoi_builder import AOIBuilder
 
@@ -23,7 +23,7 @@ from ast_engine.core.aoi.aoi_builder import AOIBuilder
 
 def load_kmz_example() -> gpd.GeoDataFrame:
     opts = ReadOptions(keep_columns=["Name"])
-    return KMLAdapter().read(
+    return FileSpatialAdapter().read(
         path="ast_app/Test_Shape_A/Test_Shape_A.kmz",
         target_crs="EPSG:3005",
         read_options=opts,
