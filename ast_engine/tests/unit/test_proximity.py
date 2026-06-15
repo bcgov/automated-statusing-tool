@@ -40,14 +40,19 @@ from pathlib import Path
 import geopandas as gpd
 
 import pytest
+from ast_engine.core.data_adapters.base import BaseSpatialAdapter
 from ast_engine.core.operator.proximity import (
-    ProximityOperator
+    within_distance, _require_projected, _default_read_options 
 )
 
 
-# Test data folder + one constant per supported format.
-# adapter must read. shp / gpkg / geojson are EPSG:3005, kml is EPSG:4326.
-DATA_DIR = Path(__file__).parents[1] / "data" / "Test_Shape_A"
+# Test data folder + one data source per scenario 
+# 
+DATA_DIR = Path(__file__).parents[1] / "data" 
+SHP = DATA_DIR / "Test_Shape_A_shp" / "Test_Shape_A.shp"
+THREEM =  DATA_DIR / "Test_Proximity" / "proximity_3_m.shp"
+TENM =  DATA_DIR / "Test_Proximity" / "proximity_10_m.shp"
+TWOKM =  DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
 
 
 # Tags every test in this file as "unit"
@@ -55,17 +60,18 @@ DATA_DIR = Path(__file__).parents[1] / "data" / "Test_Shape_A"
 pytestmark = pytest.mark.unit
 
 def test_3_within_distance():
-    test   = ProximityOperator().within_distance(
+    test   = within_distance(
         aoi=AreaOfInterest(gpd.read_file(DATA_DIR / "aoi_1km.shp")),
-        adapter=MockAdapter(),
+        adapter=BaseSpatialAdapter(),  # This would be a mock or fixture in a real test
         distance_m=12,
         feature_id_field="id",
         keep_properties=["name"],
         source_kwargs={"path": "mock_source"},
     )
+
+    print(test)
     
-    test2000 = ProximityOperator().within_distance(
-    pass
+
 
 def test_10_within_distance():
     pass
@@ -74,6 +80,9 @@ def test_2000_within_distance():
     pass
     
 def test_nearest_k():
+    """
+    Put 12m in and ensure that the 3 and 10 m points are returned, in that order, with the right distance measures.
+    """
     pass
 
 def test_default_read_options():
