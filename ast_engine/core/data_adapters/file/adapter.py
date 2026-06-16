@@ -10,6 +10,7 @@ adapter covers them all.
 
 import re
 from pathlib import Path
+from typing import Any
 
 import geopandas as gpd
 import pyogrio # type: ignore
@@ -101,10 +102,14 @@ class FileSpatialAdapter(BaseSpatialAdapter):
     def _read_impl(
         self,
         *,
-        path: str | Path,
         read_options: ReadOptions,
-        **_,
+        **source_kwargs: Any,
     ) -> gpd.GeoDataFrame:
+        path = source_kwargs.get("path")
+        
+        if path is None:
+                raise ValueError("path is required")
+
         """Read the file, pushing the AOI bounding box down to GDAL."""
         file_path, layer = _split_datasource(path)
         bbox = self._build_bbox(read_options.spatial_filter)
@@ -114,7 +119,10 @@ class FileSpatialAdapter(BaseSpatialAdapter):
             raise DataReadError(f"Failed to read spatial file: {path}") from exc
         return gdf
 
-    def describe(self, *, path: str | Path, **_) -> DatasetInfo:
+    def describe(
+            self, 
+            **source_kwargs: Any,
+            ) -> DatasetInfo:
         """Return the file's metadata without reading all of its features.
 
         Reads the layer information (geometry type, CRS, fields, feature count)
@@ -122,6 +130,10 @@ class FileSpatialAdapter(BaseSpatialAdapter):
         GDAL often cannot report a geometry type from the layer header
         ("Unknown"); in that case a single feature is read to find the type.
         """
+        path = source_kwargs.get("path")
+        if path is None:
+            raise ValueError("path is required")
+        
         file_path, layer = _split_datasource(path)
         try:
             info = pyogrio.read_info(file_path, layer=layer)
@@ -202,7 +214,7 @@ class FileSpatialAdapter(BaseSpatialAdapter):
 
         if spatial_filter.predicate == "within_distance":
             aoi = spatial_filter.aoi
-            if not aoi.crs.is_projected:
+            if not aoi.is_projected:
                 raise DataReadError(
                     "within_distance push-down needs a projected AOI CRS "
                     "(the search distance is measured in metres)"
