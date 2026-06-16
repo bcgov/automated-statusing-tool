@@ -57,13 +57,14 @@ class Condition(BaseModel):
     
 
 class LogicalGroup(BaseModel):
-    and_: Optional[list["WhereClause"]] = Field(default=None, alias="and")
-    or_: Optional[list["WhereClause"]] = Field(default=None, alias="or")
+    and_: Optional[list["WhereClause | LogicalGroup"]] = Field(default=None, alias="and")
+    or_: Optional[list["WhereClause | LogicalGroup"]] = Field(default=None, alias="or")
 
     @model_validator(mode="after")
     def validate_group(self):
         if not self.and_ and not self.or_:
             raise ValueError("LogicalGroup must define 'and' or 'or'")
+        return self
     
 
 class WhereClause(BaseModel):
@@ -82,9 +83,15 @@ def _convert(expr):
     """
 
     # ------------------------
+    # Parentheses - unwrap and convert the inner expression
+    # ------------------------
+    if isinstance(expr, exp.Paren):
+        return _convert(expr.this)
+
+    # ------------------------
     # Logical groups
     # ------------------------
-    
+
     if isinstance(expr, exp.Is):
         if isinstance(expr.expression, exp.Null):
             return WhereClause(
@@ -130,6 +137,17 @@ def _convert(expr):
                 ]
             )
 
+        # Handle IS NOT NULL
+        if isinstance(inner, exp.Is) and isinstance(inner.expression, exp.Null):
+            return WhereClause(
+                conditions=[
+                    Condition(
+                        field=inner.this.name,
+                        op="is_not_null",
+                    )
+                ]
+            )
+
         # Future: NOT IN, NOT BETWEEN, etc.
         raise NotImplementedError(f"Unsupported NOT expression: {type(inner)}")
 
@@ -138,6 +156,7 @@ def _convert(expr):
     # ------------------------
     BINARY_OPS = {
         exp.EQ: "=",
+        exp.NEQ: "!=",
         exp.GT: ">",
         exp.LT: "<",
         exp.GTE: ">=",
@@ -178,7 +197,7 @@ def _convert(expr):
             conditions=[
                 Condition(
                     field=expr.this.name,
-                    op="like",
+                    op="not_like" if expr.args.get("negate") else "like",
                     value=_get_value(expr.expression),
                 )
             ]
@@ -190,9 +209,14 @@ def _convert(expr):
     raise NotImplementedError(f"Unsupported expression: {type(expr)}")
 
 def _get_value(node):
-    if hasattr(node, "name"):
-        return node.name
-    return node.this
+    if isinstance(node, exp.Literal):
+        if node.is_string:
+            return node.this
+        try:
+            return int(node.this)
+        except ValueError:
+            return float(node.this)
+    raise ValueError(f"Unsupported value expression: {node.sql()}")
 
 def definition_to_where(definition_query: str):
     parsed = sqlglot.parse_one(definition_query)
