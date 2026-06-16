@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 import geopandas as gpd
-import pyogrio
+import pyogrio # type: ignore
 
 from ..base import BaseSpatialAdapter, DatasetInfo, ReadOptions, SpatialFilter
 from ..exceptions import DataReadError

@@ -40,6 +40,7 @@ from pathlib import Path
 import geopandas as gpd
 
 import pytest
+from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter, SpatialFilter
 from ast_engine.core.operator.proximity import (
     within_distance, _require_projected, _default_read_options 
@@ -60,9 +61,12 @@ TWOKM =  DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
 pytestmark = pytest.mark.unit
 
 
-def _valid_aoi() -> gpd.GeoDataFrame:
-    """Re-read the test shapefile as a projected AOI for SpatialFilter cases."""
-    return gpd.read_file(SHP)
+def _valid_aoi() -> AreaOfInterest:
+    """Create a projected AOI for proximity operator tests."""
+    gdf = gpd.read_file(SHP)
+    request = AOIRequest(aoi_id="test_aoi", name="Test AOI")
+    aoi =  AOIBuilder().from_gdf(request, gdf)
+    return aoi
 
 def test_3_within_distance():
     test   = within_distance(
@@ -71,12 +75,8 @@ def test_3_within_distance():
         distance_m=12,
         feature_id_field="id",
         keep_properties=["name"],
-        source_kwargs={"path": "mock_source"},
+        source_kwargs={"path": THREEM},
     )
-
-    print(test)
-    
-test_3_within_distance()
 
 
 def test_10_within_distance():
