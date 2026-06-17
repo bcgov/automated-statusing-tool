@@ -26,6 +26,7 @@ from ast_engine.core.data_adapters.oracle import utils
 from ast_engine.core.data_adapters.oracle.utils import _gtype_to_geometry_type
 from ast_engine.core.data_adapters.base import ReadOptions, SpatialFilter
 from ast_engine.core.data_adapters.exceptions import DataReadError
+from ast_engine.config.registry.query import definition_to_where
 
 
 TABLE = "WHSE_TEST.FAKE_TABLE"
@@ -160,6 +161,40 @@ def test_oracle_adapter_passes_k_for_nearest(_mock_adapter, _aoi):
 
     bind_vars = cursor.execute.call_args.args[1]
     assert bind_vars.get("k") == 5
+
+
+# ---------------------------------------------------------------------------
+# Structured where filter -> Oracle SQL push-down
+# (the registry's where model is compiled to Oracle SQL and added to the SDO
+# query's WHERE clause, then cleared so the base post-filter does not re-apply
+# it on top of the already-filtered result.)
+# ---------------------------------------------------------------------------
+
+def test_oracle_adapter_compiles_where_into_sql(_mock_adapter, _aoi):
+    """A structured where filter is compiled to Oracle SQL and pushed into the
+    SDO query."""
+    adapter, cursor = _mock_adapter
+    opts = ReadOptions(
+        spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects"),
+        where=definition_to_where("STATUS = 'ACTIVE'"),
+    )
+    adapter._read_impl(read_options=opts, table=TABLE)
+
+    sql = cursor.execute.call_args.args[0]
+    assert "\"STATUS\" = 'ACTIVE'" in sql
+
+
+def test_oracle_adapter_clears_where(_mock_adapter, _aoi):
+    """After the read, where must be None so the base post-filter does not
+    re-apply it on top of the SDO WHERE clause."""
+    adapter, _ = _mock_adapter
+    opts = ReadOptions(
+        spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects"),
+        where=definition_to_where("STATUS = 'ACTIVE'"),
+    )
+    adapter._read_impl(read_options=opts, table=TABLE)
+
+    assert opts.where is None
 
 
 # ---------------------------------------------------------------------------
