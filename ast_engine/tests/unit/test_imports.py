@@ -29,6 +29,7 @@ AST_MODULES = [
     "ast_engine.core.data_adapters",
     "ast_engine.core.data_adapters.file",
     "ast_engine.core.data_adapters.oracle",
+    "ast_engine.core.data_adapters.where_compiler",
     "ast_engine.core.operator",
     "ast_engine.core.operator.adjacent",
     "ast_engine.core.operator.overlay",
