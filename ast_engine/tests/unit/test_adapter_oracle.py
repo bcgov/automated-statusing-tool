@@ -221,6 +221,59 @@ def test_oracle_adapter_describe(monkeypatch):
     assert info.row_count == 42
 
 
+def test_oracle_adapter_describe_empty_table_geometry_unknown(monkeypatch):
+    """An empty table has a metadata SRID but no feature to read SDO_GTYPE
+    from. describe() must record geometry_type='unknown' and not raise."""
+    monkeypatch.setattr(utils, "get_geometry_column", lambda *a, **k: "SHAPE")
+    monkeypatch.setattr(utils, "get_srid", lambda *a, **k: 3005)
+    monkeypatch.setattr(utils, "get_geometry_type", lambda *a, **k: None)
+    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID", "SHAPE"])
+    monkeypatch.setattr(utils, "get_row_count", lambda *a, **k: 0)
+
+    adapter = OracleAdapter(connection=MagicMock(), cursor=MagicMock())
+    info = adapter.describe(table=TABLE)
+
+    assert info.crs == "EPSG:3005"
+    assert info.geometry_type == "unknown"
+    assert info.row_count == 0
+
+
+# ---------------------------------------------------------------------------
+# get_srid - SRID read from SDO metadata (works for empty tables), with a
+# row-sample fallback, and BCGW Albers mirror SRID normalized to real EPSG.
+# (_read_query is faked so no Oracle is touched.)
+# ---------------------------------------------------------------------------
+
+def test_oracle_get_srid_uses_metadata_when_row_sample_empty(monkeypatch):
+    """When the table is empty the row-sample query returns no row; get_srid
+    must still return the SRID recorded in ALL_SDO_GEOM_METADATA."""
+    import pandas as pd
+
+    def fake_read_query(cursor, sql, binds):
+        if "all_sdo_geom_metadata" in sql.lower():
+            return pd.DataFrame({"SP_REF": [3005]})
+        if "rownum" in sql.lower():
+            return pd.DataFrame({"SP_REF": []})   # empty table - no row
+        raise AssertionError(f"unexpected query: {sql}")
+
+    monkeypatch.setattr(utils, "_read_query", fake_read_query)
+    assert utils.get_srid(MagicMock(), MagicMock(), TABLE, "SHAPE") == 3005
+
+
+def test_oracle_get_srid_normalizes_bcgw_mirror(monkeypatch):
+    """The BCGW Albers mirror SRID 1000003005 is not a real EPSG code; get_srid
+    must normalize it to EPSG:3005."""
+    import pandas as pd
+
+    def fake_read_query(cursor, sql, binds):
+        if "all_sdo_geom_metadata" in sql.lower():
+            return pd.DataFrame({"SP_REF": [1000003005]})
+        raise AssertionError(f"unexpected query: {sql}")
+
+    monkeypatch.setattr(utils, "_read_query", fake_read_query)
+    assert utils.get_srid(MagicMock(), MagicMock(), TABLE, "SHAPE") == 3005
+
+
 # ---------------------------------------------------------------------------
 # SDO_GTYPE -> point/line/polygon mapping (pure, no Oracle)
 # SDO_GTYPE is DLTT; the last two digits are the type. Multipart (5/6/7)

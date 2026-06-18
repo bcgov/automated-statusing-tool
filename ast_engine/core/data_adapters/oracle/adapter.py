@@ -174,10 +174,15 @@ class OracleAdapter(BaseSpatialAdapter):
             self.connection, self.cursor, table, geom_col
         )
         if geometry_type is None:
-            raise DataReadError(
-                f"Cannot determine geometry type for {table} "
-                "(table may be empty or hold a geometry type AST does not handle)"
+            # An empty table has no feature to read SDO_GTYPE from. The SRID
+            # came from metadata above, so the dataset still has a usable CRS;
+            # record the geometry type as unknown rather than failing the build.
+            logger.warning(
+                "Cannot determine geometry type for %s "
+                "(table may be empty); recording geometry_type='unknown'",
+                table,
             )
+            geometry_type = "unknown"
         return DatasetInfo(
             geom_column=geom_col,
             crs=f"EPSG:{srid}",

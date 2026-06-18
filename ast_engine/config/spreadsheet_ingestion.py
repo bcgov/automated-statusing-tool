@@ -38,6 +38,7 @@ def get_credentials() -> tuple[str, str, str]:
 
 def main() -> None:
     xlsx_in = "ast_engine/tests/data/Test_Registry.xlsx"
+    yaml_out = "ast_engine/tests/data/Test_Registry.yaml"
 
     template_dict = {
         "name": "Featureclass_Name(valid characters only)",
@@ -67,7 +68,7 @@ def main() -> None:
             base_datasets_list.append(enriched.build())
 
     registry = models.Registry(version="0.1", datasets=base_datasets_list)
-    utils.dump_yaml(registry, Path("ast_engine/tests/data/Test_Registry.yaml"))
+    utils.dump_yaml(registry, Path(yaml_out))
 
 
 if __name__ == "__main__":

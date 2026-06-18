@@ -22,6 +22,15 @@ PROBLEMATIC_TABLES = {
 }
 
 
+# BCGW publishes some datasets against a local Albers mirror SRID that is not a
+# real EPSG code (e.g. 1000003005 mirrors EPSG:3005, BC Albers). Map those
+# mirror SRIDs to their true EPSG code so describe() records a valid CRS. Add
+# more mirror -> EPSG entries here as they are found.
+BCGW_SRID_TO_EPSG = {
+    1000003005: 3005,
+}
+
+
 def _read_query(cursor: Any, sql: str, bind_vars: dict) -> pd.DataFrame:
     cursor.execute(sql, bind_vars)
     names = [d[0] for d in cursor.description]
@@ -41,17 +50,51 @@ def get_geometry_column(connection: Any, cursor: Any, table: str) -> str:
 
 
 def get_srid(connection: Any, cursor: Any, table: str, geom_col: str) -> int | None:
-    """Return the SRID of the first row's geometry, or None if the table is empty."""
+    """Return the geometry SRID for a table, normalized to a real EPSG code.
+
+    Reads the SRID from the SDO metadata dictionary first, which holds a row
+    even for empty tables/views. Only when the dictionary carries no SRID does
+    it fall back to sampling the first feature's geometry. Any BCGW Albers
+    mirror SRID is mapped to its true EPSG code (see BCGW_SRID_TO_EPSG).
+    Returns None when no SRID can be found by either route.
+    """
+    srid = _srid_from_metadata(cursor, table, geom_col)
+    if srid is None:
+        srid = _srid_from_row_sample(cursor, table, geom_col)
+    if srid is None:
+        return None
+    return BCGW_SRID_TO_EPSG.get(srid, srid)
+
+
+def _srid_from_metadata(cursor: Any, table: str, geom_col: str) -> int | None:
+    """Return the SRID recorded in ALL_SDO_GEOM_METADATA, or None."""
+    owner, tab_name = _split_table(table)
+    try:
+        df = _read_query(
+            cursor,
+            queries.SRID_METADATA,
+            {"owner": owner, "tab_name": tab_name, "geom_col": geom_col},
+        )
+    except Exception as exc:
+        logger.warning("SDO metadata SRID lookup failed for %s: %s", table, exc)
+        return None
+    if df.empty or df["SP_REF"].iloc[0] is None:
+        return None
+    return int(df["SP_REF"].iloc[0])
+
+
+def _srid_from_row_sample(cursor: Any, table: str, geom_col: str) -> int | None:
+    """Return the SRID of the first row's geometry, or None if empty."""
     sql = queries.SRID.format(tab=table, geom_col=geom_col)
     try:
         df = _read_query(cursor, sql, {})
     except Exception as exc:
         logger.warning("Cannot determine SRID for %s: %s", table, exc)
         return None
-    if df.empty:
+    if df.empty or df["SP_REF"].iloc[0] is None:
         logger.warning("Table %s is empty; cannot determine SRID", table)
         return None
-    return int(df["SP_REF"].iloc[0]) if df["SP_REF"].iloc[0] is not None else None
+    return int(df["SP_REF"].iloc[0])
 
 
 def get_columns(connection: Any, cursor: Any, table: str) -> list[str]:

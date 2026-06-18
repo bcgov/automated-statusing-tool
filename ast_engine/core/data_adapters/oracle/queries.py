@@ -17,6 +17,19 @@ GEOM_COL = """
       AND table_name = :tab_name
 """
 
+# SRID from the SDO metadata dictionary - the same view GEOM_COL reads.
+# This row exists even when the table/view holds no features, so it is the
+# reliable source for empty datasets. Preferred over the row-sample SRID below.
+SRID_METADATA = """
+    SELECT srid AS SP_REF
+    FROM ALL_SDO_GEOM_METADATA
+    WHERE owner = :owner
+      AND table_name = :tab_name
+      AND column_name = :geom_col
+"""
+
+# SRID read from the first row's geometry - the fallback used only when the
+# metadata dictionary above carries no SRID for the column.
 SRID = """
     SELECT s.{geom_col}.sdo_srid AS SP_REF
     FROM {tab} s
