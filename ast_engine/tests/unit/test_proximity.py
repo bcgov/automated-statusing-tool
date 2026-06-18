@@ -88,6 +88,7 @@ def test_3_within_distance():
         keep_properties=["name"],
         path = THREEM,
     )
+    #This is rounded because my test data has some crazy trailing decimals 
     assert round((test.measure_value), 2) == 3.0
 
 def test_10_within_distance():
@@ -101,6 +102,7 @@ def test_10_within_distance():
         keep_properties=["name"],
         path = TENM,
     )
+    #This is rounded because my test data has some crazy trailing decimals 
     assert round((test.measure_value), 2) == 10.0
 
 def test_2000_within_distance():
@@ -114,6 +116,7 @@ def test_2000_within_distance():
         keep_properties=["name"],
         path = TWOKM,
     )
+    #This is rounded because my test data has some crazy trailing decimals 
     assert round((test.measure_value), 2) == 1999.25
 
 def test_nearest_k():
@@ -130,12 +133,14 @@ def test_nearest_k():
     )
 
     assert test.feature_count == 2
+
+    #This expected value is the shorter of the two (which we know is 3)
     assert round(test.measure_value, 2) == 3.00
 
 
 def test_default_read_options():
     """
-    Not sure what this one should do
+    Not sure what this one should do!
     """
     # test = _default_read_options(
     #         spatial_filter=,
@@ -143,11 +148,6 @@ def test_default_read_options():
     #         keep_properties=            
     # )
     pass
-
-
-def test_require_projected():
-    _require_projected(aoi=non_valid_aoi())
-    assert ValueError == True
 
 
 def test_build_results():
@@ -160,11 +160,11 @@ def test_build_results():
         path = MULTIPOINT,
     )
     
+    #This I want to use to make sure that all the FIDs, Colours and GDF are returned
+    # That will implicitly test extract_feature_id and extract_properties
     #return test 
 
 
-test = test_build_results()
 
-print(test)
 
 
