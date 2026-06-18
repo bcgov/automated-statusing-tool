@@ -214,10 +214,14 @@ class FileSpatialAdapter(BaseSpatialAdapter):
 
         if spatial_filter.predicate == "within_distance":
             aoi = spatial_filter.aoi
-            if not aoi.is_projected:
+            if aoi.crs is None or not aoi.crs.is_projected:
                 raise DataReadError(
                     "within_distance push-down needs a projected AOI CRS "
                     "(the search distance is measured in metres)"
+                )
+            if spatial_filter.distance is None:
+                raise DataReadError(
+                    "within_distance predicate requires a distance value"
                 )
             return aoi.buffer(spatial_filter.distance)
 
