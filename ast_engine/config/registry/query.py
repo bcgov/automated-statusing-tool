@@ -1,3 +1,12 @@
+"""
+Definition-query parser.
+
+Reads dataset Definition_Query SQL string and turns it into the
+structured `where` model for the registry. 
+
+The compiler in core/data_adapters/where_compiler.py turns that model back into SQL.
+"""
+
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 import sqlglot
@@ -22,7 +31,7 @@ Operator = Literal[
 ]
 
 class CurrentDate(BaseModel):
-    """Marker meaning "today's date, resolved when the query runs".
+    """Marker meaning "today's date, resolved when the compiling the SQL".
     In the legacy def queries CURRENT_DATE (e.g. "EXPIRY_DATE" > CURRENT_DATE) is a
     SQL function, not a fixed date - it means "today, as of the moment the query
     runs". We keep it as this small marker instead of turning it into a real

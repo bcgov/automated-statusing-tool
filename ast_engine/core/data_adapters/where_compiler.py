@@ -1,4 +1,6 @@
 """
+Definition-query compiler.
+
 Turn the registry's structured attribute filter (where) into real SQL.
 
 The registry parses each dataset's Definition_Query once, into a small structured form
