@@ -37,6 +37,16 @@ def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     return [BaseDataset(**item) for item in seed]
 
 
+def infer_operator(buffer_distance) -> dict:
+    '''Tab 2 rule: turn the spreadsheet Buffer_Distance into an operator block.
+    A blank or zero distance is an overlap (intersect); a positive distance is
+    a within_distance buffer of that many metres. This is what keeps the buffer
+    distance out of the dataset name string.'''
+    if buffer_distance is None or pd.isna(buffer_distance) or float(buffer_distance) <= 0:
+        return {"type": "overlay"}
+    return {"type": "within_distance", "distance_m": float(buffer_distance)}
+
+
 def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the input be xlsx
     '''
     Ingest spreadsheet and create a dictionary to hydrate the base dataset
@@ -61,6 +71,9 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
                         row_dataset[key] = row[value]
                 else:
                     logger.error(f"error {value} is not a string or a list")
+            # Tab 2: derive the operator from the Buffer_Distance column
+            # (blank/0 -> overlap, >0 -> within_distance).
+            row_dataset["operator"] = infer_operator(row.get("Buffer_Distance"))
             # Append dataset to list
             dataset_list.append(row_dataset)
     return dataset_list
