@@ -1,11 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import geopandas as gpd
+import logging
 
-from .models import AOIProperties, AOINormalizationReport, AOIPart, AOIValidationResult, ValidationIssue
-from .inspector import AOIProperties
-from .normalizer import AOINormalizationReport
+from .models import (
+    AOIProperties,
+    AOINormalizationReport,
+    AOIPart,
+    AOIValidationResult,
+    ValidationIssue,
+)
+
+logger = logging.getLogger(__name__)
+
 
 SLIVER_THRESHOLD = 0.1 # Minimum area in hectares for a part to be considered valid (e.g. to filter out slivers from processing)
 LARGE_AREA_THRESHOLD = 10_000 # Area in hectares above which a part is flagged for review (e.g. to identify parts that may need to be split for reporting or processing)
@@ -35,7 +42,7 @@ class AOIValidator:
         issues: list[ValidationIssue] = []
 
         # Validate AOI object for required properties
-        if gdf.empty:
+        if gdf.empty or gdf is None:
             issues.append(
                 ValidationIssue("error", "NO_GDF", "AOI has no Geopandas GeoDataFrame")
             )
@@ -60,7 +67,7 @@ class AOIValidator:
                 ValidationIssue(
                     "error",
                     "OVERLAPS_PRESENT",
-                    "Overlapping AOI polygons remain after policy but are not allowed.",
+                    "Overlapping AOI polygons remain after AOI policy application against set policy.",
                 )
             )
 
@@ -132,6 +139,5 @@ class AOIValidator:
 
 
         return AOIValidationResult(
-            is_valid=not any(i.severity == "error" for i in issues),
             issues=tuple(issues),
         )
