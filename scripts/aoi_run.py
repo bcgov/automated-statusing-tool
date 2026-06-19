@@ -1,4 +1,6 @@
-from py_compile import main
+from __future__ import annotations
+
+import logging
 import sys
 from pathlib import Path
 
@@ -6,16 +8,20 @@ from shapely.geometry import Polygon, GeometryCollection, LineString, Point
 import geopandas as gpd
 
 ast_path = Path(__file__).resolve().parents[1]
-print(f"Adding AST to path: {ast_path}")
-if ast_path not in sys.path:
-    sys.path.append(str(ast_path))
+ast_path_str = str(ast_path)
 
+if ast_path_str not in sys.path:
+    sys.path.append(ast_path_str)
+
+from ast_engine.utils.logging_config import setup_logging
 from ast_engine.core.data_adapters.base import ReadOptions
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
-from ast_engine.core.aoi.models import AOIRequest
+from ast_engine.core.aoi.models import AOIRequest, AOIBuildRequest
 from ast_engine.core.aoi.aoi_builder import AOIBuilder
+from ast_engine.core.aoi.exceptions import AOIBuildError, root_cause
 
-
+PROJECTED_CRS = "EPSG:3005" 
+UNPROJECTED_CRS = "EPSG:4326"
 
 # ------------------------------------------------------------
 # Data scenarios
@@ -24,11 +30,34 @@ from ast_engine.core.aoi.aoi_builder import AOIBuilder
 def load_kmz_example() -> gpd.GeoDataFrame:
     opts = ReadOptions(keep_columns=["Name"])
     return FileSpatialAdapter().read(
-        path="ast_app/Test_Shape_A/Test_Shape_A.kmz",
-        target_crs="EPSG:3005",
+        path="ast_engine/tests/data/Test_Shape_A/Test_Shape_A.kmz",
+        target_crs=PROJECTED_CRS,
         read_options=opts,
     )
 
+def load_gj_example() -> gpd.GeoDataFrame:
+    opts = ReadOptions(keep_columns=["Name"])
+    return FileSpatialAdapter().read(
+        path="ast_engine/tests/data/Test_Shape_A/Test_Shape_A.geojson",
+        target_crs=PROJECTED_CRS,
+        read_options=opts,
+    )
+
+def load_kml_example() -> gpd.GeoDataFrame:
+    opts = ReadOptions(keep_columns=["Name"])
+    return FileSpatialAdapter().read(
+        path="ast_engine/tests/data/Test_Shape_A/Test_Shape_A.kml",
+        target_crs=PROJECTED_CRS,
+        read_options=opts,
+    )
+
+def load_gpkg_example() -> gpd.GeoDataFrame:
+    opts = ReadOptions(keep_columns=["Name"])
+    return FileSpatialAdapter().read(
+        path="ast_engine/tests/data/Test_Shape_A/Test_Shape_A.gpkg",
+        target_crs=PROJECTED_CRS,
+        read_options=opts,
+    )
 
 def load_overlap_groups_example() -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(
@@ -49,7 +78,7 @@ def load_overlap_groups_example() -> gpd.GeoDataFrame:
             Polygon([(275, 0), (375, 0), (375, 100), (275, 100), (275, 0)]),
             Polygon([(370, 50), (470, 50), (470, 190), (370, 190), (370, 50)]),
         ],
-        crs="EPSG:3005",
+        crs=PROJECTED_CRS,
     )
 
 def load_small_area_groups_example() -> gpd.GeoDataFrame:
@@ -70,7 +99,7 @@ def load_small_area_groups_example() -> gpd.GeoDataFrame:
             Polygon([(100, 0), (120, 0), (120, 20), (100, 20), (100, 0)]),
             Polygon([(115, 5), (135, 5), (135, 25), (115, 25), (115, 5)]),
         ],
-        crs="EPSG:3005",
+        crs=PROJECTED_CRS,
     )
 
 
@@ -93,7 +122,7 @@ def load_large_area_groups_example() -> gpd.GeoDataFrame:
             Polygon([(50000, 0), (61000, 0), (61000, 11000), (50000, 11000), (50000, 0)]),
             Polygon([(59000, 5000), (70000, 5000), (70000, 16000), (59000, 16000), (59000, 5000)]),
         ],
-        crs="EPSG:3005",
+        crs=PROJECTED_CRS,
     )
 
 def load_bowtie_example() -> gpd.GeoDataFrame:
@@ -108,7 +137,7 @@ def load_bowtie_example() -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(
         {"group_id": ["A"]},
         geometry=[bowtie],
-        crs="EPSG:3005",
+        crs=PROJECTED_CRS,
     )
 
 
@@ -121,7 +150,7 @@ def load_gc_polygon_line_example() -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(
         {"group_id": ["A"]},
         geometry=[gc],
-        crs="EPSG:3005",
+        crs=PROJECTED_CRS,
     )
 
 
@@ -134,7 +163,7 @@ def load_gc_line_point_example() -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(
         {"group_id": ["A"]},
         geometry=[gc],
-        crs="EPSG:3005",
+        crs=PROJECTED_CRS,
     )
 
 
@@ -151,6 +180,9 @@ def load_missing_crs_example() -> gpd.GeoDataFrame:
 def load_raw_gdf(case_name: str) -> gpd.GeoDataFrame:
     cases = {
         "kmz": load_kmz_example,
+        "geojson": load_gj_example,
+        "kml": load_kml_example,
+        "gpkg": load_gpkg_example,
         "overlap_groups": load_overlap_groups_example,
         "small_area": load_small_area_groups_example,
         "large_area": load_large_area_groups_example,
@@ -174,7 +206,7 @@ def request_full_union() -> AOIRequest:
     return AOIRequest(
         aoi_id="aoi_001",
         name="Test AOI",
-        target_crs="EPSG:3005",
+        target_crs=PROJECTED_CRS,
         dissolve_mode="full_union",
         allow_overlaps=False,
     )
@@ -182,9 +214,9 @@ def request_full_union() -> AOIRequest:
 
 def request_by_name_overlap_allowed() -> AOIRequest:
     return AOIRequest(
-        aoi_id="aoi_001",
+        aoi_id="aoi_002",
         name="Test AOI",
-        target_crs="EPSG:3005",
+        target_crs=PROJECTED_CRS,
         dissolve_mode="by_fields",
         dissolve_fields=("Name",),
         allow_overlaps=True,
@@ -193,9 +225,9 @@ def request_by_name_overlap_allowed() -> AOIRequest:
 
 def request_by_group_overlap_allowed() -> AOIRequest:
     return AOIRequest(
-        aoi_id="aoi_001",
+        aoi_id="aoi_003",
         name="Test AOI",
-        target_crs="EPSG:3005",
+        target_crs=PROJECTED_CRS,
         dissolve_mode="by_fields",
         dissolve_fields=("group_id",),
         allow_overlaps=True,
@@ -203,9 +235,9 @@ def request_by_group_overlap_allowed() -> AOIRequest:
 
 def request_by_group_overlap_not_allowed() -> AOIRequest:
     return AOIRequest(
-        aoi_id="aoi_001",
+        aoi_id="aoi_004",
         name="Test AOI",
-        target_crs="EPSG:3005",
+        target_crs=PROJECTED_CRS,
         dissolve_mode="by_fields",
         dissolve_fields=("group_id",),
         allow_overlaps=False,
@@ -213,9 +245,9 @@ def request_by_group_overlap_not_allowed() -> AOIRequest:
 
 def request_preserve_features() -> AOIRequest:
     return AOIRequest(
-        aoi_id="aoi_001",
+        aoi_id="aoi_005",
         name="Test AOI",
-        target_crs="EPSG:3005",
+        target_crs=PROJECTED_CRS,
         dissolve_mode="preserve_features",
         allow_overlaps=True,
     )
@@ -243,78 +275,142 @@ def run_demo(data_case: str, request_case: str) -> None:
     raw_gdf = load_raw_gdf(data_case)
     request = build_request(request_case)
 
+    built = AOIBuildRequest(
+        spec=request,
+        raw_gdf=raw_gdf,
+    )
+
     builder = AOIBuilder()
 
-    print(f"\n=== DATA CASE: {data_case} | REQUEST CASE: {request_case} ===")
-    print("Columns:", list(raw_gdf.columns))
-    print("CRS:", raw_gdf.crs)
-    print("Geom types:", raw_gdf.geometry.geom_type.tolist())
+    print("")
+    logger.info(
+        "=== DATA CASE: %s | REQUEST CASE: %s ===",
+        data_case,
+        request_case,
+    )
+    logger.info("Columns: %s", list(raw_gdf.columns))
+    logger.info("CRS: %s", raw_gdf.crs.name if raw_gdf.crs else None)
+    logger.info("Geom types: %s", raw_gdf.geometry.geom_type.tolist())
 
     try:
-        aoi = builder.from_gdf(
-            request,
-            raw_gdf,
-            raise_errors=False,
+        aoi_result = builder.build_from_request(
+            built,
         )
 
-        if aoi.validation.is_valid:
-            print("STATUS: SUCCESS")
+        aoi = aoi_result.aoi
+
+        if aoi_result.is_valid:
+            logger.info("STATUS: SUCCESS")
         else:
-            print("STATUS: FAILED")
+            logger.warning("STATUS: FAILED")
 
-        errors = [i for i in aoi.validation.issues if i.severity.lower() == "error"]
-        warnings = [i for i in aoi.validation.issues if i.severity.lower() == "warning"]
+        if aoi_result.errors:
+            logger.info("Errors:")
+            for issue in aoi_result.errors:
+                logger.error("  - %s: %s", issue.code, issue.message)
 
-        if errors:
-            print("Errors:")
-            for issue in errors:
-                print(f"  - {issue.code}: {issue.message}")
+        if aoi_result.warnings:
+            logger.info("Warnings:")
+            for issue in aoi_result.warnings:
+                logger.warning("  - %s: %s", issue.code, issue.message)
 
-        if warnings:
-            print("Warnings:")
-            for issue in warnings:
-                print(f"  - {issue.code}: {issue.message}")
+        logger.info("ID: %s", aoi.aoi_id)
+        logger.info("Columns: %s", list(aoi.gdf.columns))
+        logger.info("Footprint Area (ha): %.4f", aoi.footprint_area_ha)
+        logger.info("Bounds: %s", aoi.bounds)
+        logger.info("Part Count: %s", len(aoi.parts))
 
-        print("ID:", aoi.aoi_id)
-        print("Footprint Area (ha):", round(aoi.footprint_area_ha, 4))
-        print("Bounds:", aoi.bounds)
-        print("Part Count:", len(aoi.parts))
+    except AOIBuildError as exc:
+        root = root_cause(exc)
 
-        if aoi.normalization_report:
-            r = aoi.normalization_report
-            print("Normalization:")
-            print("  Input features:", r.input_feature_count)
-            print("  Cleaned features:", r.cleaned_feature_count)
-            print("  Output features:", r.output_feature_count)
-            print("  Null feature drops:", r.null_or_empty_removed_count)
+        logger.error(
+            "STATUS: FAILED | reason=%s",
+            root,
+        )
 
-            print("  Repair step:")
-            print("    Input features:", r.repair_input_feature_count)
-            print("    Repaired features:", r.repaired_feature_count)
+        logger.debug(
+            "Failure root traceback",
+            exc_info=(type(root), root, root.__traceback__),
+        )
 
-            print("  Polygon filter step:")
-            print("    Input features:", r.polygon_extract_input_feature_count)
-            print("    Output features:", r.polygon_extract_output_feature_count)
-            print("    Dropped features:", r.polygon_extract_drop_count)
 
-            print("  Overlap policy:")
-            print("    Overlaps before policy:", r.overlaps_detected_before_policy)
-            print("    Overlaps after policy:", r.overlaps_present_after_policy)
-            print("    Overlaps resolved:", r.overlaps_resolved_by_policy)
+def log_normalization_report(aoi) -> None:
+    r = getattr(aoi, "normalized", None)
 
-            if r.notes:
-                print("  notes:")
-                for note in r.notes:
-                    print(f"    - {note}")
+    if r is None:
+        logger.warning("Normalization report: unavailable")
+        return
 
-    except Exception as exc:
-        print("STATUS: FAILED")
-        print(type(exc).__name__, "-", exc)
+    logger.info(
+        "Normalization features: %s input → %s cleaned → %s output",
+        r.input_feature_count,
+        r.cleaned_feature_count,
+        r.output_feature_count,
+    )
+
+    logger.info(
+        "Normalization CRS: %s → %s | reprojected=%s",
+        r.input_crs,
+        r.output_crs,
+        r.was_reprojected,
+    )
+
+    logger.info(
+        "Geometry cleanup: null/empty removed=%s | repaired=%s of %s",
+        r.null_or_empty_removed_count,
+        r.repaired_feature_count,
+        r.repair_input_feature_count,
+    )
+
+    logger.info(
+        "Polygon extraction: %s components in | %s polygon components kept | %s non-polygon components dropped",
+        r.polygon_extract_input_feature_count,
+        r.polygon_extract_output_feature_count,
+        r.polygon_extract_drop_count,
+    )
+
+    logger.info(
+        "AOI policy: mode=%s | dissolve_fields=%s | allow_overlaps=%s",
+        r.policy_name,
+        format_tuple(r.dissolve_fields_used),
+        r.allow_overlaps,
+    )
+
+    logger.info(
+        "AOI policy features: %s input → %s output",
+        r.policy_input_feature_count,
+        r.policy_output_feature_count,
+    )
+
+    logger.info(
+        "Overlaps: before=%s | after=%s | resolved=%s",
+        r.overlaps_detected_before_policy,
+        r.overlaps_present_after_policy,
+        r.overlaps_resolved_by_policy,
+    )
+
+    for note in r.notes:
+        logger.info("Normalization note: %s", note)
+
+def format_tuple(values: tuple[str, ...]) -> str:
+    if not values:
+        return "<none>"
+
+    return ", ".join(values)
 
 
 if __name__ == "__main__":
+    setup_logging()
+
+    logger = logging.getLogger(__name__)
+
+    logger.info("Beginning AOI builder demo")
+
     scenarios = [
         ("kmz", "by_name_overlap_allowed"),
+        ("geojson", "by_name_overlap_allowed"),
+        ("gpkg", "by_name_overlap_allowed"),
+        ("kml", "by_name_overlap_allowed"),
         ("overlap_groups", "full_union"),
         ("overlap_groups", "by_group_overlap_allowed"),
         ("overlap_groups", "by_group_overlap_not_allowed"),
@@ -328,3 +424,6 @@ if __name__ == "__main__":
 
     for data_case, request_case in scenarios:
         run_demo(data_case, request_case)
+    
+    print("")
+    logger.info("End of AOI builder demo")

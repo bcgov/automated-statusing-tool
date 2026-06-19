@@ -1,17 +1,28 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Optional, List, Literal
+import logging
 
-import geopandas as gpd
+from sqlalchemy import exc
 
-from .models import AOIRequest, AreaOfInterest
-from .exceptions import AOIValidationError
+from .models import (
+    AreaOfInterest,
+    AOIBuildRequest,
+    AOIBuildResult
+)
+
+from .exceptions import (
+    root_cause,
+    AOIBuildError,
+    AOIError
+)
+
 from .normalizer import AOINormalizer
 from .inspector import AOIInspector
 from .validator import AOIValidator
 from .parts_builder import AOIPartBuilder
+
+logger = logging.getLogger(__name__)
 
 
 class AOIBuilder:
@@ -35,38 +46,131 @@ class AOIBuilder:
         self.validator = validator or AOIValidator()
         self.part_builder = part_builder or AOIPartBuilder()
 
-    def from_gdf(
+
+    def build_from_request(
         self,
-        request: AOIRequest,
-        raw_gdf: gpd.GeoDataFrame,
-        *,
-        raise_errors: bool = True,
-    ) -> AreaOfInterest:
-        normalized = self.normalizer.normalize_aoi(raw_gdf, request)
+        request: AOIBuildRequest,
+    ) -> AOIBuildResult:
+        spec = request.spec
 
-        parts = self.part_builder.build_parts(
-            request.aoi_id,
-            normalized.gdf,
+        logger.info(
+            "Starting AOI build | aoi_id=%s | name=%s",
+            spec.aoi_id,
+            spec.name,
         )
 
-        properties = self.inspector.inspect(normalized.gdf, parts)
-        validation = self.validator.validate(
-            gdf=normalized.gdf,
-            report=normalized.report,
-            parts=parts,
-            properties=properties,
+        try:
+            normalized = self.normalizer.normalize_aoi(
+                gdf=request.raw_gdf,
+                request=spec,
+            )
+
+            parts = self.part_builder.build_parts(
+                aoi_id=spec.aoi_id,
+                gdf=normalized.gdf,
+            )
+
+            properties = self.inspector.inspect(
+                gdf=normalized.gdf,
+                parts=parts,
+            )
+
+            validation = self.validator.validate(
+                # aoi_id=spec.aoi_id,
+                gdf=normalized.gdf,
+                report=normalized.report,
+                parts=parts,
+                properties=properties,
+                # context=request.validation_context,
+            )
+
+            aoi = AreaOfInterest(
+                aoi_id=spec.aoi_id,
+                name=spec.name,
+                gdf=normalized.gdf,
+                properties=properties,
+                parts=parts,
+            )
+
+        except AOIBuildError:
+            raise
+
+        except AOIError as exc:
+            root = root_cause(exc)
+
+            logger.error(
+                "AOI normalization failed | aoi_id=%s | name=%s | error_type=%s | reason=%s",
+                spec.aoi_id,
+                spec.name,
+                type(root).__name__,
+                root,
+            )
+
+            logger.debug(
+                "AOI normalization root traceback",
+                exc_info=(type(root), root, root.__traceback__),
+            )
+
+            raise AOIBuildError(
+                f"Could not build AOI {spec.aoi_id!r}: {root}"
+            ) from exc
+        
+        except Exception as exc:
+            logger.exception(
+                "Unexpected AOI build failure | aoi_id=%s | name=%s | error_type=%s",
+                spec.aoi_id,
+                spec.name,
+                type(exc).__name__,
+            )
+            raise AOIBuildError(
+                f"Unexpected error building AOI {spec.aoi_id!r}."
+            ) from exc
+
+        result = AOIBuildResult(
+            aoi=aoi,
+            validated=validation,
+            normalized=normalized.report,
         )
 
-        if raise_errors and not validation.is_valid:
-            messages = "\n".join(f"{i.code}: {i.message}" for i in validation.issues)
-            raise AOIValidationError(messages)
+        self._log_build_summary(result)
 
-        return AreaOfInterest(
-            aoi_id=request.aoi_id,
-            name=request.name,
-            gdf=normalized.gdf,
-            normalization_report=normalized.report,
-            properties=properties,
-            parts=parts,
-            validation=validation,
+        return result
+    
+
+    def _log_build_summary(
+        self,
+        result: AOIBuildResult,
+    ) -> None:
+        aoi = result.aoi
+        validation = result.validated
+
+        logger.info(
+            "AOI build complete | aoi_id=%s | area_ha=%.4f | part_count=%s",
+            aoi.aoi_id,
+            aoi.footprint_area_ha,
+            aoi.part_count,
         )
+
+        if validation.has_errors:
+            logger.warning(
+                "AOI validation completed with errors | aoi_id=%s | errors=%s | warnings=%s | infos=%s",
+                aoi.aoi_id,
+                len(validation.errors),
+                len(validation.warnings),
+                len(validation.info),
+            )
+
+        elif validation.has_warnings:
+            logger.info(
+                "AOI validation completed with warnings | aoi_id=%s | warnings=%s | infos=%s",
+                aoi.aoi_id,
+                len(validation.warnings),
+                len(validation.info),
+            )
+
+        else:
+            logger.info(
+                "AOI validation passed | aoi_id=%s | infos=%s",
+                aoi.aoi_id,
+                len(validation.info),
+            )
