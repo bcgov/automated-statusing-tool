@@ -1,21 +1,39 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional, Literal
+import logging
 
 import geopandas as gpd
+from pyproj import CRS
 from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-from .exceptions import AOIValidationError
-from .aoi_builder import AOIRequest
-from .models import AOINormalizationReport, NormalizedAOI
+from .normalization_reporter import AOINormalizationReportBuilder
+from .exceptions import (
+    AOINormalizationError,
+    AOIRequestError,
+    DataCRSError,
+    SpatialDataError,
+    SpatialGeometryError,
+)
+from .models import AOIRequest, NormalizedAOI
+from .utils import check_gdf, parse_crs, has_area_overlaps
+
+
+logger = logging.getLogger(__name__)
 
 
 class AOINormalizer:
     """
-    Cleans raw AOI geometry and applies AOI policy.
+    Cleans raw AOI geometry and applies AOI normalization policy.
+
+    Stage contract:
+    - Raw input may be messy but must be a usable GeoDataFrame.
+    - Cleaning removes null/empty geometry, repairs invalid geometry, and extracts polygonal geometry.
+    - Cleaned AOI is reprojected to the request target CRS.
+    - Policy is applied to produce the normalized AOI.
+    - Final normalized AOI must be strict, projected, valid, polygonal geometry.
     """
 
     def normalize_aoi(
@@ -23,170 +41,304 @@ class AOINormalizer:
         gdf: gpd.GeoDataFrame,
         request: AOIRequest,
     ) -> NormalizedAOI:
-        cleaned_gdf, report_data = self._clean_geometry(gdf, request.target_crs)
-        policy_gdf, report_data = self._apply_aoi_policy(cleaned_gdf, request, report_data)
+        """
+        Normalize a raw AOI GeoDataFrame into a downstream-ready AOI.
 
-        report = AOINormalizationReport(
-            input_feature_count=report_data["input_feature_count"],
-            cleaned_feature_count=report_data["cleaned_feature_count"],
-            output_feature_count=len(policy_gdf),
-            input_crs=report_data["input_crs"],
-            output_crs=str(policy_gdf.crs) if policy_gdf.crs else None,
-            null_or_empty_removed_count=report_data["null_or_empty_removed_count"],
-            repair_input_feature_count=report_data["repair_input_feature_count"],
-            repaired_feature_count=report_data["repaired_feature_count"],
-            polygon_extract_input_feature_count=report_data["polygon_extract_input_feature_count"],
-            polygon_extract_output_feature_count=report_data["polygon_extract_output_feature_count"],
-            polygon_extract_drop_count=report_data["polygon_extract_drop_count"],
-            policy_name=report_data["policy_name"],
-            dissolve_fields_used=tuple(report_data["dissolve_fields_used"]),
-            allow_overlaps=report_data["allow_overlaps"],
-            overlaps_detected_before_policy=report_data["overlaps_detected_before_policy"],
-            overlaps_present_after_policy=report_data["overlaps_present_after_policy"],
-            overlaps_resolved_by_policy=report_data["overlaps_resolved_by_policy"],
-            was_reprojected=report_data["was_reprojected"],
-            notes=tuple(report_data["notes"]),
-        )
+        Expected lower-level spatial, CRS, geometry, and request errors are wrapped
+        as AOINormalizationError so callers know the normalization stage failed.
+        Unexpected programming/system errors are allowed to bubble up to the builder.
+        """
+        try:
+            check_gdf(
+                gdf,
+                req_projected_crs=False,
+                strict=False,
+                context="Raw AOI input",
+            )
 
-        return NormalizedAOI(gdf=policy_gdf, report=report)
+            reporter = AOINormalizationReportBuilder.from_input_gdf(gdf)
+
+            work_gdf = self._clean_geometry(
+                gdf,
+                reporter=reporter,
+            )
+
+            work_gdf = self._conform_target_crs(
+                work_gdf,
+                target_crs=request.target_crs,
+                reporter=reporter,
+                require_projected=True,
+            )
+
+            check_gdf(
+                work_gdf,
+                req_projected_crs=True,
+                strict=True,
+                context="Cleaned AOI before policy",
+            )
+
+            normalized_gdf = self._apply_aoi_policy(
+                work_gdf,
+                request=request,
+                reporter=reporter,
+            )
+
+            check_gdf(
+                normalized_gdf,
+                req_projected_crs=True,
+                strict=True,
+                context="Normalized AOI",
+            )
+
+            report = reporter.build(normalized_gdf)
+
+            reporter.log_summary(
+                aoi_id=request.aoi_id,
+                report=report,
+            )
+
+            return NormalizedAOI(
+                gdf=normalized_gdf,
+                report=report,
+            )
+
+        except AOINormalizationError:
+            raise
+
+        except (
+            SpatialDataError,
+            SpatialGeometryError,
+            DataCRSError,
+            AOIRequestError,
+        ) as exc:
+            raise AOINormalizationError(
+                f"AOI normalization failed for {request.aoi_id!r}: {exc}"
+            ) from exc
 
     def _clean_geometry(
         self,
         gdf: gpd.GeoDataFrame,
-        target_crs: Optional[str],
-    ) -> tuple[gpd.GeoDataFrame, dict]:
-        if gdf is None:
-            raise AOIValidationError("Input AOI GeoDataFrame is None")
-
-        if gdf.empty:
-            raise AOIValidationError("Input AOI GeoDataFrame is empty")
-
-        if gdf.crs is None:
-            raise AOIValidationError("Input AOI has no CRS")
-
-        if gdf.geometry.name not in gdf.columns:
-            raise AOIValidationError("Input AOI has no active geometry column")
-
+        *,
+        reporter: AOINormalizationReportBuilder,
+    ) -> gpd.GeoDataFrame:
+        """
+        Remove unusable geometry, repair invalid geometry, and extract polygonal parts.
+        """
         work = gdf.copy()
 
-        report = {
-            "input_feature_count": len(work),
-            "input_crs": str(work.crs),
-            "null_or_empty_removed_count": 0,
-            "repair_input_feature_count": 0,
-            "repaired_feature_count": 0,
-            "polygon_extract_input_feature_count": 0,
-            "polygon_extract_output_feature_count": 0,
-            "polygon_extract_drop_count": 0,
-            "cleaned_feature_count": 0,
-            "was_reprojected": False,
-            "notes": [],
-        }
-
-        # drop null / empty
         before = len(work)
-        work = work.loc[~work.geometry.isna() & ~work.geometry.is_empty].copy()
-        report["null_or_empty_removed_count"] = before - len(work)
+        work = work.loc[
+            ~work.geometry.isna()
+            & ~work.geometry.is_empty
+        ].copy()
+
+        reporter.add_null_empty_removed(before - len(work))
 
         if work.empty:
-            raise AOIValidationError("Input AOI has no non-null, non-empty geometry")
+            raise SpatialGeometryError(
+                "Raw AOI input has no non-null, non-empty geometry."
+            )
 
-        # repair / extract polygonal
-        report["repair_input_feature_count"] = len(work)
+        reporter.set_repair_input_feature_count(len(work))
 
-        repaired_geoms = []
+        polygonal_geometries: list[Polygon | MultiPolygon | None] = []
+
         for geom in work.geometry:
             was_invalid = not geom.is_valid
             fixed = geom if not was_invalid else make_valid(geom)
 
             if was_invalid:
-                report["repaired_feature_count"] += 1
+                reporter.add_repaired_feature()
 
-            polygonal, components = self._extract_polygonal(fixed)
+            polygonal, component_counts = self._extract_polygonal(fixed)
 
-            report["polygon_extract_input_feature_count"] += components["input_component_count"] # Includes any lines, points, etc.
-            report["polygon_extract_output_feature_count"] += components["polygon_component_count"] # Only polygns, Multipolygons and GeometryCollections with polygonal geometry.
-            report["polygon_extract_drop_count"] += components["nonpolygon_component_drop_count"] # Count of dropped nonpolygon features
+            reporter.add_polygon_extraction_counts(component_counts)
 
-            repaired_geoms.append(polygonal)
+            polygonal_geometries.append(polygonal)
 
-        work = work.copy()
-        work["geometry"] = repaired_geoms # This works if you do not drop rows above. Explicit version may be required for more robustness.
-        before_drops = len(work)
-        work = work.loc[~work.geometry.isna() & ~work.geometry.is_empty].copy()
-        report["null_or_empty_removed_count"] += before_drops - len(work)
+        new_geometry = gpd.GeoSeries(
+            polygonal_geometries,
+            index=work.index,
+            crs=work.crs,
+            name=work.geometry.name,
+        )
+
+        work = work.set_geometry(new_geometry)
+
+        before = len(work)
+        work = work.loc[
+            ~work.geometry.isna()
+            & ~work.geometry.is_empty
+        ].copy()
+
+        reporter.add_null_empty_removed(before - len(work))
 
         if work.empty:
-            raise AOIValidationError("Input AOI has no polygonal geometry after repair")
+            raise SpatialGeometryError(
+                "AOI input has no polygonal geometry after repair/extraction."
+            )
 
-        # reproject
-        if target_crs:
-            if work.crs != target_crs:
-                work = work.to_crs(target_crs)
-                report["was_reprojected"] = True
-                report["notes"].append(f"AOI reprojected to {target_crs}")
+        reporter.set_cleaned_feature_count(len(work))
 
-        report["cleaned_feature_count"] = len(work)
+        return work.reset_index(drop=True)
 
-        return work, report
+    def _conform_target_crs(
+        self,
+        gdf: gpd.GeoDataFrame,
+        target_crs: str | int | CRS | None,
+        *,
+        reporter: AOINormalizationReportBuilder,
+        require_projected: bool = True,
+    ) -> gpd.GeoDataFrame:
+        """
+        Reproject cleaned AOI geometry to the requested target CRS.
+        """
+        if gdf.crs is None:
+            raise DataCRSError("AOI has no CRS and cannot be reprojected.")
+
+        if target_crs is None:
+            raise AOIRequestError("AOI request must contain a target CRS.")
+
+        requested_crs = parse_crs(
+            target_crs,
+            label="target AOI CRS",
+        )
+
+        if require_projected and not requested_crs.is_projected:
+            raise DataCRSError(
+                "AOI request target CRS must be projected. "
+                f"Got: {requested_crs.to_string()}."
+            )
+
+        current_crs = parse_crs(
+            gdf.crs,
+            label="input AOI CRS",
+        )
+
+        if current_crs.equals(requested_crs):
+            return gdf
+
+        out = gdf.to_crs(requested_crs)
+
+        reporter.mark_reprojected(
+            from_crs=current_crs.to_string(),
+            to_crs=requested_crs.to_string(),
+        )
+
+        return out
 
     def _apply_aoi_policy(
         self,
         gdf: gpd.GeoDataFrame,
+        *,
         request: AOIRequest,
-        report: dict,
-    ) -> tuple[gpd.GeoDataFrame, dict]:
-        report["policy_name"] = request.dissolve_mode
-        report["dissolve_fields_used"] = request.dissolve_fields
-        report["allow_overlaps"] = request.allow_overlaps
-        report["overlaps_detected_before_policy"] = self._has_overlaps(gdf)
+        reporter: AOINormalizationReportBuilder,
+    ) -> gpd.GeoDataFrame:
+        """
+        Apply request dissolve/overlap policy to cleaned AOI geometry.
+        """
+        overlaps_before = has_area_overlaps(gdf)
+
+        reporter.set_policy_input(
+            request=request,
+            input_feature_count=len(gdf),
+            overlaps_before=overlaps_before,
+        )
 
         mode = request.dissolve_mode
 
         if mode == "full_union":
-            geom = gdf.union_all()
-            if geom is None or geom.is_empty:
-                raise AOIValidationError("AOI full_union policy produced empty geometry")
-            if geom.geom_type not in {"Polygon", "MultiPolygon"}:
-                raise AOIValidationError(
-                    f"AOI full_union policy produced non-polygonal geometry: {geom.geom_type!r}"
-                )
-            out = gpd.GeoDataFrame({"geometry": [geom]}, geometry="geometry", crs=gdf.crs)
+            out = self._apply_full_union_policy(gdf)
 
         elif mode == "by_fields":
-            if not request.dissolve_fields:
-                raise AOIValidationError("dissolve_mode='by_fields' requires dissolve_fields")
-
-            missing = [f for f in request.dissolve_fields if f not in gdf.columns]
-            if missing:
-                raise AOIValidationError(f"Missing dissolve fields: {missing}")
-
-            out = gdf.dissolve(by=list(request.dissolve_fields), as_index=False)
+            out = self._apply_by_fields_policy(
+                gdf,
+                dissolve_fields=tuple(request.dissolve_fields),
+            )
 
         elif mode == "preserve_features":
             out = gdf.copy()
 
         else:
-            raise AOIValidationError(f"Unsupported dissolve_mode: {mode!r}")
+            raise AOIRequestError(f"Unsupported dissolve_mode: {mode!r}.")
 
-        report["overlaps_present_after_policy"] = self._has_overlaps(out)
-        report["overlaps_resolved_by_policy"] = (
-            report["overlaps_detected_before_policy"]
-            and not report["overlaps_present_after_policy"]
+        out = out.reset_index(drop=True)
+
+        overlaps_after = has_area_overlaps(out)
+
+        reporter.set_policy_output(
+            output_feature_count=len(out),
+            overlaps_after=overlaps_after,
         )
 
-        if not request.allow_overlaps and report["overlaps_present_after_policy"]:
-            raise AOIValidationError(
-                "AOI policy output contains overlapping polygons, but allow_overlaps=False."
+        if not request.allow_overlaps and overlaps_after:
+            raise SpatialGeometryError(
+                "AOI policy output contains overlapping polygons, "
+                "but allow_overlaps=False."
             )
 
-        return out, report
+        return out
 
+    def _apply_full_union_policy(
+        self,
+        gdf: gpd.GeoDataFrame,
+    ) -> gpd.GeoDataFrame:
+        geom = gdf.union_all()
+
+        if geom is None or geom.is_empty:
+            raise SpatialGeometryError(
+                "AOI full_union policy produced empty geometry."
+            )
+
+        if geom.geom_type not in {"Polygon", "MultiPolygon"}:
+            raise SpatialGeometryError(
+                "AOI full_union policy produced non-polygonal geometry: "
+                f"{geom.geom_type!r}."
+            )
+
+        return gpd.GeoDataFrame(
+            {"geometry": [geom]},
+            geometry="geometry",
+            crs=gdf.crs,
+        )
+
+    def _apply_by_fields_policy(
+        self,
+        gdf: gpd.GeoDataFrame,
+        *,
+        dissolve_fields: tuple[str, ...],
+    ) -> gpd.GeoDataFrame:
+        if not dissolve_fields:
+            raise AOIRequestError(
+                "dissolve_mode='by_fields' requires dissolve_fields."
+            )
+
+        missing = [
+            field
+            for field in dissolve_fields
+            if field not in gdf.columns
+        ]
+
+        if missing:
+            raise SpatialDataError(
+                f"AOI data is missing dissolve field(s): {missing}."
+            )
+
+        return gdf.dissolve(
+            by=list(dissolve_fields),
+            as_index=False,
+        )
 
     def _extract_polygonal(
         self,
-        geom,
+        geom: BaseGeometry | None,
     ) -> tuple[Polygon | MultiPolygon | None, dict[str, int]]:
+        """
+        Extract polygonal geometry from Polygon, MultiPolygon, or GeometryCollection.
+
+        Non-polygon standalone geometries return None.
+        GeometryCollections retain only Polygon/MultiPolygon components.
+        """
         meta = {
             "input_component_count": 0,
             "polygon_component_count": 0,
@@ -208,56 +360,36 @@ class AOINormalizer:
             return geom, meta
 
         if isinstance(geom, GeometryCollection):
-            polys = []
+            polygon_parts: list[Polygon] = []
             meta["input_component_count"] = len(geom.geoms)
 
             for part in geom.geoms:
                 if isinstance(part, Polygon):
-                    polys.append(part)
+                    polygon_parts.append(part)
                     meta["polygon_component_count"] += 1
+
                 elif isinstance(part, MultiPolygon):
-                    polys.extend(list(part.geoms))
-                    meta["polygon_component_count"] += len(part.geoms)
+                    parts = list(part.geoms)
+                    polygon_parts.extend(parts)
+                    meta["polygon_component_count"] += len(parts)
+
                 else:
                     meta["nonpolygon_component_drop_count"] += 1
 
-            if not polys:
+            if not polygon_parts:
                 return None, meta
 
-            merged = unary_union(polys)
+            merged = unary_union(polygon_parts)
 
             if isinstance(merged, Polygon):
                 return merged, meta
+
             if isinstance(merged, MultiPolygon):
                 return merged, meta
 
             return None, meta
 
-        # Any non-polygonal standalone geometry
         meta["input_component_count"] = 1
         meta["nonpolygon_component_drop_count"] = 1
+
         return None, meta
-
-    def _has_overlaps(self, gdf: gpd.GeoDataFrame) -> bool:
-        if gdf.empty or len(gdf) < 2:
-            return False
-
-        geoms = list(gdf.geometry)
-        for i in range(len(geoms)):
-            gi = geoms[i]
-            if gi is None or gi.is_empty:
-                continue
-
-            for j in range(i + 1, len(geoms)):
-                gj = geoms[j]
-                if gj is None or gj.is_empty:
-                    continue
-
-                if not gi.intersects(gj):
-                    continue
-
-                inter = gi.intersection(gj)
-                if not inter.is_empty and inter.area > 0:
-                    return True
-
-        return False
