@@ -41,7 +41,11 @@ def infer_operator(buffer_distance) -> dict:
     '''Tab 2 rule: turn the spreadsheet Buffer_Distance into an operator block.
     A blank or zero distance is an overlap (intersect); a positive distance is
     a within_distance buffer of that many metres. This is what keeps the buffer
-    distance out of the dataset name string.'''
+    distance out of the dataset name string.
+
+    Tab 2 only ever yields overlay or within_distance - the spreadsheet carries
+    no k or tolerance. If Tab 2 datasets ever need nearest or adjacency, this is
+    the function to revise (the operator model already supports all four types).'''
     if buffer_distance is None or pd.isna(buffer_distance) or float(buffer_distance) <= 0:
         return {"type": "overlay"}
     return {"type": "within_distance", "distance_m": float(buffer_distance)}

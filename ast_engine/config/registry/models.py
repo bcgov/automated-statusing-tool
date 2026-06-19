@@ -16,6 +16,15 @@ logger = logging.getLogger(__name__)
 # These four type names match the orchestrator's analysis names and the
 # operator functions one-to-one (overlay.intersection,
 # proximity.within_distance, proximity.nearest, adjacent.adjacency).
+#
+# Both registries share this same block, but fill it in differently:
+#   - Tab 2 (spreadsheet) sets it automatically from Buffer_Distance, so it only
+#     ever produces overlay or within_distance.
+#   - Tab 1 (hand-written YAML) sets it directly and can use any of the four
+#     types - nearest and adjacency live here.
+# The block accepts all four types from either source, so adding nearest or
+# adjacency to Tab 2 in the future only means revising the spreadsheet inference
+# (utils.infer_operator), not this model.
 
 class OverlaySpec(BaseModel):
     type: Literal["overlay"] = "overlay"
