@@ -51,7 +51,7 @@ def main() -> None:
             "Fields_to_Summarize5",
             "Fields_to_Summarize6",
         ],
-        "definition": "Definition_Query",
+        "definition_query": "Definition_Query",
     }
 
     datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
