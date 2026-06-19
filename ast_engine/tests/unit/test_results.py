@@ -107,3 +107,57 @@ def test_bundle_roundtrip_json():
     
     assert restored.job_id == "test_job"
     assert len(restored.results) > 0
+
+
+# ---------------------------------------------------------------------------
+# Added during review - feature_count, an empty adjacency, and a round-trip
+# that checks every result type comes back as the right type.
+# ---------------------------------------------------------------------------
+
+def test_feature_count_is_number_of_features():
+    """feature_count is the number of features, separate from the headline measure."""
+    result = ProximityResult(
+        features=[
+            FeatureRecord(feature_id="f1", measure=100.0),
+            FeatureRecord(feature_id="f2", measure=50.0),
+        ]
+    )
+    assert result.feature_count == 2
+    assert result.measure_value == 50.0  # nearest distance, not the count
+
+
+def test_empty_adjacency_reports_zero():
+    """An adjacency result with nothing adjacent sums to 0."""
+    result = AdjacencyResult(is_adjacent=False, features=[])
+    assert result.feature_count == 0
+    assert result.measure_value == 0.0
+
+
+def test_roundtrip_preserves_each_result_type():
+    """A bundle holding all five result types survives JSON, and each one comes
+    back as the right type with its measure intact (what operator_type is for)."""
+    group = DatasetResultGroup(
+        dataset_id="ds1",
+        dataset_name="Mixed",
+        results=[
+            PolyOverlayResult(total_area=1500.5),
+            LineOverlayResult(total_length=2000.0),
+            PointOverlayResult(features=[
+                FeatureRecord(feature_id="p1"), FeatureRecord(feature_id="p2"),
+            ]),
+            ProximityResult(features=[FeatureRecord(feature_id="f1", measure=50.0)]),
+            AdjacencyResult(is_adjacent=True, features=[FeatureRecord(feature_id="n1", measure=10.0)]),
+        ],
+    )
+    bundle = AstResults(job_id="j", aoi_id="aoi", results=[group])
+
+    restored = AstResults.model_validate_json(bundle.model_dump_json())
+    results = restored.results[0].results
+
+    # each result keeps its type through the round-trip
+    assert [type(r) for r in results] == [
+        PolyOverlayResult, LineOverlayResult, PointOverlayResult,
+        ProximityResult, AdjacencyResult,
+    ]
+    # and its headline measure is still correct
+    assert [r.measure_value for r in results] == [1500.5, 2000.0, 2.0, 50.0, 10.0]
