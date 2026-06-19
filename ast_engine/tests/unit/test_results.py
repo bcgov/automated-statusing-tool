@@ -110,7 +110,7 @@ def test_bundle_roundtrip_json():
 
 
 # ---------------------------------------------------------------------------
-# Added during review - feature_count, an empty adjacency, and a round-trip
+# Added by Moez - feature_count, an empty adjacency, and a round-trip
 # that checks every result type comes back as the right type.
 # ---------------------------------------------------------------------------
 
