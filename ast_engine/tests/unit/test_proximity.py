@@ -42,7 +42,7 @@ from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfIntere
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, DatasetInfo
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter, SpatialFilter
 from ast_engine.core.operator.proximity import (
-    within_distance, nearest, _require_projected, _default_read_options 
+    within_distance, nearest, _default_read_options 
 )
 
 
@@ -150,7 +150,7 @@ def test_default_read_options():
     assert set(opts.keep_columns) == {"Id", "Colour"}
 
 
-def test_build_results():
+def test_build_results_within_distance():
     """Check kept columns (Colour) and feature IDs come back on the result.
     "FID" is not a real column here, so the feature_id falls back to the row number."""
     test = within_distance(
@@ -165,6 +165,23 @@ def test_build_results():
     assert [f.properties.get("Colour") for f in test.features] == ["Green", "Blue"]
     # extract_feature_id: no real "FID" column, so IDs fall back to distinct row numbers
     assert len({f.feature_id for f in test.features}) == 2
+
+def test_build_results_nearest():
+    """Check kept columns (Colour) and feature IDs come back on the result.
+    "FID" is not a real column here, so the feature_id falls back to the row number."""
+    test = nearest(
+        aoi=_valid_aoi(),
+        adapter=FileSpatialAdapter(),
+        distance_m=12,
+        feature_id_field="FID",
+        keep_properties=["Colour"],
+        path = MULTIPOINT,
+    )
+    # extract_properties: the Colour column comes through (3 m point then 10 m point)
+    assert [f.properties.get("Colour") for f in test.features] == ["Green", "Blue"]
+    # extract_feature_id: no real "FID" column, so IDs fall back to distinct row numbers
+    assert len({f.feature_id for f in test.features}) == 2
+
 
 
 # ---------------------------------------------------------------------------
