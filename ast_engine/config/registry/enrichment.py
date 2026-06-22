@@ -16,6 +16,10 @@ class Enrich():
     # File datasources end in one of these, or carry a path; everything else is
     # a BCGW table named SCHEMA.TABLE.
     GEO_EXTENSIONS = (".gdb", ".gpkg", ".shp", ".geojson", ".kml", ".kmz")
+    # Feature-id column names to look for, in priority order. OBJECTID should cover
+    # every BCGW table and most file feature classes; FID might be the case for some shapefiles.
+    # If none are present we leave unique_id unset and the operators fall back to the row index.
+    ID_FIELD_CANDIDATES = ("OBJECTID", "FID")
     def __init__(self, base: BaseDataset, connection=None, cursor=None):
         # enrichment state
         self.id: Optional[str]
@@ -77,13 +81,39 @@ class Enrich():
             self.enrich_from_oracle()
         else:
             raise ValueError('Datasource data adapter could not be resolved')    
+    def _resolve_unique_id(self, authored: Optional[str]) -> Optional[str]:
+        # Resolve the feature-id column against the real columns from describe().
+        # An author-set value must be a real column - we return it in the
+        # column's own casing so the operators match it exactly. When it isn't a
+        # column we raise, rather than let it silently fall back to the row index
+        # at run time. With no author value we default to OBJECTID / FID, or None
+        # when neither is present (the operators then use the row index).
+        by_upper = {c.upper(): c for c in (self.columns or [])}
+        if authored:
+            match = by_upper.get(authored.upper())
+            if match is None:
+                raise ValueError(
+                    f"unique_id {authored!r} for dataset {self.base.name!r} is "
+                    f"not a column of {self.base.datasource!r}. Available "
+                    f"columns: {sorted(self.columns or [])}. Leave unique_id "
+                    f"blank to auto-pick OBJECTID / FID."
+                )
+            return match
+        for candidate in self.ID_FIELD_CANDIDATES:
+            if candidate in by_upper:
+                return by_upper[candidate]
+        return None
+
     def build(self) -> RegistryDataset:
         '''
         Builds RegistryDataset from BaseDataset via metadata Enrichment
         '''
-        
+        data = self.base.model_dump(by_alias=True)
+        # Resolve the feature id against the real columns: validate an author-set
+        # value, or default to OBJECTID / FID when blank.
+        data["unique_id"] = self._resolve_unique_id(data.get("unique_id"))
         return RegistryDataset(
-            **self.base.model_dump(by_alias=True),
+            **data,
             id=self.id,
             columns=self.columns,
             geom_column=self.geom_column,
