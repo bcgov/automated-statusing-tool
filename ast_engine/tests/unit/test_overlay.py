@@ -204,7 +204,6 @@ def test_build_results():
     test = intersection(
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
-        distance_m=12,
         feature_id_field="FID",
         keep_properties=["Name"],
         path = POINTS,
