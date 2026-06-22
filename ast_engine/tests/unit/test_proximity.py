@@ -21,8 +21,16 @@ HOW TO EXTEND:
 
 
 Example:
-def 
-def 
+def test_3_within_distance()
+def test_10_within_distance()
+def test_2000_within_distance()
+def test_nearest_k()
+def test_default_read_options()
+def test_build_results()
+def test_far_point_excluded()
+def test_within_distance_keeps_closest_first()
+def test_nearest_k_limits_count()
+def test_nearest_max_distance_cap()
 
 """
 
