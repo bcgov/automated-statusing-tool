@@ -1,7 +1,7 @@
 # ast/ast_engine/storage/manifest.py
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import yaml
 
