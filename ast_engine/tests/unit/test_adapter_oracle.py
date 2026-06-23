@@ -26,6 +26,7 @@ from ast_engine.core.data_adapters.oracle import utils
 from ast_engine.core.data_adapters.oracle.utils import _gtype_to_geometry_type
 from ast_engine.core.data_adapters.base import ReadOptions, SpatialFilter
 from ast_engine.core.data_adapters.exceptions import DataReadError
+from ast_engine.config.registry.query import definition_to_where
 
 
 TABLE = "WHSE_TEST.FAKE_TABLE"
@@ -163,6 +164,40 @@ def test_oracle_adapter_passes_k_for_nearest(_mock_adapter, _aoi):
 
 
 # ---------------------------------------------------------------------------
+# Structured where filter -> Oracle SQL push-down
+# (the registry's where model is compiled to Oracle SQL and added to the SDO
+# query's WHERE clause, then cleared so the base post-filter does not re-apply
+# it on top of the already-filtered result.)
+# ---------------------------------------------------------------------------
+
+def test_oracle_adapter_compiles_where_into_sql(_mock_adapter, _aoi):
+    """A structured where filter is compiled to Oracle SQL and pushed into the
+    SDO query."""
+    adapter, cursor = _mock_adapter
+    opts = ReadOptions(
+        spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects"),
+        where=definition_to_where("STATUS = 'ACTIVE'"),
+    )
+    adapter._read_impl(read_options=opts, table=TABLE)
+
+    sql = cursor.execute.call_args.args[0]
+    assert "\"STATUS\" = 'ACTIVE'" in sql
+
+
+def test_oracle_adapter_clears_where(_mock_adapter, _aoi):
+    """After the read, where must be None so the base post-filter does not
+    re-apply it on top of the SDO WHERE clause."""
+    adapter, _ = _mock_adapter
+    opts = ReadOptions(
+        spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects"),
+        where=definition_to_where("STATUS = 'ACTIVE'"),
+    )
+    adapter._read_impl(read_options=opts, table=TABLE)
+
+    assert opts.where is None
+
+
+# ---------------------------------------------------------------------------
 # describe() - build-time metadata
 # (the metadata helpers are patched, so no Oracle is touched; we check that
 # describe() assembles them into a DatasetInfo.)
@@ -184,6 +219,59 @@ def test_oracle_adapter_describe(monkeypatch):
     assert info.geometry_type == "polygon"
     assert info.columns == ["OBJECTID", "SHAPE"]
     assert info.row_count == 42
+
+
+def test_oracle_adapter_describe_empty_table_geometry_unknown(monkeypatch):
+    """An empty table has a metadata SRID but no feature to read SDO_GTYPE
+    from. describe() must record geometry_type='unknown' and not raise."""
+    monkeypatch.setattr(utils, "get_geometry_column", lambda *a, **k: "SHAPE")
+    monkeypatch.setattr(utils, "get_srid", lambda *a, **k: 3005)
+    monkeypatch.setattr(utils, "get_geometry_type", lambda *a, **k: None)
+    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID", "SHAPE"])
+    monkeypatch.setattr(utils, "get_row_count", lambda *a, **k: 0)
+
+    adapter = OracleAdapter(connection=MagicMock(), cursor=MagicMock())
+    info = adapter.describe(table=TABLE)
+
+    assert info.crs == "EPSG:3005"
+    assert info.geometry_type == "unknown"
+    assert info.row_count == 0
+
+
+# ---------------------------------------------------------------------------
+# get_srid - SRID read from SDO metadata (works for empty tables), with a
+# row-sample fallback, and BCGW Albers mirror SRID normalized to real EPSG.
+# (_read_query is faked so no Oracle is touched.)
+# ---------------------------------------------------------------------------
+
+def test_oracle_get_srid_uses_metadata_when_row_sample_empty(monkeypatch):
+    """When the table is empty the row-sample query returns no row; get_srid
+    must still return the SRID recorded in ALL_SDO_GEOM_METADATA."""
+    import pandas as pd
+
+    def fake_read_query(cursor, sql, binds):
+        if "all_sdo_geom_metadata" in sql.lower():
+            return pd.DataFrame({"SP_REF": [3005]})
+        if "rownum" in sql.lower():
+            return pd.DataFrame({"SP_REF": []})   # empty table - no row
+        raise AssertionError(f"unexpected query: {sql}")
+
+    monkeypatch.setattr(utils, "_read_query", fake_read_query)
+    assert utils.get_srid(MagicMock(), MagicMock(), TABLE, "SHAPE") == 3005
+
+
+def test_oracle_get_srid_normalizes_bcgw_mirror(monkeypatch):
+    """The BCGW Albers mirror SRID 1000003005 is not a real EPSG code; get_srid
+    must normalize it to EPSG:3005."""
+    import pandas as pd
+
+    def fake_read_query(cursor, sql, binds):
+        if "all_sdo_geom_metadata" in sql.lower():
+            return pd.DataFrame({"SP_REF": [1000003005]})
+        raise AssertionError(f"unexpected query: {sql}")
+
+    monkeypatch.setattr(utils, "_read_query", fake_read_query)
+    assert utils.get_srid(MagicMock(), MagicMock(), TABLE, "SHAPE") == 3005
 
 
 # ---------------------------------------------------------------------------

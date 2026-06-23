@@ -1,9 +1,57 @@
-from typing import Optional, List, Union
-from pydantic import BaseModel,model_validator,field_validator
+from typing import Optional, List, Union, Literal, Annotated
+from pydantic import BaseModel,model_validator,field_validator,Field
 from .query import WhereClause, LogicalGroup,definition_to_where
 
 import logging
 logger = logging.getLogger(__name__)
+
+
+# --- Operator block --------------------------------------------------------
+# Per dataset: which analysis to run and the parameters it needs. The "type"
+# decides which parameters are valid:
+#   overlay          -> no parameters
+#   within_distance  -> distance_m
+#   nearest          -> k (+ optional max_distance_m)
+#   adjacency        -> tolerance_m
+# These four type names match the orchestrator's analysis names and the
+# operator functions one-to-one (overlay.intersection,
+# proximity.within_distance, proximity.nearest, adjacent.adjacency).
+#
+# Both registries share this same block, but fill it in differently:
+#   - Tab 2 (spreadsheet) sets it automatically from Buffer_Distance, so it only
+#     ever produces overlay or within_distance.
+#   - Tab 1 (hand-written YAML) sets it directly and can use any of the four
+#     types - nearest and adjacency live here.
+# The block accepts all four types from either source, so adding nearest or
+# adjacency to Tab 2 in the future only means revising the spreadsheet inference
+# (utils.infer_operator), not this model.
+
+class OverlaySpec(BaseModel):
+    type: Literal["overlay"] = "overlay"
+
+
+class WithinDistanceSpec(BaseModel):
+    type: Literal["within_distance"] = "within_distance"
+    distance_m: float
+
+
+class NearestSpec(BaseModel):
+    type: Literal["nearest"] = "nearest"
+    k: int = 1
+    max_distance_m: Optional[float] = None
+
+
+class AdjacencySpec(BaseModel):
+    type: Literal["adjacency"] = "adjacency"
+    tolerance_m: float = 0.0
+
+
+# the "type" value picks the matching spec above
+OperatorSpec = Annotated[
+    Union[OverlaySpec, WithinDistanceSpec, NearestSpec, AdjacencySpec],
+    Field(discriminator="type"),
+]
+
 
 class BaseDataset(BaseModel):
     # Core identifiers
@@ -16,7 +64,16 @@ class BaseDataset(BaseModel):
     
     # added
     where: Optional[WhereClause | LogicalGroup] = None
-    
+
+    # Which analysis to run + its parameters. Tab 2 fills this from the
+    # Buffer_Distance column at build time; the Tab 1 YAML sets it directly / hardcoded for now.
+    operator: Optional[OperatorSpec] = None
+
+    # Name of the column that uniquely identifies a feature (e.g. OBJECTID /
+    # FID). Normally left blank by the author and filled in during enrichment;
+    # None means the operators fall back to the row index.
+    unique_id: Optional[str] = None
+
     # early ensure aggregate_columns is a list
     @field_validator("aggregate_columns", mode="before")
     @classmethod

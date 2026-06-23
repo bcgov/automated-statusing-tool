@@ -33,6 +33,7 @@ from ast_engine.core.data_adapters.file.adapter import (
     _normalize_geometry_type,
 )
 from ast_engine.core.data_adapters.base import ReadOptions, SpatialFilter
+from ast_engine.config.registry.query import definition_to_where
 
 
 # Test data folder + one constant per supported format.
@@ -146,6 +147,23 @@ def test_file_adapter_definition_query():
     no_match = FileSpatialAdapter().read(
         path=SHP,
         read_options=ReadOptions(definition_query='Name == "no such shape"'),
+    )
+    assert len(no_match) == 0
+
+
+def test_file_adapter_where_filter():
+    """The structured where filter is compiled to SQLite and applied after the
+    read, keeping the geometry intact."""
+    match = FileSpatialAdapter().read(
+        path=SHP,
+        read_options=ReadOptions(where=definition_to_where("\"Name\" = 'Test Shape A'")),
+    )
+    assert len(match) == 1
+    assert match.geometry.notna().all()
+
+    no_match = FileSpatialAdapter().read(
+        path=SHP,
+        read_options=ReadOptions(where=definition_to_where("\"Name\" = 'no such shape'")),
     )
     assert len(no_match) == 0
 
