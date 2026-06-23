@@ -6,7 +6,7 @@ from pyproj import CRS
 import geopandas as gpd
 from shapely.geometry.base import BaseGeometry
 
-from .exceptions import AOIRequestError, DataCRSError, SpatialDataError, SpatialGeometryError, AOIPartBuilderError
+from .exceptions import AOIRequestError, DataCRSError, SpatialDataError, SpatialGeometryError, AOIPartBuildError
 from .utils import count_vertices, has_m, has_z
 
 
@@ -137,7 +137,7 @@ class AreaOfInterest:
         return self.properties.overlay_area_ha
     
     @property
-    def part_count(self) -> float:
+    def part_count(self) -> int:
         return self.properties.part_count
     
 
@@ -201,7 +201,7 @@ class AOIPart:
             raise SpatialDataError("Cannot build AOIPart from empty GeoDataFrame.")
 
         if len(gdf) != 1:
-            raise AOIPartBuilderError(
+            raise AOIPartBuildError(
                 f"AOIPart must be built from a one-row GeoDataFrame. Got {len(gdf)} rows."
             )
 
@@ -352,7 +352,7 @@ class AOIValidationResult:
         return tuple(i for i in self.issues if i.severity == "warning")
 
     @property
-    def info(self) -> tuple[ValidationIssue, ...]:
+    def infos(self) -> tuple[ValidationIssue, ...]:
         return tuple(i for i in self.issues if i.severity == "info")
 
 # ============================================================

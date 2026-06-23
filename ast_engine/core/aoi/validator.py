@@ -42,7 +42,7 @@ class AOIValidator:
         issues: list[ValidationIssue] = []
 
         # Validate AOI object for required properties
-        if gdf.empty or gdf is None:
+        if gdf is None or gdf.empty:
             issues.append(
                 ValidationIssue("error", "NO_GDF", "AOI has no Geopandas GeoDataFrame")
             )
