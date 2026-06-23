@@ -18,8 +18,11 @@ class S3ResultsStorageWriter(ResultsStorageWriter):
 
         self.client = boto3.client(
             "s3",
+            aws_access_key_id=config.access_id,
+            aws_secret_access_key=config.access_key,
             endpoint_url=config.endpoint_url,
-            region_name=config.region_name,
+            config=config.config,
+            use_ssl=config.use_ssl,
         )
 
     def put_file(
