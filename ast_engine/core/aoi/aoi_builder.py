@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import exc
-
 from .models import (
     AreaOfInterest,
     AOIBuildRequest,
@@ -157,7 +155,7 @@ class AOIBuilder:
                 aoi.aoi_id,
                 len(validation.errors),
                 len(validation.warnings),
-                len(validation.info),
+                len(validation.infos),
             )
 
         elif validation.has_warnings:
@@ -165,12 +163,12 @@ class AOIBuilder:
                 "AOI validation completed with warnings | aoi_id=%s | warnings=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.warnings),
-                len(validation.info),
+                len(validation.infos),
             )
 
         else:
             logger.info(
                 "AOI validation passed | aoi_id=%s | infos=%s",
                 aoi.aoi_id,
-                len(validation.info),
+                len(validation.infos),
             )
