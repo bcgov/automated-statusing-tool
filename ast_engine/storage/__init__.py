@@ -17,7 +17,6 @@ def create_results_writer(context: JobStorageContext) -> ResultsStorageWriter:
         environment=application_config.AST_RESULTS_ENV,
         prefix=application_config.AST_RESULTS_PREFIX,
         endpoint_url=application_config.AST_RESULTS_S3_ENDPOINT_URL,
-        region_name=application_config.AWS_REGION,
         local_root=Path(application_config.AST_RESULTS_LOCAL_ROOT).resolve(),
     )
 
