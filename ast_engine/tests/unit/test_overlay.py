@@ -1,4 +1,3 @@
-
 """
 --------------------------------------------------------------------------
 Overlay operator test
@@ -17,9 +16,8 @@ Purpose:
     - Invalid AOIs are rejected
 
 Examples: 
-
-
-
+_valid_aoi()
+non_valid_aoi()
 
 --------------------------------------------------------------------------
 """
@@ -32,8 +30,16 @@ from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfIntere
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, DatasetInfo
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
 from ast_engine.core.operator.overlay import (
-    intersection, _default_read_options, _require_projected
+    intersection, 
+    _default_read_options, 
+    _infer_geom_kind, 
 )
+from ast_engine.core.results import (
+    LineOverlayResult,
+    PointOverlayResult,
+    PolyOverlayResult,
+)
+
 
 # ---------------------------------------------------------------------------
 # Test data
@@ -42,7 +48,6 @@ from ast_engine.core.operator.overlay import (
 DATA_DIR = Path(__file__).parents[1] / "data"
 SHP = DATA_DIR / "Test_Shape_A" / "Test_Shape_A_shp" / "Test_Shape_A.shp"
 
-
 """Data Structures are as follows.
 3 points, one inside Test Shape A, one on on the vertice, one well outside
 100m buffer around each of these points makes polygons layer - each has total area of ~3.14 ha. 
@@ -50,7 +55,6 @@ A polyline that roughly bisects polygons for 200m length total. """
 POINTS   = DATA_DIR / "Test_Overlay" / "points.shp"
 POLYGONS = DATA_DIR / "Test_Overlay" / "polygons.shp"
 POLYLINES = DATA_DIR / "Test_Overlay" / "polylines.shp"
-
 
 pytestmark = pytest.mark.unit
 
@@ -64,7 +68,6 @@ def _valid_aoi() -> AreaOfInterest:
     gdf = gpd.read_file(SHP)
     request = AOIRequest(aoi_id="test_aoi", name="Test AOI")
     return AOIBuilder().from_gdf(request, gdf)
-
 
 def non_valid_aoi() -> AreaOfInterest:
     """
@@ -284,3 +287,56 @@ def test_empty_returns_zero_area():
 
     assert test.total_area == 0.0
     assert test.features == []
+
+
+#=======================================================================
+# Geometry Tests
+#=======================================================================
+
+def test_pnt_geom_type(): 
+    pnt_gdf = gpd.read_file(POINTS)
+    point = _infer_geom_kind(pnt_gdf)
+    assert point == 'point'
+    
+def test_line_geom_type(): 
+    line_gdf = gpd.read_file(POLYLINES)
+    line = _infer_geom_kind(line_gdf)
+    assert line ==  'line'
+
+def test_poly_geom_type(): 
+    poly_gdf = gpd.read_file(POLYGONS)
+    poly = _infer_geom_kind(poly_gdf)
+    assert poly == 'polygon'
+
+def test_empty_input(): 
+    gdf = gpd.GeoDataFrame() 
+    empty = _infer_geom_kind(gdf)
+    assert empty == 'polygon'
+
+
+#=======================================================================
+# Want to make sure that the intersection reads the geometry parameter correctly 
+#=======================================================================
+
+
+def test_geom_type_override_returns_correct_result_types():
+    """Explicit geom_type should control the returned result object for all cases."""
+
+    scenarios = [
+        (POINTS, "polygon", PolyOverlayResult),
+        (POINTS, "line", LineOverlayResult),
+        (POLYGONS, "point", PointOverlayResult),
+    ]
+
+    for path, geom_type, expected_type in scenarios:
+        result = intersection(
+            aoi=_valid_aoi(),
+            adapter=FileSpatialAdapter(),
+            geom_type=geom_type,
+            path=path,
+        )
+
+        assert isinstance(result, expected_type)
+
+
+
