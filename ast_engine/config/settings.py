@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     validate_oracle_connection: bool = True
     validate_required_paths: list[str] = []  # Paths to check exist
     
+    #S3 Connections 
+    s3_maxretires: int
+    s3_retry_Mode: Literal["standard"] = "standard"
+
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
