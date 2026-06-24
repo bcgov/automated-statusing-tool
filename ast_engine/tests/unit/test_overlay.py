@@ -202,7 +202,7 @@ def test_default_read_options_overlay():
 
     
 def test_build_results():
-    """Check kept columns (Colour) and feature IDs come back on the result.
+    """Check kept columns (Name) and feature IDs come back on the result.
     "FID" is not a real column here, so the feature_id falls back to the row number."""
     test = intersection(
         aoi=_valid_aoi(),
@@ -211,7 +211,7 @@ def test_build_results():
         keep_properties=["Name"],
         path = POINTS,
     )
-    # extract_properties: the Colour column comes through (3 m point then 10 m point)
+    # extract_properties: the Name column comes through for the points inside the AOI
     assert [f.properties.get("Name") for f in test.features] == ["First", "Second"]
     # extract_feature_id: no real "FID" column, so IDs fall back to distinct row numbers
     assert len({f.feature_id for f in test.features}) == 2
@@ -237,7 +237,7 @@ class RecordingAdapter(BaseSpatialAdapter):
 
     It does not read a file - it stores the read_options it was handed and
     returns an empty result, so we can confirm the operator asks for the right
-    search (within_distance vs nearest, with the right distance / k).
+    search (the 'intersects' filter for overlay).
     """
 
     def __init__(self):
