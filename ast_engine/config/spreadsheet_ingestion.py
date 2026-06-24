@@ -21,6 +21,7 @@ import sys
 from pathlib import Path
 
 from ast_engine.config.registry import enrichment, utils, models
+from ast_engine.core.data_adapters.exceptions import DataReadError
 from ast_engine.core.data_adapters.oracle import OracleConnection
 
 
@@ -60,13 +61,20 @@ def main() -> None:
     # One BCGW connection, reused to enrich every Oracle dataset in the build.
     user, password, host = get_credentials()
     base_datasets_list = []
+    error_list = []
     with OracleConnection(user, password, host) as (conn, cursor):
         for dataset in hydrated:
             print(dataset)
-            enriched = enrichment.Enrich(dataset, connection=conn, cursor=cursor)
-            enriched.enrich()
-            base_datasets_list.append(enriched.build())
+            try:
+                enriched = enrichment.Enrich(dataset, connection=conn, cursor=cursor)
+                enriched.enrich()
+                base_datasets_list.append(enriched.build())
+            except (ValueError, DataReadError):
+                error_list.append(dataset)
+                print("ERROR")
+                continue
 
+    print(error_list)
     registry = models.Registry(version="0.1", datasets=base_datasets_list)
     utils.dump_yaml(registry, Path(yaml_out))
 

@@ -44,11 +44,12 @@ class Enrich():
         # Map the adapter's DatasetInfo onto the enrichment fields. The field
         # names line up 1:1, and geometry_type is already lowercase
         # ("point" / "line" / "polygon").
-        self.columns = info.columns
-        self.crs = info.crs
-        self.geom_column = info.geom_column
-        self.geometry_type = info.geometry_type
-        self.row_count = info.row_count
+        if info is not None:
+            self.columns = info.columns
+            self.crs = info.crs
+            self.geom_column = info.geom_column
+            self.geometry_type = info.geometry_type
+            self.row_count = info.row_count
     def enrich_from_file(self):
         # read the file's metadata without loading all of its features
         info = FileSpatialAdapter().describe(path=self.base.datasource)
