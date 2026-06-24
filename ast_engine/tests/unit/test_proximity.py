@@ -172,7 +172,7 @@ def test_build_results_nearest():
     test = nearest(
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
-        distance_m=12,
+        k=2,
         feature_id_field="FID",
         keep_properties=["Colour"],
         path = MULTIPOINT,
