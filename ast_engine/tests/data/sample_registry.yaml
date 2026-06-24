@@ -16,7 +16,8 @@ datasets:
     geom_column: "GEOMETRY"
     geometry_type: "POLYGON"
     crs: "EPSG:3005"
-    data_adapter: "bcgw"
+    data_adapter: "ORACLE"
+    row_count: 7027
 
   - id: "1201d29f-0dce-4f67-92af-520d53a3145c"
     name: "Natural Resource Districts"
@@ -35,4 +36,5 @@ datasets:
     geom_column: "GEOMETRY"
     geometry_type: "POLYGON"
     crs: "EPSG:3005"
-    data_adapter: "bcgw"
+    data_adapter: "ORACLE"
+    row_count: 23
