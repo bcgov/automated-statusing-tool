@@ -1,9 +1,9 @@
-# ast_engine/utils/logging_config.py
 import logging.config
 import sys
-from ast_engine.model_config import settings
+from ast_engine.config.settings import Settings
 
 def setup_logging():
+    """Configure logging based on settings."""
     config = {
         "version": 1,
         "disable_existing_loggers": False,
@@ -18,23 +18,23 @@ def setup_logging():
                 "class": "logging.StreamHandler",
                 "stream": sys.stdout,
                 "formatter": "standard",
-                "level": settings.log_level.upper(),
+                "level": Settings.log_level,
             },
         },
         "root": {
             "handlers": ["console"],
-            "level": settings.log_level.upper(),
+            "level": Settings.log_level,
         },
     }
-
-    if settings.log_file:
+    
+    if Settings.log_file:
         config["handlers"]["file"] = {
             "class": "logging.FileHandler",
-            "filename": settings.log_file,
+            "filename": Settings.log_file,
             "formatter": "standard",
-            "level": settings.log_level.upper(),
-            "encoding": "utf-8",
+            "level": Settings.log_level,
         }
         config["root"]["handlers"].append("file")
-
+    
     logging.config.dictConfig(config)
+    return logging.getLogger(__name__)
