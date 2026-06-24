@@ -1,3 +1,12 @@
+"""
+Definition-query parser.
+
+Reads dataset Definition_Query SQL string and turns it into the
+structured `where` model for the registry. 
+
+The compiler in core/data_adapters/where_compiler.py turns that model back into SQL.
+"""
+
 from typing import Optional, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator
 import sqlglot
@@ -21,10 +30,22 @@ Operator = Literal[
     "is_not_null",
 ]
 
+class CurrentDate(BaseModel):
+    """Marker meaning "today's date, resolved when the compiling the SQL".
+    In the legacy def queries CURRENT_DATE (e.g. "EXPIRY_DATE" > CURRENT_DATE) is a
+    SQL function, not a fixed date - it means "today, as of the moment the query
+    runs". We keep it as this small marker instead of turning it into a real
+    date at load time, so a saved registry never goes stale. The compiler turns
+    it back into the plain CURRENT_DATE keyword, and the database (Oracle, Postgres..) 
+    fills in today's date itself each time the query runs.
+    """
+    func: Literal["current_date"] = "current_date"
+
+
 class Condition(BaseModel):
     field: str
     op: Operator
-    value: str | int | float | list[str | int | float] | None = None
+    value: str | int | float | list[str | int | float] | CurrentDate | None = None
 
     @field_validator("value")
     @classmethod
@@ -57,13 +78,14 @@ class Condition(BaseModel):
     
 
 class LogicalGroup(BaseModel):
-    and_: Optional[list["WhereClause"]] = Field(default=None, alias="and")
-    or_: Optional[list["WhereClause"]] = Field(default=None, alias="or")
+    and_: Optional[list["WhereClause | LogicalGroup"]] = Field(default=None, alias="and")
+    or_: Optional[list["WhereClause | LogicalGroup"]] = Field(default=None, alias="or")
 
     @model_validator(mode="after")
     def validate_group(self):
         if not self.and_ and not self.or_:
             raise ValueError("LogicalGroup must define 'and' or 'or'")
+        return self
     
 
 class WhereClause(BaseModel):
@@ -82,9 +104,15 @@ def _convert(expr):
     """
 
     # ------------------------
+    # Parentheses - unwrap and convert the inner expression
+    # ------------------------
+    if isinstance(expr, exp.Paren):
+        return _convert(expr.this)
+
+    # ------------------------
     # Logical groups
     # ------------------------
-    
+
     if isinstance(expr, exp.Is):
         if isinstance(expr.expression, exp.Null):
             return WhereClause(
@@ -130,6 +158,17 @@ def _convert(expr):
                 ]
             )
 
+        # Handle IS NOT NULL
+        if isinstance(inner, exp.Is) and isinstance(inner.expression, exp.Null):
+            return WhereClause(
+                conditions=[
+                    Condition(
+                        field=inner.this.name,
+                        op="is_not_null",
+                    )
+                ]
+            )
+
         # Future: NOT IN, NOT BETWEEN, etc.
         raise NotImplementedError(f"Unsupported NOT expression: {type(inner)}")
 
@@ -138,6 +177,7 @@ def _convert(expr):
     # ------------------------
     BINARY_OPS = {
         exp.EQ: "=",
+        exp.NEQ: "!=",
         exp.GT: ">",
         exp.LT: "<",
         exp.GTE: ">=",
@@ -178,7 +218,7 @@ def _convert(expr):
             conditions=[
                 Condition(
                     field=expr.this.name,
-                    op="like",
+                    op="not_like" if expr.args.get("negate") else "like",
                     value=_get_value(expr.expression),
                 )
             ]
@@ -190,9 +230,21 @@ def _convert(expr):
     raise NotImplementedError(f"Unsupported expression: {type(expr)}")
 
 def _get_value(node):
-    if hasattr(node, "name"):
-        return node.name
-    return node.this
+    '''
+    CURRENT_DATE is a SQL function for "today's date", not a literal. Keep it as a
+    symbolic marker so it stays "today" whenever the query runs, instead of
+    being baked into a fixed date here (see CurrentDate).
+    '''
+    if isinstance(node, exp.CurrentDate):
+        return CurrentDate()
+    if isinstance(node, exp.Literal):
+        if node.is_string:
+            return node.this
+        try:
+            return int(node.this)
+        except ValueError:
+            return float(node.this)
+    raise ValueError(f"Unsupported value expression: {node.sql()}")
 
 def definition_to_where(definition_query: str):
     parsed = sqlglot.parse_one(definition_query)

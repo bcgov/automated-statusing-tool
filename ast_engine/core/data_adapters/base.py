@@ -2,8 +2,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 import geopandas as gpd
 from .exceptions import DataCrsError
+from .where_compiler import compile_where, filter_gdf_with_sql
 
-from typing import Iterable
+from typing import Any, Iterable
 
 # the spatial relationships a SpatialFilter can describe
 _SPATIAL_PREDICATES = ("intersects", "within_distance", "touches", "nearest")
@@ -68,11 +69,18 @@ class ReadOptions:
         self,
         *,
         spatial_filter: SpatialFilter | None = None,
+        where: Any = None,
         definition_query: str | None = None,
         keep_columns: Iterable[str] | None = None,
     ):
         # spatial_filter pushes an AOI filter down to the source.
         self.spatial_filter = spatial_filter
+        # where: the dataset's structured attribute filter (a WhereClause /
+        # LogicalGroup from the registry). Each adapter compiles it to its own
+        # SQL dialect - the Oracle adapter into the SDO query, the file adapter
+        # into an in-memory SQLite filter. This is the preferred attribute
+        # filter; definition_query below is the older raw-SQL-string fallback.
+        self.where = where
         self.definition_query = definition_query
         self.keep_columns = list(keep_columns) if keep_columns else None
 
@@ -157,10 +165,19 @@ class BaseSpatialAdapter(ABC):
         opts: ReadOptions,
     ) -> gpd.GeoDataFrame:
         # Adapters that pushed these down clear them first (see consume-and-clear
-        # in OracleAdapter and FileSpatialAdapter). What is left here is the
-        # fallback for fields the adapter could not handle at the source - the
-        # file adapter relies on this for definition_query and keep_columns.
-        if opts.definition_query:
+        # in OracleAdapter). What is left here is the fallback for fields the
+        # adapter could not handle at the source - the file adapter relies on
+        # this for the attribute filter and keep_columns.
+        if opts.where is not None:
+            # Preferred path: compile the structured filter to SQLite and run it
+            # against the file's attributes in an in-memory table (geometry is
+            # kept intact). This is how file datasets apply the same filter the
+            # registry built.
+            where_sql = compile_where(opts.where, dialect="sqlite")
+            gdf = filter_gdf_with_sql(gdf, where_sql)
+        elif opts.definition_query:
+            # Legacy fallback: a raw query string applied with pandas' own
+            # syntax. Kept for callers that still pass definition_query directly.
             gdf = gdf.query(opts.definition_query)
 
         if opts.keep_columns:

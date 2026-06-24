@@ -10,6 +10,7 @@ import geopandas as gpd
 import oracledb
 from ..base import BaseSpatialAdapter, DatasetInfo, ReadOptions
 from ..exceptions import DataCrsError, DataReadError
+from ..where_compiler import compile_where
 
 from . import queries, utils
 from .geometry import aoi_to_wkb_srid, df_to_gdf
@@ -39,10 +40,10 @@ class OracleAdapter(BaseSpatialAdapter):
 
         The spatial filter (AOI + predicate + distance/k) is read from
         read_options.spatial_filter and the attribute filter from
-        read_options.definition_query. Both are pushed down into the SDO
-        query. _read clears definition_query afterwards so the base class
-        post-filter does not re-apply it on top of the already-filtered
-        result.
+        read_options.where (compiled to Oracle SQL), falling back to a raw
+        read_options.definition_query string. Both are pushed down into the SDO
+        query. _read clears the attribute filter afterwards so the base class
+        post-filter does not re-apply it on top of the already-filtered result.
         """
         try:
             return self._read(read_options=read_options, table=table)
@@ -58,10 +59,10 @@ class OracleAdapter(BaseSpatialAdapter):
     ) -> gpd.GeoDataFrame:
         # 1. Read the spatial filter (AOI + predicate + distance/k) and the
         # attribute filter from ReadOptions. Both are pushed down into the
-        # SDO query below. Clear definition_query so the base class post-
-        # filter does not re-apply it on top of the SDO WHERE clause.
-        # spatial_filter does not need clearing - the base post-filter does
-        # not read it. SpatialFilter has already validated the AOI,
+        # SDO query below. Clear the attribute filter (where / definition_query)
+        # so the base class post-filter does not re-apply it on top of the SDO
+        # WHERE clause. spatial_filter does not need clearing - the base post-
+        # filter does not read it. SpatialFilter has already validated the AOI,
         # predicate and distance/k.
         spatial_filter = read_options.spatial_filter
         if spatial_filter is None:
@@ -72,7 +73,12 @@ class OracleAdapter(BaseSpatialAdapter):
         predicate = spatial_filter.predicate
         distance = spatial_filter.distance
         k = spatial_filter.k
-        where = read_options.definition_query
+        # Build the attribute WHERE text. Prefer the structured filter compiled
+        # to Oracle SQL; fall back to a raw definition_query string if that is
+        # all the caller supplied. Clear both afterwards (consume-and-clear).
+        where_model = read_options.where
+        legacy_query = read_options.definition_query
+        read_options.where = None
         read_options.definition_query = None
 
         # 2. AOI -> WKB + SRID for bind variables
@@ -99,7 +105,13 @@ class OracleAdapter(BaseSpatialAdapter):
             raise DataReadError(
                 f"Oracle adapter has no SQL template for predicate {predicate!r}"
             )
-        def_query = f"AND ({where.strip()})" if where and where.strip() else ""
+        if where_model is not None:
+            compiled = compile_where(where_model, dialect="oracle")
+            def_query = f"AND ({compiled})" if compiled else ""
+        elif legacy_query and legacy_query.strip():
+            def_query = f"AND ({legacy_query.strip()})"
+        else:
+            def_query = ""
 
         format_args = {
             "cols": cols_csv,
@@ -162,10 +174,15 @@ class OracleAdapter(BaseSpatialAdapter):
             self.connection, self.cursor, table, geom_col
         )
         if geometry_type is None:
-            raise DataReadError(
-                f"Cannot determine geometry type for {table} "
-                "(table may be empty or hold a geometry type AST does not handle)"
+            # An empty table has no feature to read SDO_GTYPE from. The SRID
+            # came from metadata above, so the dataset still has a usable CRS;
+            # record the geometry type as unknown rather than failing the build.
+            logger.warning(
+                "Cannot determine geometry type for %s "
+                "(table may be empty); recording geometry_type='unknown'",
+                table,
             )
+            geometry_type = "unknown"
         return DatasetInfo(
             geom_column=geom_col,
             crs=f"EPSG:{srid}",
