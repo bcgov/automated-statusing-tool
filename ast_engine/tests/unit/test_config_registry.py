@@ -11,6 +11,11 @@ import pytest
 DATA_DIR = Path(__file__).parents[1] / "data" / "Test_Shape_A"
 SHP = DATA_DIR / "Test_Shape_A_shp" / "Test_Shape_A.shp"
 
+# A finished registry saved as YAML - the shape a registry takes on disk and
+# what the orchestrator loads at run time. Path is anchored to this file so the
+# test passes no matter which folder pytest runs from.
+SAMPLE_REGISTRY = Path(__file__).parents[1] / "data" / "sample_registry.yaml"
+
 DATA_DICT = [
         {
             "name": "Mapsheet",
@@ -26,6 +31,7 @@ DATA_DICT = [
     ]
 
 
+@pytest.mark.unit
 def test_util_hydrate_datasets():
     '''Test hydrate datasets from dict
     '''
@@ -36,14 +42,42 @@ def test_util_hydrate_datasets():
     assert basedatasets[1].datasource == "WHSE_ADMIN_BOUNDARIES.ADM_NR_DISTRICTS_SP"
 
 
-def test_util_load_yaml():
-    ''' Test create Registry from yaml
-    '''
-    registry = utils.load_yaml(Path('./tests/data/sample_registry.yaml'))
-    assert registry.version=="1.0"
-    assert len(registry.datasets)==2
-    assert registry.datasets[0].crs=="EPSG:3005"
+# ---------------------------------------------------------------------------
+# Load a saved registry from YAML - the archetype for working with the data
+# registry. A finished registry lives on disk as YAML; the orchestrator loads
+# it with load_yaml() and reads each dataset's fields to drive the pipeline.
+# This is the worked example of that read path - no database, no mocks, just
+# the sample registry data in the repo.
+# ---------------------------------------------------------------------------
 
+@pytest.mark.unit
+def test_load_registry_from_yaml():
+    '''Load the sample registry and read the fields a consumer relies on.'''
+    registry = utils.load_yaml(SAMPLE_REGISTRY)
+
+    # Registry-level: a version string and a list of datasets.
+    assert registry.version == "1.0"
+    assert len(registry.datasets) == 2
+
+    # Every entry comes back as a fully-typed RegistryDataset.
+    assert all(isinstance(d, models.RegistryDataset) for d in registry.datasets)
+
+    # Read the first dataset the way the orchestrator does.
+    mapsheet = registry.datasets[0]
+    assert mapsheet.name == "Mapsheet"
+    assert mapsheet.datasource == "WHSE_BASEMAPPING.BCGS_20K_GRID"
+    assert mapsheet.data_adapter == "ORACLE"          # which adapter to use
+    assert mapsheet.crs == "EPSG:3005"
+    assert mapsheet.geometry_type == "POLYGON"
+    assert "OBJECTID" in mapsheet.columns
+    assert mapsheet.aggregate_columns == ["MAP_TILE_DISPLAY_NAME"]
+
+    # definition_query is parsed into the structured `where` on load, so a
+    # consumer can compile it for either database without re-parsing the string.
+    assert mapsheet.definition_query == "FCODE = 'RG90020000'"
+    assert mapsheet.where is not None
+
+@pytest.mark.unit
 def test_hydrate_base_datasets():
     ''' Test dataset hydration'''
     indata = [DATA_DICT[0]]
@@ -79,6 +113,7 @@ def test_registry_creation(monkeypatch):
     assert output.version == "0.1"
     assert len(output.datasets) == 2
 
+@pytest.mark.unit
 def test_ingest_spreadsheet():
     ''' Test spreadsheet ingestion'''
     template_dict = {
@@ -95,8 +130,9 @@ def test_ingest_spreadsheet():
         "definition":"Definition_Query",
     }
 
-    data = utils.ingest_spreadsheet(template=template_dict, xlsx_in='./tests/data/Test_Registry.xlsx')
+    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(DATA_DIR.parent / "Test_Registry.xlsx"))
     assert len(data)>0
+@pytest.mark.unit
 def test_ingest_spreadsheet_to_model():
     ''' Test spreadsheet ingestion'''
     template_dict = {
@@ -113,7 +149,7 @@ def test_ingest_spreadsheet_to_model():
         "definition":"Definition_Query",
     }
 
-    data = utils.ingest_spreadsheet(template=template_dict, xlsx_in='./tests/data/Test_Registry.xlsx')
+    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(DATA_DIR.parent / "Test_Registry.xlsx"))
     dsets = utils.hydrate_base_datasets(data)
     assert len(dsets) > 0
 
