@@ -11,7 +11,7 @@ OracleAdapter unit tests (mock-test, no live Oracle connection)
 
 This test does NOT prove the SDO-SQL works against BCGW. 
 For that see we need BCGW coredentials and a real table. 
-That is tested in this seeprate script (not a pytest test) that we run manually:
+That is tested in this seperate script (not a pytest test) that we run manually:
   scripts/oracle_smoke.py
 
 """

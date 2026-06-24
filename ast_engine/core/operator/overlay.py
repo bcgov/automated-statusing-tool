@@ -1,156 +1,206 @@
 """
-Overlay analysis Operator. There is one analysis covered in this operator:
+Overlay analysis operator.
 
-  intersection: find every feature that intersects the AOI,
-                and puts these features in a list, sorted by area of overlap descending.
+  intersection: find every feature in a dataset that overlaps the AOI and
+                summarise the overlap.
 
-It return a list of PolyOverlayResult records sorted by overlap descending.
+Returns ONE overlay result per dataset (not one per feature). The result type
+follows the dataset's geometry:
+  - polygon datasets -> PolyOverlayResult, total_area   = summed overlap area (m2)
+  - line datasets    -> LineOverlayResult, total_length = summed overlap length (m)
+  - point datasets   -> PointOverlayResult, measure_value = feature count
+
+Each kept feature is one FeatureRecord. For polygons/lines its `measure` is its
+own overlap (area / length); points carry no per-feature measure (count only).
+Features are sorted by overlap descending.
 
 Notes:
-- This script is heavily influenced by Moez's work on the Proximity Operator. 
-- In the future, we may need to alter if the development team wants to adopt Pydantic more thoroughly.
-- 
-
-- From Moez: ⌄
-    - The AOI CRS must be projected (metres). Distances are always reported in
-    the CRS's native units, which we assume is metres for BC Albers (EPSG:3005).
-    - The adapter is called as-is. For Oracle, the caller passes the SDO
-    push-down kwargs (predicate / distance / k / aoi). For local file adapters
-    the dataset is read and filtered client-side 
-    - gpd.clip via ReadOptions.spatial_mask would alter feature geometries and
-    break distance computation, so this module avoids that path entirely (for now!).
+- The AOI CRS must be projected (metres); area/length are in the CRS's units,
+  assumed metres for BC Albers (EPSG:3005).
+- The "intersects" filter is pushed down to the adapter via a SpatialFilter; the
+  exact overlap is then computed client-side with shapely, so geometries are
+  never altered.
 """
-
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Literal
 
 import geopandas as gpd
 
-from ast_engine.core.aoi import AreaOfInterest
-from ast_engine.core.data_adapters.base import BaseSpatialAdapter, ReadOptions
-from ast_engine.core.results import FeatureRecord, PolyOverlayResult 
+from ..aoi import AreaOfInterest
+from ..data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
+from ..results import (
+    FeatureRecord,
+    LineOverlayResult,
+    PointOverlayResult,
+    PolyOverlayResult,
+)
 
-_AREA_COL = "_intersection_area_m2"
+_MEASURE_COL = "_overlay_measure"
 
+GeomKind = Literal["point", "line", "polygon"]
 
-def _require_projected(aoi: AreaOfInterest) -> None:
-    """Make sure the AOI is in a projected CRS for distance calculation.
-    Helper function that is used later. 
-    """
-    crs = aoi.gdf.crs
-    if crs is None or not crs.is_projected:
-        raise ValueError(
-            f"AOI {aoi.aoi_id} must be in a projected CRS for overlay analysis "
-            "(distances are computed in CRS units, expected metres)."
-        )
 
 def intersection(
     *,
     aoi: AreaOfInterest,
     adapter: BaseSpatialAdapter,
+    geom_type: GeomKind | None = None,
     feature_id_field: str | None = None,
     keep_properties: Iterable[str] | None = None,
     read_options: ReadOptions | None = None,
-    **adapter_kwargs,
-) -> list[PolyOverlayResult]:
-    """Return every feature that intersects the AOI, descending in area overlap.
+    **source_kwargs,
+) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
+    """Return one overlay result for the dataset, features sorted by overlap descending.
 
-    The caller is responsible for telling the adapter how to filter the candidate
-    set. For Oracle pass predicate='relate', area=area_m2, aoi=<aoi_gdf> via adapter_kwargs. 
-    For file adapters the dataset is
-    read and filtered.
+    geom_type, when given (from the dataset registry), selects the result type and
+    the overlap measure. When None it is inferred from the returned geometries.
+
+    The spatial push-down ("intersects") is built into the default ReadOptions;
+    an orchestrator can pass its own read_options instead. Dataset identity
+    (table for Oracle, path/layer for files) travels in source_kwargs.
     """
     _require_projected(aoi)
 
-    # Ask the adapter for the dataset features. 
-    # The orchestrator can pre-tell the adapter how to filter (Oracle uses predicate="relate"
+    # Ask the adapter for the candidate features (intersects pushed down).
     gdf = adapter.read(
-        read_options=read_options or _default_read_options(feature_id_field, keep_properties),
+        read_options=read_options or _default_read_options(aoi, feature_id_field, keep_properties),
         target_crs=str(aoi.gdf.crs),
-        **adapter_kwargs,
+        **source_kwargs,
     )
+
+    kind = geom_type or _infer_geom_kind(gdf)
     if gdf.empty:
-        return []
+        return _empty_result(kind)
 
-    #This is where the main analysis happens 
-    #Create gdf of all overlaying geometries from registry 
     aoi_geom = aoi.gdf.geometry.union_all()
-    
-    #Make a copy so nothing gets broken 
     gdf = gdf.copy()
+    # Per-feature overlap measure: area for polygons, length for lines, and for
+    # points a 1/0 "is it inside" flag so the > 0 filter keeps intersecting points
+    # instead of dropping them (points have no area or length).
+    gdf[_MEASURE_COL] = _overlap_measure(gdf.geometry, aoi_geom, kind)
+    gdf = gdf[gdf[_MEASURE_COL] > 0]
+    gdf = gdf.sort_values(_MEASURE_COL, ascending=False)
+
+    return _build_result(gdf, kind, feature_id_field, keep_properties)
 
 
-    gdf[_AREA_COL] = gdf.geometry.intersection(aoi_geom).area
+def _overlap_measure(
+    geoms: gpd.GeoSeries,
+    aoi_geom: Any,
+    kind: GeomKind,
+) -> Any:
+    """Overlap of each feature with the AOI, by geometry kind.
 
-    gdf = gdf[gdf[_AREA_COL] > 0]
-    gdf = gdf.sort_values(_AREA_COL, ascending=False)
+    polygon -> intersection area, line -> intersection length, point -> 1.0 if
+    the point falls inside the AOI else 0.0.
+    """
+    if kind == "polygon":
+        return geoms.intersection(aoi_geom).area
+    if kind == "line":
+        return geoms.intersection(aoi_geom).length
+    return geoms.intersects(aoi_geom).astype(float)
 
 
+def _build_result(
+    gdf: gpd.GeoDataFrame,
+    kind: GeomKind,
+    feature_id_field: str | None,
+    keep_properties: Iterable[str] | None,
+) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
+    """Turn the filtered/sorted rows into one typed overlay result.
 
-    # Hand the sorted rows to _build_results to turn them into the proper PolyOverlayResult records
-    return _build_results(gdf, feature_id_field, keep_properties)
+    Polygons/lines carry a per-feature `measure` (their own overlap) and a
+    dataset total (total_area / total_length = the sum). Points carry no
+    per-feature measure; their headline measure_value is the feature count.
+    """
+    keep_list = list(keep_properties) if keep_properties else []
+    has_measure = kind != "point"
+    features = [
+        FeatureRecord(
+            feature_id=_extract_feature_id(row, idx, feature_id_field),
+            properties=_extract_properties(row, keep_list),
+            measure=float(row[_MEASURE_COL]) if has_measure else None,
+        )
+        for idx, row in gdf.iterrows()
+    ]
+
+    if kind == "polygon":
+        total = float(gdf[_MEASURE_COL].sum()) if not gdf.empty else 0.0
+        return PolyOverlayResult(features=features, total_area=total)
+    if kind == "line":
+        total = float(gdf[_MEASURE_COL].sum()) if not gdf.empty else 0.0
+        return LineOverlayResult(features=features, total_length=total)
+    return PointOverlayResult(features=features)
+
+
+def _empty_result(kind: GeomKind) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
+    """An overlay result with no features, of the right type."""
+    if kind == "polygon":
+        return PolyOverlayResult(features=[], total_area=0.0)
+    if kind == "line":
+        return LineOverlayResult(features=[], total_length=0.0)
+    return PointOverlayResult(features=[])
+
+
+def _infer_geom_kind(gdf: gpd.GeoDataFrame) -> GeomKind:
+    """Map the dataset's geometry type to one of the three overlay kinds.
+
+    Empty frames default to polygon (the common case) - pass geom_type explicitly
+    when the dataset type is known (e.g. from the registry) to be sure.
+    """
+    types = set(gdf.geom_type.dropna().unique()) if not gdf.empty else set()
+    if any("Polygon" in t for t in types):
+        return "polygon"
+    if any("Line" in t for t in types):
+        return "line"
+    if any("Point" in t for t in types):
+        return "point"
+    return "polygon"
 
 
 def _default_read_options(
+    aoi: AreaOfInterest,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
 ) -> ReadOptions:
-    """Build a ReadOptions that keeps every column the operator needs downstream.
+    """Build a ReadOptions that pushes down the AOI ("intersects") and keeps the
+    columns the operator needs downstream.
 
-    Without this, passing keep_properties through `keep_columns` causes the base
-    adapter to drop feature_id_field, and the result builder falls back to the
-    row index. We always include feature_id_field in the keep set.
+    Without keep_columns, the base adapter could drop feature_id_field and the
+    result builder would fall back to the row index, so feature_id_field is always
+    included in the keep set.
     """
-    if not feature_id_field and not keep_properties:
-        return ReadOptions()
     keep: set[str] = set()
     if feature_id_field:
         keep.add(feature_id_field)
     if keep_properties:
         keep.update(keep_properties)
-    return ReadOptions(keep_columns=keep)
+    return ReadOptions(
+        spatial_filter=SpatialFilter(aoi=aoi.gdf, predicate="intersects"),
+        keep_columns=keep or None,
+    )
 
-def _build_results(
-    gdf: gpd.GeoDataFrame,
-    feature_id_field: str | None,
-    keep_properties: Iterable[str] | None,
-) -> list[PolyOverlayResult]:
-    """Turns the filtered/sorted GeoDataFrame into the typed PolyOverlayResult 
-        records the rest of the system expects.
 
-        For each row of the GeoDataFrame it builds one PolyOverlayResult containing:
-            - the area (pulled from the _intersection_area_m2 column)
-            - a FeatureRecord with the feature's ID and a dict of its other properties
-        
-        Returns the full list."""
-    if gdf.empty:
-        return []
-
-    keep_list = list(keep_properties) if keep_properties else []
-    results: list[PolyOverlayResult] = []
-    for idx, row in gdf.iterrows():
-        results.append(
-            PolyOverlayResult(
-                total_area=float(row[_AREA_COL]),
-                features=FeatureRecord(
-                    feature_id=_extract_feature_id(row, idx, feature_id_field),
-                    properties=_extract_properties(row, keep_list),
-                ),
-            )
+def _require_projected(aoi: AreaOfInterest) -> None:
+    """Make sure the AOI is in a projected CRS for area/length calculation."""
+    crs = aoi.gdf.crs
+    if crs is None or not crs.is_projected:
+        raise ValueError(
+            f"AOI {aoi.aoi_id} must be in a projected CRS for overlay analysis "
+            "(area/length are computed in CRS units, expected metres)."
         )
-    return results
 
 
 def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str:
     """Figures out the right ID for a feature.
 
         Tries in this order:
-        1. If the caller told us which column holds the ID (e.g., "OBJECTID") 
+        1. If the caller told us which column holds the ID (e.g., "OBJECTID")
            and that column exists on this row with a non-null value, use it.
         2. Otherwise, fall back to the row's positional index ("0", "1", …) so we always have some ID
-    
+
     """
     if feature_id_field and feature_id_field in row.index:
         value = row[feature_id_field]
@@ -166,7 +216,7 @@ def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | floa
         - Skip if the column isn't on this row.
         - Skip if the value is null.
         - If the value is already a string/int/float, keep it as-is.
-        - Anything else (dates, geometries, etc.), convert to string. 
+        - Anything else (dates, geometries, etc.), convert to string.
            This matches the FeatureRecord.properties type signature.
 
      Returns a {column_name: value} dict.

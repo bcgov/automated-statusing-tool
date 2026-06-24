@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ArcPro lock files and Windows sidecars
+*.sr.lock
+*Zone.Identifier
