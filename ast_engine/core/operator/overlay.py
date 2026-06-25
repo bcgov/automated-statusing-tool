@@ -56,7 +56,8 @@ def intersection(
     """Return one overlay result for the dataset, features sorted by overlap descending.
 
     geom_type, when given (from the dataset registry), selects the result type and
-    the overlap measure. When None it is inferred from the returned geometries.
+    the overlap measure. When None or unrecognized (e.g. "unknown" from an empty
+    table) it is inferred from the returned geometries.
 
     where, when given (the dataset's registry definition query), is pushed down as
     an attribute filter so only the matching features are read. The spatial
@@ -73,7 +74,10 @@ def intersection(
         **source_kwargs,
     )
 
-    kind = geom_type or _infer_geom_kind(gdf)
+    # Trust the registry geom_type only when it is a kind we handle; otherwise
+    # (None, or "unknown" from e.g. an empty table at build time) infer it from
+    # the geometries the adapter actually returned.
+    kind = geom_type if geom_type in ("point", "line", "polygon") else _infer_geom_kind(gdf)
     if gdf.empty:
         return _empty_result(kind)
 
