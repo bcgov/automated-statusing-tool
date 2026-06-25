@@ -17,7 +17,10 @@ def load_yaml(file_path: Path) -> Registry:
 def dump_yaml(registry: Registry, file_path: Path):
     logger.debug(f"Dumping YAML file {file_path}")
     with open(file_path, "w") as f:
-        yaml.dump(registry.model_dump(), f, sort_keys=False)
+        # by_alias=True so a where LogicalGroup is written with its 'and' / 'or'
+        # keys (not the Python field names 'and_' / 'or_'); otherwise load_yaml
+        # cannot parse the where back. Matches enrichment.build()'s dump.
+        yaml.dump(registry.model_dump(by_alias=True), f, sort_keys=False)
 
 def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     '''Hydrates a list of BaseDatasets from a dictionary
