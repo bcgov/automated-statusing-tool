@@ -21,6 +21,9 @@ class AOIRequestError(AOIError):
 class AOINormalizationError(AOIError):
     """Raised when AOI normalization fails."""
 
+class AOIInspectionError(AOIError):
+    """Raised when AOI inspection fails."""
+
 
 class AOIValidationError(AOIError):
     """Raised when AOI validation rules fail."""

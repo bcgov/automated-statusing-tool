@@ -90,7 +90,7 @@ class AOIValidator:
                 ValidationIssue("error", "INVALID_GEOMETRY", "AOI contains invalid geometry")
             )
 
-        if properties.footprint_area_ha <= 0 or properties.overlay_area_ha <= 0:
+        if properties.footprint_area_ha <= 0 or properties.parts_area_ha <= 0:
             issues.append(
                 ValidationIssue("error", "ZERO_AREA", "AOI area is zero or negative")
             )

@@ -1,21 +1,23 @@
-from .aoi_builder import AOIBuilder
 from .models import (
     AOIRequest,
+    AOIBuildRequest,
     AreaOfInterest,
-    AOIProperties,
     AOIPart,
+    AOIProperties,
     AOINormalizationReport,
-    AOIValidationResult,
     ValidationIssue,
+    AOIValidationResult,
+    AOIBuildResult,
 )
 
 __all__ = [
-    "AOIBuilder",
     "AOIRequest",
+    "AOIBuildRequest",
     "AreaOfInterest",
-    "AOIProperties",
     "AOIPart",
+    "AOIProperties",
     "AOINormalizationReport",
-    "AOIValidationResult",
     "ValidationIssue",
+    "AOIValidationResult",
+    "AOIBuildResult",
 ]

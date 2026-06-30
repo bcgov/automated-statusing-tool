@@ -1,18 +1,19 @@
-
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from .models import (
     AreaOfInterest,
     AOIBuildRequest,
-    AOIBuildResult
+    AOIBuildResult,
 )
 
 from .exceptions import (
     root_cause,
     AOIBuildError,
-    AOIError
+    AOIError,
 )
 
 from .normalizer import AOINormalizer
@@ -22,28 +23,26 @@ from .parts_builder import AOIPartBuilder
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+
 
 class AOIBuilder:
     """
-    Builds a clean, normalized, and validated AreaOfInterest from a raw GeoDataFrame.
-
-    All validated geometries are intended to be part of one output statusing report package.
-    This module does not own policy for splitting by region or other criteria. Input data should be
-    pre-buffered for non-polygon geometry requests. The AOI normalization will resolve conflicts (overlaps)
-    as per the AOI policy, which effectively creates the units for the overlay engine.
+    Builds a clean, normalized, inspected, and validated AreaOfInterest
+    from a raw GeoDataFrame.
     """
+
     def __init__(
         self,
         normalizer: AOINormalizer | None = None,
         inspector: AOIInspector | None = None,
         validator: AOIValidator | None = None,
         part_builder: AOIPartBuilder | None = None,
-    ):
+    ) -> None:
         self.normalizer = normalizer or AOINormalizer()
         self.inspector = inspector or AOIInspector()
         self.validator = validator or AOIValidator()
         self.part_builder = part_builder or AOIPartBuilder()
-
 
     def build_from_request(
         self,
@@ -57,38 +56,71 @@ class AOIBuilder:
             spec.name,
         )
 
+        normalized = self._run_stage(
+            stage="normalization",
+            build_aoi_id=spec.aoi_id,
+            operation=self.normalizer.normalize_aoi,
+            gdf=request.raw_gdf,
+            request=spec,
+        )
+
+        parts = self._run_stage(
+            stage="part_building",
+            build_aoi_id=spec.aoi_id,
+            operation=self.part_builder.build_parts,
+            aoi_id=spec.aoi_id,
+            gdf=normalized.gdf,
+        )
+
+        properties = self._run_stage(
+            stage="inspection",
+            build_aoi_id=spec.aoi_id,
+            operation=self.inspector.inspect,
+            gdf=normalized.gdf,
+            parts=parts,
+        )
+
+        validation = self._run_stage(
+            stage="validation",
+            build_aoi_id=spec.aoi_id,
+            operation=self.validator.validate,
+            gdf=normalized.gdf,
+            report=normalized.report,
+            parts=parts,
+            properties=properties,
+        )
+
+        aoi = self._run_stage(
+            stage="aoi_construction",
+            build_aoi_id=spec.aoi_id,
+            operation=AreaOfInterest,
+            aoi_id=spec.aoi_id,
+            name=spec.name,
+            gdf=normalized.gdf,
+            properties=properties,
+            parts=parts,
+        )
+
+        result = AOIBuildResult(
+            aoi=aoi,
+            validation=validation,
+            normalization_report=normalized.report,
+        )
+
+        self._log_build_summary(result)
+
+        return result
+
+    def _run_stage(
+        self,
+        *,
+        stage: str,
+        build_aoi_id: str,
+        operation: Callable[..., T],
+        **operation_kwargs: Any,
+    ) -> T:
         try:
-            normalized = self.normalizer.normalize_aoi(
-                gdf=request.raw_gdf,
-                request=spec,
-            )
-
-            parts = self.part_builder.build_parts(
-                aoi_id=spec.aoi_id,
-                gdf=normalized.gdf,
-            )
-
-            properties = self.inspector.inspect(
-                gdf=normalized.gdf,
-                parts=parts,
-            )
-
-            validation = self.validator.validate(
-                # aoi_id=spec.aoi_id,
-                gdf=normalized.gdf,
-                report=normalized.report,
-                parts=parts,
-                properties=properties,
-                # context=request.validation_context,
-            )
-
-            aoi = AreaOfInterest(
-                aoi_id=spec.aoi_id,
-                name=spec.name,
-                gdf=normalized.gdf,
-                properties=properties,
-                parts=parts,
-            )
+            return operation(**operation_kwargs)
 
         except AOIBuildError:
             raise
@@ -97,50 +129,52 @@ class AOIBuilder:
             root = root_cause(exc)
 
             logger.error(
-                "AOI normalization failed | aoi_id=%s | name=%s | error_type=%s | reason=%s",
-                spec.aoi_id,
-                spec.name,
+                "AOI build stage failed | aoi_id=%s | stage=%s | "
+                "error_type=%s | root_error_type=%s | reason=%s | root_reason=%s",
+                build_aoi_id,
+                stage,
+                type(exc).__name__,
                 type(root).__name__,
+                exc,
                 root,
             )
 
             logger.debug(
-                "AOI normalization root traceback",
+                "AOI build stage root traceback | aoi_id=%s | stage=%s",
+                build_aoi_id,
+                stage,
                 exc_info=(type(root), root, root.__traceback__),
             )
 
             raise AOIBuildError(
-                f"Could not build AOI {spec.aoi_id!r}: {root}"
+                f"Could not build AOI {build_aoi_id!r}; "
+                f"failed during {stage}: {root}",
+                stage=stage,
+                aoi_id=build_aoi_id,
             ) from exc
-        
+
         except Exception as exc:
             logger.exception(
-                "Unexpected AOI build failure | aoi_id=%s | name=%s | error_type=%s",
-                spec.aoi_id,
-                spec.name,
+                "Unexpected AOI build stage failure | "
+                "aoi_id=%s | stage=%s | error_type=%s",
+                build_aoi_id,
+                stage,
                 type(exc).__name__,
             )
+
             raise AOIBuildError(
-                f"Unexpected error building AOI {spec.aoi_id!r}."
+                f"Unexpected error building AOI {build_aoi_id!r}; "
+                f"failed during {stage}.",
+                stage=stage,
+                aoi_id=build_aoi_id,
             ) from exc
-
-        result = AOIBuildResult(
-            aoi=aoi,
-            validated=validation,
-            normalized=normalized.report,
-        )
-
-        self._log_build_summary(result)
-
-        return result
-    
 
     def _log_build_summary(
         self,
         result: AOIBuildResult,
     ) -> None:
         aoi = result.aoi
-        validation = result.validated
+        validation = result.validation
 
         logger.info(
             "AOI build complete | aoi_id=%s | area_ha=%.4f | part_count=%s",
@@ -151,7 +185,8 @@ class AOIBuilder:
 
         if validation.has_errors:
             logger.warning(
-                "AOI validation completed with errors | aoi_id=%s | errors=%s | warnings=%s | infos=%s",
+                "AOI validation completed with errors | "
+                "aoi_id=%s | errors=%s | warnings=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.errors),
                 len(validation.warnings),
@@ -160,7 +195,8 @@ class AOIBuilder:
 
         elif validation.has_warnings:
             logger.info(
-                "AOI validation completed with warnings | aoi_id=%s | warnings=%s | infos=%s",
+                "AOI validation completed with warnings | "
+                "aoi_id=%s | warnings=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.warnings),
                 len(validation.infos),
