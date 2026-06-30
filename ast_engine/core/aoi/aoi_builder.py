@@ -90,10 +90,7 @@ class AOIBuilder:
             properties=properties,
         )
 
-        aoi = self._run_stage(
-            stage="aoi_construction",
-            build_aoi_id=spec.aoi_id,
-            operation=AreaOfInterest,
+        aoi = AreaOfInterest(
             aoi_id=spec.aoi_id,
             name=spec.name,
             gdf=normalized.gdf,
