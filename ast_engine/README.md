@@ -4,7 +4,7 @@
 
 The **Automated Status Tool Engine** (`ast_engine`) is the Python package that provides the core configuration, validation, data inventory, and runtime processing components for the Automated Status Tool application.
 
-At a high level, the engine produces normalized spatial results by processing an **Area of Interest (AOI)** against a pre-populated **data registry** of informational layers.
+At a high level, the engine produces normalized spatial results by processing an **Area of Interest (AOI)** against a pre-populated data registry.
 
 The engine is split into two major responsibilities:
 
@@ -109,10 +109,8 @@ ast_engine/
 | `core/`           | Runtime processing modules such as AOI handling, overlays, data adapters, and result generation |
 | `data_inventory/` | Prepared or managed data inventory / registry content used by runtime workflows                 |
 | `schemas/`        | Schema definitions and contracts for inputs, outputs, and registry records                      |
-| `storage/`        | Storage provides utilities for creating a job manifest and writing job artifacts to local or S3
 | `tests/`          | Unit and integration tests for the engine package                                               |
 | `utils/`          | Shared utilities such as logging, path helpers, and common validation helpers                   |
-| `workers/`        | Workers move a job request through the engine, collects results and publishes to storage |
 | `model_config.py` | Runtime settings and configuration access                                                       |
 | `README.md`       | Engine-level developer documentation                                                            |
 
@@ -149,14 +147,14 @@ flowchart TD
 
 ## AST-Config
 
-`ast_engine/config` is responsible for preparing runtime-ready configuration and registry information.
+AST-Config is responsible for preparing runtime-ready configuration and registry information.
 
 It may run on a schedule, cron job, manual trigger, or pre-runtime setup process.
 
 AST-Config responsibilities include:
 
 * reading client-provided configuration
-* validating required fields from configuration
+* validating required configuration fields
 * normalizing configuration into engine-ready structures
 * enriching configuration with derived metadata
 * preparing data inventory or registry records for AST-Core
@@ -165,12 +163,13 @@ AST-Config responsibilities include:
 ```mermaid
 flowchart LR
     A[Client Provided Configuration]
-    B[Read]
-    C[Validate]
-    D[Enrich]
-    E[Runtime Data Registry for AST-Core]
+    B[Read Config]
+    C[Validate Config]
+    D[Enrich Config]
+    E[Prepare Data Inventory]
+    F[Runtime Data Registry for AST-Core]
 
-    A --> B --> C --> D --> E 
+    A --> B --> C --> D --> E --> F
 
     class A,E,F objectNode
     class B,C,D processNode
@@ -200,26 +199,11 @@ AST-Config outputs:
 
 ## AST-Core
 
-`ast_engine/core` is the runtime processing package for the Automated Status Tool Engine.
+`ast_engine.core` is the runtime processing package for the Automated Status Tool Engine.
 
 It is responsible for taking prepared configuration, a normalized or buildable AOI, and registered data sources, then producing structured processing results.
 
 AST-Core should not perform data inventory registration at runtime. It should consume prepared registry/configuration objects and focus on execution.
-
-```mermaid
-flowchart LR
-    style spacer fill:none,stroke:none
-    A[AOI Handler]
-    B[Overlay]
-    C[Result]
-    spacer(( ))
-
-    A -->spacer --> B --> C
-        direction TD
-        D[Data Registry]
-        E[Data Adaptors]
-        D --> E --> B
-```
 
 ---
 
@@ -241,6 +225,7 @@ core/
 │   └── validator.py
 ├── data_adapters/
 │   ├── file/
+│   ├── kml/
 │   ├── oracle/
 │   ├── __init__.py
 │   ├── base.py
@@ -263,7 +248,7 @@ core/
 | Component        | Responsibility                                                                         |
 | ---------------- | -------------------------------------------------------------------------------------- |
 | `aoi/`           | Builds, normalizes, inspects, and validates AOIs before runtime processing             |
-| `data_adapters/` | Provides source-specific readers for spatial data files and Oracle tables |
+| `data_adapters/` | Provides source-specific readers for files, KML/KMZ, Oracle, and other spatial sources |
 | `operator/`      | Contains spatial operation logic such as overlay, adjacency, and proximity operations  |
 | `execution.py`   | Coordinates runtime execution of configured processing workflows                       |
 | `results.py`     | Defines or packages runtime result objects returned to the caller/application          |
@@ -290,12 +275,13 @@ The AOI module should be run once at the beginning of a runtime workflow. Downst
 
 Primary AOI outputs:
 
-| Object                   | Purpose                                                                                            |
-| ------------------------ | -----------------------------------------------------------------                                  |
-| `AreaOfInterest`         | Clean AOI domain object used downstream, including `AOIParts`, AOIProperties, and AOI geodataframe.|
-| `AOIBuildResult`         | Build result containing AOI object, validation, and normalization report                           |
-| `AOIValidationResult`    | Errors, warnings, and info findings from validation                                                |
-| `AOINormalizationReport` | Diagnostic report describing what changed during normalization                                     |
+| Object                   | Purpose                                                                  |
+| ------------------------ | -----------------------------------------------------------------        |
+| `AreaOfInterest`         | Clean AOI domain object used downstream, including `AOIParts`,
+                           | AOIProperties, and AOI geodataframe.                                     |
+| `AOIBuildResult`         | Build result containing AOI object, validation, and normalization report |
+| `AOIValidationResult`    | Errors, warnings, and info findings from validation                      |
+| `AOINormalizationReport` | Diagnostic report describing what changed during normalization           |
 
 ### AOI Internal Workflow
 
@@ -340,14 +326,15 @@ Current adapter areas include:
 | Adapter Area        | Purpose                                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------------------ |
 | `base.py`           | Shared adapter interfaces, read options, and base contracts                                      |
-| `file/`             | File-based spatial input, such as shapefiles, GeoPackages, file geodatabases, or similar sources |                                                     
-| `oracle/`           | Oracle or enterprise database-backed spatial input tables                                        |
+| `file/`             | File-based spatial input, such as shapefiles, GeoPackages, file geodatabases, or similar sources |
+| `kml/`              | KML/KMZ-specific reading and normalization                                                       |
+| `oracle/`           | Oracle or enterprise database-backed spatial input                                               |
 | `where_compiler.py` | Converts structured filters into source-specific where clauses                                   |
 | `exceptions.py`     | Adapter-specific exceptions                                                                      |
 
 The data adapter layer should hide source-specific details from runtime workflows.
 
-A runtime process should not need to know whether a dataset came from a local file, Oracle, or another source. It should request the dataset through a consistent adapter interface.
+A runtime process should not need to know whether a dataset came from a local file, KML/KMZ, Oracle, or another source. It should request the dataset through a consistent adapter interface.
 
 For detailed AOI implementation notes, see:
 
@@ -362,6 +349,7 @@ flowchart TD
     A[Registry Dataset Entry] --> B[Resolve Adapter Type]
     B --> C{Adapter}
     C -->|File| D[File Adapter]
+    C -->|KML/KMZ| E[KML Adapter]
     C -->|Oracle| F[Oracle Adapter]
 
     D --> G[GeoDataFrame]
@@ -538,125 +526,6 @@ The `schemas/` package should define contracts used by configuration, inventory,
 
 ---
 
-
-## Developer Setup
-
-This project uses `uv` to manage Python versions, virtual environments, dependencies, and command execution.
-
-These instructions assume you are working in WSL Ubuntu from a directory where you keep your development projects.
-
----
-
-### 1. Install System Prerequisites
-
-Install `curl` if it is not already available:
-
-```bash
-sudo apt update
-sudo apt install -y curl
-```
-
----
-
-### 2. Install `uv`
-
-Install `uv` using the official standalone installer:
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-After installation, restart the terminal or reload your shell profile:
-
-```bash
-source ~/.bashrc
-```
-
-Verify that `uv` is available:
-
-```bash
-uv --version
-```
-
----
-
-### 3. Create a Development Directory
-
-Create a directory where you want to keep your local development projects.
-
-For example:
-
-```bash
-mkdir -p ~/projects
-cd ~/projects
-```
-
----
-
-### 4. Clone the Repository
-
-Clone the AST repository into your development directory:
-
-```bash
-git clone <https://github.com/bcgov/automated-statusing-tool.git>
-```
-
-Then move into the project folder:
-
-```bash
-cd automated-statusing-tool
-```
-
-At this point, you should be in the project root. This is the folder that should contain files such as:
-
-```text
-pyproject.toml
-uv.lock
-README.md
-ast_engine/
-tests/
-```
-
-
----
-
-### 5. Build the Project Environment
-
-From the repository root, run:
-
-```bash
-uv sync
-```
-
-This creates the project virtual environment and installs the dependencies defined by `pyproject.toml` and `uv.lock`.
-
-The environment will be created at:
-
-```text
-.venv/
-```
-
----
-
-### 6. Verify the Environment
-
-Run:
-
-```bash
-uv run python --version
-```
-
-You can also confirm that the test runner is available:
-
-```bash
-uv run pytest --version
-```
-
-If both commands run successfully, the development environment is ready.
-
-
----
-
 ## Configuration and Environment Setup
 
 Runtime configuration should be environment driven.
@@ -684,6 +553,21 @@ LOG_FILE=logs/ast_engine.log
 
 Do not commit real credentials, local-only paths, or secrets.
 
+---
+
+## Developer Setup
+
+### 1. Clone the repository
+
+
+### 2. Create the virtual environment
+
+
+### 3. Install dependencies
+
+
+### 4. Verify the package imports
+
 
 ---
 
@@ -694,7 +578,7 @@ Logging should be configured once by the application entry point.
 Example:
 
 ```python
-from ast_engine.config.logging_config import setup_logging
+from ast_engine.utils.logging_config import setup_logging
 
 def main() -> None:
     setup_logging()
@@ -769,252 +653,52 @@ Examples:
 
 ---
 
-# Setting up a working copy
+## Running Tests
 
-From the repo root, after cloning:
-
-```bash
-uv sync
-```
-
-That creates the `.venv`, installs the dependencies, and installs `ast_engine` itself into the
-environment so `import ast_engine` works from anywhere - including the scripts in `scripts/`,
-which are run from a subfolder and would not otherwise find the package.
-
-Then:
-
-```bash
-uv run pytest -m unit                              # the fast test suite
-uv run python scripts/orchestrator_run.py          # the file-based demo, no database needed
-```
-
-If you see `ModuleNotFoundError: No module named 'ast_engine'`, the package is not installed in
-your environment. Run `uv sync` from the repo root. On an older working copy created before the
-build settings were added to `pyproject.toml`, run `uv pip install -e .` once instead.
-
-# Testing
-
-This document describes the testing structure and conventions for the `ast_engine` package.
-
-The project uses `pytest` for unit, integration, smoke, external, and system testing. All tests for `ast_engine` are located under:
-
-```text
-ast_engine/tests/
-```
-
-Each module should include tests for its main public components. At a minimum, each submodule should have unit tests that verify its core behavior in isolation.
-
-Recommended test layout:
-
-```text
-ast_engine/tests/
-├── unit/
-│   └── aoi/
-├── integration/
-├── smoke/
-├── external/
-└── data/
-```
-
-
-| Test                 | Purpose                                                                           |
-| -------------------- | --------------------------------------------------------------------------------- |
-| `Unit Tests`         | Fast, deterministic, and not dependent on external services, live databases, secrets, network access, or production data. Where possible, use small in-memory fixtures instead of file-based inputs. |
-| `Integration Tests`  | Check that multiple components work together in a workflow                        |
-| `Smoke Tests`        | Provide quick confidence that a main workflow starts or runs without crashing     |
-| `External Tests`     | Connect to live systems such as Oracle, BCGW, or other configured services        |
-| `System Tests`       | Exercise an application flow that is close to production                          |
-
-
-The current pytest configuration includes the following markers:
-
-```text
-unit: fast unit tests with no external dependencies
-integration: tests on real data; BCGW tests skip when credentials are not set
-```
-
-A unit test file should include the unit marker:
-
-```python
-import pytest
-
-pytestmark = pytest.mark.unit
-```
-
-Example:
-
-```python
-# ast_engine/tests/unit/aoi/test_aoi_builder.py
-
-import pytest
-
-pytestmark = pytest.mark.unit
-```
-
-Additional markers may be added as the test suite grows:
-
-```text
-smoke: quick tests that confirm a main workflow runs without crashing
-external: tests that require live external systems such as Oracle, secrets, or network access
-system: tests that exercise an application flow close to production
-```
-
-External and system tests should be opt-in and should not run as part of the normal unit test suite.
+This package uses `pytest`.
 
 Run all tests:
 
 ```bash
-uv run pytest
-```
-
-Run all unit tests:
-
-```bash
-uv run pytest -m unit
-```
-
-Run all integration tests:
-
-```bash
-uv run pytest -m integration
-```
-
-Run tests in a specific folder:
-
-```bash
-uv run pytest ast_engine/tests/unit/aoi -v
-```
-
-Run a specific test file:
-
-```bash
-uv run pytest ast_engine/tests/unit/aoi/test_aoi_builder.py
-```
-
-Run tests matching a keyword:
-
-```bash
-uv run pytest -k "aoi"
-```
-
-Run unit tests matching a keyword:
-
-```bash
-uv run pytest -m unit -k "aoi"
+pytest
 ```
 
 Run with verbose output:
 
 ```bash
-uv run pytest -v
+pytest -v
 ```
 
-### BCGW credentials for the integration tests
-
-The integration tests come in two groups:
-
-| File                              | Needs a BCGW login? |
-| --------------------------------- | ------------------- |
-| `tests/integration/test_file_pipeline.py` | No. It runs over the sample datasets in `tests/data/`, so it works on any machine. |
-| `tests/integration/test_bcgw.py`  | Yes. It runs real spatial queries against BCGW tables. |
-
-So `uv run pytest -m integration` works with no setup at all: the file tests
-run and the BCGW tests report as skipped, listing the variables that are
-missing.
-
-To run the BCGW tests as well, set three environment variables in your own
-shell before running pytest:
-
-| Variable        | Value                                                     |
-| --------------- | --------------------------------------------------------- |
-| `BCGW_USER`     | your BCGW (Oracle) username                                |
-| `BCGW_PASSWORD` | your BCGW password                                         |
-| `BCGW_HOST`     | the BCGW connection string, in `host:port/service` form     |
-
-
-**Windows (PowerShell):**
-
-```powershell
-$env:BCGW_USER="your_username"
-$env:BCGW_PASSWORD="your_password"
-$env:BCGW_HOST="host:port/service"
-
-uv run pytest -m integration
-```
-
-**Linux / WSL / macOS (bash):**
+Run tests matching a keyword:
 
 ```bash
-export BCGW_USER="your_username"
-export BCGW_PASSWORD="your_password"
-export BCGW_HOST="host:port/service"
-
-uv run pytest -m integration
+pytest -k "aoi"
 ```
 
-Notes:
+Run a specific test file:
 
-* The variables live only in that terminal session. They are gone when you close the terminal. Nothing is left behind on disk.
-* Never put credentials in a file in the repo, and never commit them. If you
-  prefer to keep them in a local `.env` file that your shell loads, that is
-  fine: `.gitignore` already excludes `.env` and `.env.*`, so it cannot be
-  committed by accident.
-* The password is never printed and never logged. If you get a connection
-  error rather than a skip, the credentials were set but the login failed.
-* One BCGW connection is opened per test run and reused by every test, the
-  same way a real statusing run reuses one connection across all its datasets.
+```bash
+pytest ast_engine/tests/test_aoi_builder.py
+```
 
-Shared sample files should be placed under:
+Run with coverage, if configured:
+
+```bash
+pytest --cov=ast_engine
+```
+
+Recommended test categories:
 
 ```text
-ast_engine/tests/data/
+ast_engine/tests/
+├── unit/
+├── integration/
+└── data/
 ```
 
-Unit tests should avoid file dependencies where possible. Prefer in-memory fixtures for simple geometry and object construction. Integration tests may use files from `tests/data` when testing readers, adapters, or workflows that require realistic input files.
+Unit tests should prefer small in-memory fixtures.
 
-Unit tests should focus on one component at a time. For example, AOI tests should separately test:
-
-```text
-AOI request models
-AOI normalization
-AOI part building
-AOI inspection
-AOI validation
-AOI builder workflow
-```
-
-Builder/workflow tests should verify that the builder coordinates the workflow and returns the expected result object. Detailed geometry, CRS, area, and validation rules should be tested in the component-specific tests rather than duplicated in every builder test.
-
-A good testing pattern is:
-
-```text
-Component tests:
-    Validate detailed behavior of one class or function.
-
-Builder/workflow tests:
-    Validate orchestration and result packaging.
-
-Integration tests:
-    Validate multiple components working together.
-
-External tests:
-    Validate real external systems, secrets, database access, or network services.
-```
-
-When adding tests, prefer clear test names that describe the expected behavior:
-
-```python
-def test_builder_rejects_missing_crs():
-    ...
-
-def test_normalizer_reprojects_geographic_input():
-    ...
-
-def test_validator_reports_sliver_part():
-    ...
-```
-
-Tests should be readable and should make the expected behavior obvious. Shared fixtures and helpers may be used to reduce duplication, but helpers should not hide the behavior being tested.
+Integration tests may use sample files under `tests/data`.
 
 ---
 
@@ -1069,10 +753,10 @@ Create a branch:
 git checkout -b feature/my-change
 ```
 
-Run tests (see above for details):
+Run tests:
 
 ```bash
-uv run pytest
+pytest
 ```
 
 Commit changes:
@@ -1136,7 +820,6 @@ Recommended standards for this package:
 Track unresolved or evolving design items here.
 
 * [ ] Confirm AOI/Geometry results validation model
-* [ ] Confirm results model validation model
 * [ ] Confirm final runtime registry structure
 * [ ] Confirm data adapter interfaces
 * [ ] Confirm schema contract layout
