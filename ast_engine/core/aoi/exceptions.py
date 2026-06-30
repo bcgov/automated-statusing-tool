@@ -2,6 +2,26 @@ class AOIError(Exception):
     """Base exception for AOI processing errors."""
 
 
+class AOIBuildError(AOIError):
+    """
+    Raised when the AOI builder fails while orchestrating the build workflow.
+
+    This exception is raised at the builder boundary and wraps the module-level
+    exception that caused the build failure.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        stage: str | None = None,
+        aoi_id: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.stage = stage
+        self.aoi_id = aoi_id
+
+
 class SpatialDataError(AOIError):
     """Raised when spatial input data is missing, malformed, or unusable."""
 
@@ -27,10 +47,6 @@ class AOIInspectionError(AOIError):
 
 class AOIValidationError(AOIError):
     """Raised when AOI validation rules fail."""
-
-
-class AOIBuildError(AOIError):
-    """Raised when the AOI builder cannot produce an AOI."""
 
 
 class AOIPartBuildError(AOIError):
