@@ -66,6 +66,9 @@ class AOIRequest:
                 "dissolve_mode='by_fields'."
             )
 
+        object.__setattr__(self, "aoi_id", aoi_id)
+        object.__setattr__(self, "name", name)
+        object.__setattr__(self, "dissolve_fields", dissolve_fields)
         object.__setattr__(self, "_target_crs_obj", crs)
 
     @property
@@ -133,8 +136,8 @@ class AreaOfInterest:
         return self.properties.footprint_area_ha
     
     @property
-    def overlay_area_ha(self) -> float:
-        return self.properties.overlay_area_ha
+    def parts_area_ha(self) -> float:
+        return self.properties.parts_area_ha
     
     @property
     def part_count(self) -> int:
@@ -143,22 +146,21 @@ class AreaOfInterest:
 
 @dataclass(frozen=True)
 class AOIProperties:
-    crs_epsg: int | None
+    crs_epsg: int
     crs_string: str
 
     footprint_area_ha: float
     bounds: tuple[float, float, float, float]
 
     part_count: int
-    overlay_area_ha: float
+    parts_area_ha: float
 
     feature_count: int
     geometry_type: str
-    is_valid: bool
 
-    overlay_to_footprint_ratio: float | None
+    parts_to_footprint_ratio: float
     vertex_count: int
-    max_vertices_per_part: int | None
+    max_vertices_per_part: int
 
     has_z: bool
     has_m: bool
@@ -362,29 +364,29 @@ class AOIValidationResult:
 @dataclass(frozen=True)
 class AOIBuildResult:
     aoi: AreaOfInterest
-    validated: AOIValidationResult
-    normalized: AOINormalizationReport
+    validation: AOIValidationResult
+    normalization_report: AOINormalizationReport
 
     @property
     def is_valid(self) -> bool:
-        return self.validated.is_valid
+        return self.validation.is_valid
 
     @property
     def has_errors(self) -> bool:
-        return self.validated.has_errors
+        return self.validation.has_errors
 
     @property
     def has_warnings(self) -> bool:
-        return self.validated.has_warnings
+        return self.validation.has_warnings
 
     @property
     def errors(self) -> tuple[ValidationIssue, ...]:
-        return self.validated.errors
+        return self.validation.errors
 
     @property
     def warnings(self) -> tuple[ValidationIssue, ...]:
-        return self.validated.warnings
+        return self.validation.warnings
 
     @property
     def infos(self) -> tuple[ValidationIssue, ...]:
-        return self.validated.info
+        return self.validation.infos
