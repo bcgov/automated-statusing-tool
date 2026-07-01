@@ -6,10 +6,8 @@ from .where_compiler import compile_where, filter_gdf_with_sql
 
 from typing import Any, Iterable
 
-
 # the spatial relationships a SpatialFilter can describe
 _SPATIAL_PREDICATES = ("intersects", "within_distance", "touches", "nearest")
-
 
 class SpatialFilter:
     """How to narrow a dataset down to an AOI before reading.
