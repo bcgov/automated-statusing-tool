@@ -163,13 +163,12 @@ AST-Config responsibilities include:
 ```mermaid
 flowchart LR
     A[Client Provided Configuration]
-    B[Read Config]
-    C[Validate Config]
-    D[Enrich Config]
-    E[Prepare Data Inventory]
-    F[Runtime Data Registry for AST-Core]
+    B[Read]
+    C[Validation]
+    D[Enrich]
+    E[Runtime Data Registry for AST-Core]
 
-    A --> B --> C --> D --> E --> F
+    A --> B --> C --> D --> E 
 
     class A,E,F objectNode
     class B,C,D processNode
@@ -204,6 +203,21 @@ AST-Config outputs:
 It is responsible for taking prepared configuration, a normalized or buildable AOI, and registered data sources, then producing structured processing results.
 
 AST-Core should not perform data inventory registration at runtime. It should consume prepared registry/configuration objects and focus on execution.
+
+```mermaid
+flowchart LR
+    style spacer fill:none,stroke:none
+    A[AOI Handler]
+    B[Overlay]
+    C[Result]
+    spacer(( ))
+
+    A -->spacer --> B --> C
+        direction TD
+        D[Data Registry]
+        E[Data Adaptors]
+        D --> E --> B
+```
 
 ---
 
