@@ -37,8 +37,12 @@ def get_credentials() -> tuple[str, str, str]:
 
 
 def main() -> None:
-    xlsx_in = "ast_engine/tests/data/Test_Registry.xlsx"
-    yaml_out = "ast_engine/tests/data/Test_Registry.yaml"
+    # xlsx_in = "ast_engine/tests/data/Test_Registry.xlsx"
+    # yaml_out = "ast_engine/tests/data/Test_Registry.yaml"
+    spreadsheet_io = {
+        "ast_engine/tests/data/Test_Registry.xlsx":"ast_engine/tests/data/Test_Registry.yaml",
+        "ast_engine/tests/data/Test_Registry_2.xlsx":"ast_engine/tests/data/Test_Registry_2.yaml",
+    }
 
     template_dict = {
         "name": "Featureclass_Name(valid characters only)",
@@ -54,21 +58,22 @@ def main() -> None:
         "definition_query": "Definition_Query",
     }
 
-    datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
-    hydrated = utils.hydrate_base_datasets(datasets)
+    for xlsx_in, yaml_out in spreadsheet_io.items():
+        datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        hydrated = utils.hydrate_base_datasets(datasets)
 
-    # One BCGW connection, reused to enrich every Oracle dataset in the build.
-    user, password, host = get_credentials()
-    base_datasets_list = []
-    with OracleConnection(user, password, host) as (conn, cursor):
-        for dataset in hydrated:
-            print(dataset)
-            enriched = enrichment.Enrich(dataset, connection=conn, cursor=cursor)
-            enriched.enrich()
-            base_datasets_list.append(enriched.build())
+        # One BCGW connection, reused to enrich every Oracle dataset in the build.
+        user, password, host = get_credentials()
+        base_datasets_list = []
+        with OracleConnection(user, password, host) as (conn, cursor):
+            for dataset in hydrated:
+                print(dataset)
+                enriched = enrichment.Enrich(dataset, connection=conn, cursor=cursor)
+                enriched.enrich()
+                base_datasets_list.append(enriched.build())
 
-    registry = models.Registry(version="0.1", datasets=base_datasets_list)
-    utils.dump_yaml(registry, Path(yaml_out))
+        registry = models.Registry(version="0.1", datasets=base_datasets_list)
+        utils.dump_yaml(registry, Path(yaml_out))
 
 
 if __name__ == "__main__":
