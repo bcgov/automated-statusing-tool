@@ -526,6 +526,125 @@ The `schemas/` package should define contracts used by configuration, inventory,
 
 ---
 
+
+## Developer Setup
+
+This project uses `uv` to manage Python versions, virtual environments, dependencies, and command execution.
+
+These instructions assume you are working in WSL Ubuntu from a directory where you keep your development projects.
+
+---
+
+### 1. Install System Prerequisites
+
+Install `curl` if it is not already available:
+
+```bash
+sudo apt update
+sudo apt install -y curl
+```
+
+---
+
+### 2. Install `uv`
+
+Install `uv` using the official standalone installer:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+After installation, restart the terminal or reload your shell profile:
+
+```bash
+source ~/.bashrc
+```
+
+Verify that `uv` is available:
+
+```bash
+uv --version
+```
+
+---
+
+### 3. Create a Development Directory
+
+Create a directory where you want to keep your local development projects.
+
+For example:
+
+```bash
+mkdir -p ~/projects
+cd ~/projects
+```
+
+---
+
+### 4. Clone the Repository
+
+Clone the AST repository into your development directory:
+
+```bash
+git clone <https://github.com/bcgov/automated-statusing-tool.git>
+```
+
+Then move into the project folder:
+
+```bash
+cd automated-statusing-tool
+```
+
+At this point, you should be in the project root. This is the folder that should contain files such as:
+
+```text
+pyproject.toml
+uv.lock
+README.md
+ast_engine/
+tests/
+```
+
+
+---
+
+### 5. Build the Project Environment
+
+From the repository root, run:
+
+```bash
+uv sync
+```
+
+This creates the project virtual environment and installs the dependencies defined by `pyproject.toml` and `uv.lock`.
+
+The environment will be created at:
+
+```text
+.venv/
+```
+
+---
+
+### 6. Verify the Environment
+
+Run:
+
+```bash
+uv run python --version
+```
+
+You can also confirm that the test runner is available:
+
+```bash
+uv run pytest --version
+```
+
+If both commands run successfully, the development environment is ready.
+
+
+---
+
 ## Configuration and Environment Setup
 
 Runtime configuration should be environment driven.
@@ -552,21 +671,6 @@ LOG_FILE=logs/ast_engine.log
 ```
 
 Do not commit real credentials, local-only paths, or secrets.
-
----
-
-## Developer Setup
-
-### 1. Clone the repository
-
-
-### 2. Create the virtual environment
-
-
-### 3. Install dependencies
-
-
-### 4. Verify the package imports
 
 
 ---
