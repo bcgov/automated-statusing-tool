@@ -26,6 +26,7 @@ pytestmark = pytest.mark.unit
 
 AST_MODULES = [
     "ast_engine.core.aoi",
+    "ast_engine.core.execution",
     "ast_engine.core.data_adapters",
     "ast_engine.core.data_adapters.file",
     "ast_engine.core.data_adapters.oracle",
