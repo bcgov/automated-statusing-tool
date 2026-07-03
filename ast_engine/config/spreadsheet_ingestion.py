@@ -22,7 +22,7 @@ from pathlib import Path
 
 from ast_engine.config.registry import enrichment, utils, models
 from ast_engine.core.data_adapters.oracle import OracleConnection
-
+from ast_engine.core.data_adapters.exceptions import DataAdapterError
 
 def get_credentials() -> tuple[str, str, str]:
     '''BCGW credentials from the environment, falling back to a prompt.'''
@@ -58,19 +58,24 @@ def main() -> None:
         "definition_query": "Definition_Query",
     }
 
+    # One BCGW connection, reused to enrich every Oracle dataset in the build.
+    user, password, host = get_credentials()
+
     for xlsx_in, yaml_out in spreadsheet_io.items():
         datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
         hydrated = utils.hydrate_base_datasets(datasets)
-
-        # One BCGW connection, reused to enrich every Oracle dataset in the build.
-        user, password, host = get_credentials()
         base_datasets_list = []
         with OracleConnection(user, password, host) as (conn, cursor):
             for dataset in hydrated:
                 print(dataset)
-                enriched = enrichment.Enrich(dataset, connection=conn, cursor=cursor)
-                enriched.enrich()
-                base_datasets_list.append(enriched.build())
+                try:
+                    enriched = enrichment.Enrich(dataset, connection=conn, cursor=cursor)
+                    enriched.enrich()
+                    base_datasets_list.append(enriched.build())
+                except DataAdapterError as e:
+                    print(e)
+                    print(f"skipping {dataset.name} due to a read error")
+                    continue
 
         registry = models.Registry(version="0.1", datasets=base_datasets_list)
         utils.dump_yaml(registry, Path(yaml_out))
