@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Literal
 
 import geopandas as gpd
+import pandas as pd
 
 from ..aoi import AreaOfInterest
 from ..data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
@@ -236,7 +237,7 @@ def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | floa
         if col not in row.index:
             continue
         value = row[col]
-        if value is None:
+        if value is None or pd.isna(value):
             continue
         if isinstance(value, (int, float, str)):
             props[col] = value

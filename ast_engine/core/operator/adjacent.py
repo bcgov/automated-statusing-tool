@@ -32,6 +32,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 import geopandas as gpd
+import pandas as pd
 
 from shapely.ops import unary_union, linemerge
 from shapely.geometry import LineString, MultiLineString, GeometryCollection
@@ -274,7 +275,7 @@ def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | floa
         if col not in row.index:
             continue
         value = row[col]
-        if value is None:
+        if value is None or pd.isna(value):
             continue
         if isinstance(value, (int, float, str)):
             props[col] = value
