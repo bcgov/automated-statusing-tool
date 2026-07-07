@@ -2,8 +2,23 @@
 
 from __future__ import annotations
 
+"""
+Low-level geometry and GeoDataFrame helpers for AOI tests.
+
+These helpers create small, controlled Shapely geometries and GeoDataFrames
+for unit tests. They should be imported by test modules, not run directly
+as pytest tests.
+"""
+
 import geopandas as gpd
-from shapely.geometry import GeometryCollection, LineString, Point, Polygon, MultiPolygon, box
+from shapely.geometry import (
+    GeometryCollection,
+    LineString,
+    MultiPolygon,
+    Point,
+    Polygon,
+    box,
+)
 
 PROJECTED_CRS = "EPSG:3005"
 
@@ -30,6 +45,7 @@ def square(
 def multipolygon(
     *polygons: Polygon,
 ) -> MultiPolygon:
+    """Create a MultiPolygon from polygon parts."""
     return MultiPolygon(polygons)
 
 
@@ -55,6 +71,7 @@ def polygon_line_collection() -> GeometryCollection:
         ]
     )
 
+
 def polygon_point_collection() -> GeometryCollection:
     """Create a GeometryCollection with one polygon and one point."""
     return GeometryCollection(
@@ -78,15 +95,17 @@ def line_point_collection() -> GeometryCollection:
 def aoi_gdf(
     geometries: list,
     *,
-    crs: str = PROJECTED_CRS,
+    crs: str | None = PROJECTED_CRS,
     **columns,
 ) -> gpd.GeoDataFrame:
+    """Create a GeoDataFrame for AOI tests."""
     data = columns or {"id": list(range(1, len(geometries) + 1))}
 
-    if crs is None:
-        raise ValueError("CRS must be specified for AOI GeoDataFrame.")
-
-    return gpd.GeoDataFrame(data, geometry=geometries, crs=crs)
+    return gpd.GeoDataFrame(
+        data,
+        geometry=geometries,
+        crs=crs,
+    )
 
 
 def multipolygon_gdf() -> gpd.GeoDataFrame:
@@ -106,6 +125,31 @@ def disjoint_polygon_rows_gdf() -> gpd.GeoDataFrame:
         [
             rect(0, 0, 100, 100),
             rect(300, 300, 400, 400),
+        ],
+        group_id=["A", "A"],
+    )
+
+
+def missing_crs_gdf() -> gpd.GeoDataFrame:
+    return aoi_gdf(
+        [rect(0, 0, 100, 100)],
+        crs=None,
+        group_id=["A"],
+    )
+
+
+def bowtie_gdf() -> gpd.GeoDataFrame:
+    return aoi_gdf(
+        [bowtie()],
+        group_id=["A"],
+    )
+
+
+def overlapping_polygons_gdf() -> gpd.GeoDataFrame:
+    return aoi_gdf(
+        [
+            rect(0, 0, 100, 100),
+            rect(80, 80, 180, 180),
         ],
         group_id=["A", "A"],
     )
