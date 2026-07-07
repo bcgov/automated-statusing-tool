@@ -10,6 +10,8 @@ from .models import (
     AOIBuildResult,
 )
 
+from .aoi_builder import AOIBuilder
+
 __all__ = [
     "AOIRequest",
     "AOIBuildRequest",
@@ -20,4 +22,5 @@ __all__ = [
     "ValidationIssue",
     "AOIValidationResult",
     "AOIBuildResult",
+    "AOIBuilder",
 ]
