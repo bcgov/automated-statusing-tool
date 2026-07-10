@@ -35,6 +35,14 @@ def load_kmz_example() -> gpd.GeoDataFrame:
         read_options=opts,
     )
 
+def load_multigeom_kml_example() -> gpd.GeoDataFrame:
+    opts = ReadOptions(keep_columns=["Name"])
+    return FileSpatialAdapter().read(
+        path="ast_engine/tests/data/Test_Mixed_Geometry.kml",
+        target_crs=PROJECTED_CRS,
+        read_options=opts,
+    )
+
 def load_gj_example() -> gpd.GeoDataFrame:
     opts = ReadOptions(keep_columns=["Name"])
     return FileSpatialAdapter().read(
@@ -182,6 +190,7 @@ def load_raw_gdf(case_name: str) -> gpd.GeoDataFrame:
         "kmz": load_kmz_example,
         "geojson": load_gj_example,
         "kml": load_kml_example,
+        "multigeom_kml": load_multigeom_kml_example,
         "gpkg": load_gpkg_example,
         "overlap_groups": load_overlap_groups_example,
         "small_area": load_small_area_groups_example,
@@ -411,6 +420,7 @@ if __name__ == "__main__":
         ("geojson", "by_name_overlap_allowed"),
         ("gpkg", "by_name_overlap_allowed"),
         ("kml", "by_name_overlap_allowed"),
+        ("multigeom_kml", "by_name_overlap_allowed"),
         ("overlap_groups", "full_union"),
         ("overlap_groups", "by_group_overlap_allowed"),
         ("overlap_groups", "by_group_overlap_not_allowed"),
