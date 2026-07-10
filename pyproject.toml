@@ -24,6 +24,10 @@ where = ["."]
 include = ["ast_engine*"]
 
 [tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["ast_engine/tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
 markers = [
   "unit: fast unit tests with no external dependencies"
 ]
