@@ -3,6 +3,8 @@ from __future__ import annotations
 import geopandas as gpd
 import logging
 
+from ast_engine.core.validation.spatial_validation import SpatialValidator
+
 from .models import (
     AOIProperties,
     AOINormalizationReport,
@@ -18,7 +20,7 @@ SLIVER_THRESHOLD = 0.1 # Minimum area in hectares for a part to be considered va
 LARGE_AREA_THRESHOLD = 10_000 # Area in hectares above which a part is flagged for review (e.g. to identify parts that may need to be split for reporting or processing)
 
 
-class AOIValidator:
+class AOIValidator():
     """
     Validates the AreaOfInterest object and its derived parts.
     Ensures that the AOI meets all necessary criteria for processing and reporting.
@@ -30,6 +32,12 @@ class AOIValidator:
         - The validator can also be used independently of the builder if needed, for example to validate AOIs that were built through other means or to re-validate AOIs after certain transformations.
         - Overall, this approach provides a robust framework for ensuring the integrity and quality of AOIs throughout the processing pipeline.
     """
+    def __init__(
+        self,
+        *,
+        spatial_validator: SpatialValidator | None = None,
+    ) -> None:
+        self.spatial_validator = spatial_validator
 
     def validate(
         self,
