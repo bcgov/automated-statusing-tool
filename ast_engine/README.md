@@ -239,7 +239,6 @@ core/
 │   └── validator.py
 ├── data_adapters/
 │   ├── file/
-│   ├── kml/
 │   ├── oracle/
 │   ├── __init__.py
 │   ├── base.py
@@ -262,7 +261,7 @@ core/
 | Component        | Responsibility                                                                         |
 | ---------------- | -------------------------------------------------------------------------------------- |
 | `aoi/`           | Builds, normalizes, inspects, and validates AOIs before runtime processing             |
-| `data_adapters/` | Provides source-specific readers for files, KML/KMZ, Oracle, and other spatial sources |
+| `data_adapters/` | Provides source-specific readers for spatial data files and Oracle tables |
 | `operator/`      | Contains spatial operation logic such as overlay, adjacency, and proximity operations  |
 | `execution.py`   | Coordinates runtime execution of configured processing workflows                       |
 | `results.py`     | Defines or packages runtime result objects returned to the caller/application          |
@@ -340,15 +339,14 @@ Current adapter areas include:
 | Adapter Area        | Purpose                                                                                          |
 | ------------------- | ------------------------------------------------------------------------------------------------ |
 | `base.py`           | Shared adapter interfaces, read options, and base contracts                                      |
-| `file/`             | File-based spatial input, such as shapefiles, GeoPackages, file geodatabases, or similar sources |
-| `kml/`              | KML/KMZ-specific reading and normalization                                                       |
-| `oracle/`           | Oracle or enterprise database-backed spatial input                                               |
+| `file/`             | File-based spatial input, such as shapefiles, GeoPackages, file geodatabases, or similar sources |                                                     
+| `oracle/`           | Oracle or enterprise database-backed spatial input tables                                        |
 | `where_compiler.py` | Converts structured filters into source-specific where clauses                                   |
 | `exceptions.py`     | Adapter-specific exceptions                                                                      |
 
 The data adapter layer should hide source-specific details from runtime workflows.
 
-A runtime process should not need to know whether a dataset came from a local file, KML/KMZ, Oracle, or another source. It should request the dataset through a consistent adapter interface.
+A runtime process should not need to know whether a dataset came from a local file, Oracle, or another source. It should request the dataset through a consistent adapter interface.
 
 For detailed AOI implementation notes, see:
 
@@ -363,7 +361,6 @@ flowchart TD
     A[Registry Dataset Entry] --> B[Resolve Adapter Type]
     B --> C{Adapter}
     C -->|File| D[File Adapter]
-    C -->|KML/KMZ| E[KML Adapter]
     C -->|Oracle| F[Oracle Adapter]
 
     D --> G[GeoDataFrame]
@@ -771,52 +768,162 @@ Examples:
 
 ---
 
-## Running Tests
+# Testing
 
-This package uses `pytest`.
+This document describes the testing structure and conventions for the `ast_engine` package.
+
+The project uses `pytest` for unit, integration, smoke, external, and system testing. All tests for `ast_engine` are located under:
+
+```text
+ast_engine/tests/
+```
+
+Each module should include tests for its main public components. At a minimum, each submodule should have unit tests that verify its core behavior in isolation.
+
+Recommended test layout:
+
+```text
+ast_engine/tests/
+├── unit/
+│   └── aoi/
+├── integration/
+├── smoke/
+├── external/
+└── data/
+```
+
+Unit tests should be fast, deterministic, and should not depend on external services, live databases, secrets, network access, or production data. Where possible, unit tests should use small in-memory fixtures instead of file-based inputs.
+
+Integration tests may check that multiple components work together in a workflow. Smoke tests should provide quick confidence that a main workflow starts or runs without crashing. External tests may connect to live systems such as Oracle, BCGW, or other configured services. System tests may exercise an application flow that is close to production.
+
+The current pytest configuration includes the following marker:
+
+```text
+unit: fast unit tests with no external dependencies
+```
+
+A unit test file should include the unit marker:
+
+```python
+import pytest
+
+pytestmark = pytest.mark.unit
+```
+
+Example:
+
+```python
+# ast_engine/tests/unit/aoi/test_aoi_builder.py
+
+import pytest
+
+pytestmark = pytest.mark.unit
+```
+
+Additional markers may be added as the test suite grows:
+
+```text
+integration: slower tests that check multiple components working together
+smoke: quick tests that confirm a main workflow runs without crashing
+external: tests that require live external systems such as Oracle, secrets, or network access
+system: tests that exercise an application flow close to production
+```
+
+External and system tests should be opt-in and should not run as part of the normal unit test suite.
 
 Run all tests:
 
 ```bash
-pytest
+uv run pytest
 ```
 
-Run with verbose output:
+Run all unit tests:
 
 ```bash
-pytest -v
+uv run pytest -m unit
 ```
 
-Run tests matching a keyword:
+Run tests in a specific folder:
 
 ```bash
-pytest -k "aoi"
+uv run pytest ast_engine/tests/unit/aoi -v
 ```
 
 Run a specific test file:
 
 ```bash
-pytest ast_engine/tests/test_aoi_builder.py
+uv run pytest ast_engine/tests/unit/aoi/test_aoi_builder.py
 ```
 
-Run with coverage, if configured:
+Run tests matching a keyword:
 
 ```bash
-pytest --cov=ast_engine
+uv run pytest -k "aoi"
 ```
 
-Recommended test categories:
+Run unit tests matching a keyword:
+
+```bash
+uv run pytest -m unit -k "aoi"
+```
+
+Run with verbose output:
+
+```bash
+uv run pytest -v
+```
+
+Shared sample files should be placed under:
 
 ```text
-ast_engine/tests/
-├── unit/
-├── integration/
-└── data/
+ast_engine/tests/data/
 ```
 
-Unit tests should prefer small in-memory fixtures.
+Unit tests should avoid file dependencies where possible. Prefer in-memory fixtures for simple geometry and object construction. Integration tests may use files from `tests/data` when testing readers, adapters, or workflows that require realistic input files.
 
-Integration tests may use sample files under `tests/data`.
+Unit tests should focus on one component at a time. For example, AOI tests should separately test:
+
+```text
+AOI request models
+AOI normalization
+AOI part building
+AOI inspection
+AOI validation
+AOI builder workflow
+```
+
+Builder/workflow tests should verify that the builder coordinates the workflow and returns the expected result object. Detailed geometry, CRS, area, and validation rules should be tested in the component-specific tests rather than duplicated in every builder test.
+
+A good testing pattern is:
+
+```text
+Component tests:
+    Validate detailed behavior of one class or function.
+
+Builder/workflow tests:
+    Validate orchestration and result packaging.
+
+Integration tests:
+    Validate multiple components working together.
+
+External tests:
+    Validate real external systems, secrets, database access, or network services.
+```
+
+When adding tests, prefer clear test names that describe the expected behavior:
+
+```python
+def test_builder_rejects_missing_crs():
+    ...
+
+def test_normalizer_reprojects_geographic_input():
+    ...
+
+def test_validator_reports_sliver_part():
+    ...
+```
+
+Tests should be readable and should make the expected behavior obvious. Shared fixtures and helpers may be used to reduce duplication, but helpers should not hide the behavior being tested.
 
 ---
 
@@ -848,10 +955,10 @@ Create a branch:
 git checkout -b feature/my-change
 ```
 
-Run tests:
+Run tests (see above for details):
 
 ```bash
-pytest
+uv run pytest
 ```
 
 Commit changes:
@@ -915,6 +1022,7 @@ Recommended standards for this package:
 Track unresolved or evolving design items here.
 
 * [ ] Confirm AOI/Geometry results validation model
+* [ ] Confirm results model validation model
 * [ ] Confirm final runtime registry structure
 * [ ] Confirm data adapter interfaces
 * [ ] Confirm schema contract layout
