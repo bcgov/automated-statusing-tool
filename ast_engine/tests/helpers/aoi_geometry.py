@@ -21,6 +21,7 @@ from shapely.geometry import (
 )
 
 PROJECTED_CRS = "EPSG:3005"
+WGS84_CRS = "EPSG:4326"
 
 
 def rect(
@@ -41,6 +42,37 @@ def square(
     """Create a square polygon from lower-left corner and size."""
     return box(xmin, ymin, xmin + size, ymin + size)
 
+
+def squares(
+    *,
+    count: int,
+    size: float,
+    overlap: bool = False,
+    xmin: float = 0.0,
+    ymin: float = 0.0,
+) -> list[Polygon]:
+    """
+    Create a list of square polygons.
+
+    If overlap=True, adjacent squares overlap.
+    If overlap=False, adjacent squares are separated.
+    """
+    if count <= 0:
+        raise ValueError("count must be greater than 0")
+
+    if size <= 0:
+        raise ValueError("size must be greater than 0")
+
+    spacing = size * 0.5 if overlap else size * 1.5
+
+    return [
+        square(
+            xmin=xmin + i * spacing,
+            ymin=ymin,
+            size=size,
+        )
+        for i in range(count)
+    ]
 
 def multipolygon(
     *polygons: Polygon,
@@ -152,4 +184,64 @@ def overlapping_polygons_gdf() -> gpd.GeoDataFrame:
             rect(80, 80, 180, 180),
         ],
         group_id=["A", "A"],
+    )
+
+def mixed_geometry_kml_overlap_aoi() -> Polygon:
+    """
+    Create a raw AOI geometry that overlaps the mixed-geometry KML test file.
+
+    The KML coordinates are longitude/latitude, so this geometry should be used
+    with CRS EPSG:4326 if it is wrapped in a GeoDataFrame.
+    """
+    return rect(
+        -121.240,
+        51.325,
+        -121.165,
+        51.365,
+    )
+
+
+def squares_gdf(
+    *,
+    count: int,
+    size: float,
+    overlap: bool = False,
+    xmin: float = 0.0,
+    ymin: float = 0.0,
+    crs: str | None = PROJECTED_CRS,
+    **columns,
+) -> gpd.GeoDataFrame:
+    """
+    Create a GeoDataFrame of square polygons for AOI tests.
+
+    Delegates GeoDataFrame construction to aoi_gdf().
+    """
+    if count != len(columns.get("id", [])) and count != len(columns.get("group_id", [])):
+        raise ValueError(
+            "count must match the length of 'id' or 'group_id' columns if provided"
+        )
+    geometries = squares(
+        count=count,
+        size=size,
+        overlap=overlap,
+        xmin=xmin,
+        ymin=ymin,
+    )
+
+    return aoi_gdf(
+        geometries,
+        crs=crs,
+        **columns,
+    )
+
+
+def mixed_geometry_kml_overlap_aoi_gdf() -> gpd.GeoDataFrame:
+    """
+    Create an AOI GeoDataFrame that overlaps polygon, line, and point features
+    in test_shape_a_mixed_geometry.kml.
+    """
+    return aoi_gdf(
+        [mixed_geometry_kml_overlap_aoi()],
+        crs=PROJECTED_CRS,
+        group_id=["mixed_geometry_kml"],
     )
