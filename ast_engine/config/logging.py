@@ -4,6 +4,7 @@ from ast_engine.config.settings import Settings
 
 def setup_logging():
     """Configure logging based on settings."""
+    settings = Settings()
     config = {
         "version": 1,
         "disable_existing_loggers": False,
@@ -18,21 +19,21 @@ def setup_logging():
                 "class": "logging.StreamHandler",
                 "stream": sys.stdout,
                 "formatter": "standard",
-                "level": Settings.log_level,
+                "level": settings.log_level,
             },
         },
         "root": {
             "handlers": ["console"],
-            "level": Settings.log_level,
+            "level": settings.log_level,
         },
     }
     
-    if Settings.log_file:
+    if settings.log_file:
         config["handlers"]["file"] = {
             "class": "logging.FileHandler",
-            "filename": Settings.log_file,
+            "filename": settings.log_file,
             "formatter": "standard",
-            "level": Settings.log_level,
+            "level": settings.log_level,
         }
         config["root"]["handlers"].append("file")
     
