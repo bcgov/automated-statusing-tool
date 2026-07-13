@@ -22,4 +22,4 @@ def ensure_initialized():
     global __initialized
     if not __initialized:
         bootstrap()
-        __initialized = True6
+        __initialized = True
