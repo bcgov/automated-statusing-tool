@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     validate_required_paths: list[str] = []  # Paths to check exist
     
     #S3 Connections 
-    s3_maxretires: int
+    s3_maxretires: int = 5
     s3_retry_Mode: Literal["standard"] = "standard"
 
 

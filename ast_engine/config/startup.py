@@ -5,14 +5,15 @@ def bootstrap():
     """Initialize app on startup: validate config, setup logging, etc."""
     # Setup logging first
     logger = setup_logging()
+    settings = Settings()
     
     # Validate system requirements
-    issues = Settings.validate_system()
+    issues = settings.validate_system()
     if issues:
         logger.error(f"System validation failed: {issues}")
         raise RuntimeError(f"Configuration validation failed: {issues}")
     
-    logger.info(f"App initialized in {Settings.environment} mode")
+    logger.info(f"App initialized in {settings.environment} mode")
     return logger
 
 __initialized = False
