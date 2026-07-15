@@ -81,3 +81,20 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
             # Append dataset to list
             dataset_list.append(row_dataset)
     return dataset_list
+
+def path_translate(in_path:str, path_dict:dict|None = None) -> str:
+    from os import name
+    from os.path import dirname, exists
+    slashes = {"":""}
+    if name == "nt":
+        slashes = {"/":"\\"}
+    elif name == "posix":
+        slashes = {"\\": "/"}
+    if path_dict is not None:
+        for old, new in path_dict.items():
+            in_path.replace(old, new)
+    in_path.replace(list(slashes.keys())[0], list(slashes.values())[0])
+    if not exists(dirname(in_path)):
+        # log that path not found
+        logger.error(f"{in_path} not found")
+    return in_path
