@@ -4,7 +4,7 @@
 
 The **Automated Status Tool Engine** (`ast_engine`) is the Python package that provides the core configuration, validation, data inventory, and runtime processing components for the Automated Status Tool application.
 
-At a high level, the engine produces normalized spatial results by processing an **Area of Interest (AOI)** against a pre-populated data registry.
+At a high level, the engine produces normalized spatial results by processing an **Area of Interest (AOI)** against a pre-populated **data registry** of informational layers.
 
 The engine is split into two major responsibilities:
 
@@ -147,14 +147,14 @@ flowchart TD
 
 ## AST-Config
 
-AST-Config is responsible for preparing runtime-ready configuration and registry information.
+`ast_engine/config` is responsible for preparing runtime-ready configuration and registry information.
 
 It may run on a schedule, cron job, manual trigger, or pre-runtime setup process.
 
 AST-Config responsibilities include:
 
 * reading client-provided configuration
-* validating required configuration fields
+* validating required fields from configuration
 * normalizing configuration into engine-ready structures
 * enriching configuration with derived metadata
 * preparing data inventory or registry records for AST-Core
@@ -164,7 +164,7 @@ AST-Config responsibilities include:
 flowchart LR
     A[Client Provided Configuration]
     B[Read]
-    C[Validation]
+    C[Validate]
     D[Enrich]
     E[Runtime Data Registry for AST-Core]
 
@@ -198,7 +198,7 @@ AST-Config outputs:
 
 ## AST-Core
 
-`ast_engine.core` is the runtime processing package for the Automated Status Tool Engine.
+`ast_engine/core` is the runtime processing package for the Automated Status Tool Engine.
 
 It is responsible for taking prepared configuration, a normalized or buildable AOI, and registered data sources, then producing structured processing results.
 
@@ -288,13 +288,12 @@ The AOI module should be run once at the beginning of a runtime workflow. Downst
 
 Primary AOI outputs:
 
-| Object                   | Purpose                                                                  |
-| ------------------------ | -----------------------------------------------------------------        |
-| `AreaOfInterest`         | Clean AOI domain object used downstream, including `AOIParts`,
-                           | AOIProperties, and AOI geodataframe.                                     |
-| `AOIBuildResult`         | Build result containing AOI object, validation, and normalization report |
-| `AOIValidationResult`    | Errors, warnings, and info findings from validation                      |
-| `AOINormalizationReport` | Diagnostic report describing what changed during normalization           |
+| Object                   | Purpose                                                                                            |
+| ------------------------ | -----------------------------------------------------------------                                  |
+| `AreaOfInterest`         | Clean AOI domain object used downstream, including `AOIParts`, AOIProperties, and AOI geodataframe.|
+| `AOIBuildResult`         | Build result containing AOI object, validation, and normalization report                           |
+| `AOIValidationResult`    | Errors, warnings, and info findings from validation                                                |
+| `AOINormalizationReport` | Diagnostic report describing what changed during normalization                                     |
 
 ### AOI Internal Workflow
 
@@ -792,9 +791,15 @@ ast_engine/tests/
 └── data/
 ```
 
-Unit tests should be fast, deterministic, and should not depend on external services, live databases, secrets, network access, or production data. Where possible, unit tests should use small in-memory fixtures instead of file-based inputs.
 
-Integration tests may check that multiple components work together in a workflow. Smoke tests should provide quick confidence that a main workflow starts or runs without crashing. External tests may connect to live systems such as Oracle, BCGW, or other configured services. System tests may exercise an application flow that is close to production.
+| Test                 | Purpose                                                                           |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `Unit Tests`         | Fast, deterministic, and not dependent on external services, live databases, secrets, network access, or production data. Where possible, use small in-memory fixtures instead of file-based inputs. |
+| `Integration Tests`  | Check that multiple components work together in a workflow                        |
+| `Smoke Tests`        | Provide quick confidence that a main workflow starts or runs without crashing     |
+| `External Tests`     | Connect to live systems such as Oracle, BCGW, or other configured services        |
+| `System Tests`       | Exercise an application flow that is close to production                          |
+
 
 The current pytest configuration includes the following marker:
 
