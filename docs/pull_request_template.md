@@ -1,10 +1,9 @@
 > [!Summary]
-> Please provide Summary Request Here. Include: 
+> Please provide Summary Request Here. Include:
 > 1. Reference to the issue #
 > 2. Description of the changes proposed
-> 3. Mentione of person responsible for request 
 
-### Check List 
+### Check List
 - [ ] Code runs locally
 - [ ] Tests pass
 - [ ] New behavior has tests
@@ -13,5 +12,4 @@
 - [ ] Logging uses module-level loggers
 - [ ] Exceptions and validation results follow engine convention
 
-
-
+### Other Comments?
