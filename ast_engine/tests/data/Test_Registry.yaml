@@ -1,34 +1,103 @@
 version: '0.1'
 datasets:
 - name: ParcelMap BC
-  datasource: ast_engine\tests\data\Test_Data_PMBC_PARCEL_FABRIC.gdb\WHSE_CADASTRE_PMBC_PARCEL_FABRIC_POLY_FA_SVW
+  datasource: ast_engine/tests/data/Test_Data_PMBC_PARCEL_FABRIC.gdb/WHSE_CADASTRE_PMBC_PARCEL_FABRIC_POLY_FA_SVW
   definition_query: null
   aggregate_columns:
   - LEGAL_DESCRIPTION
   - PID
   - OWNER_TYPE
-  id: 8e0226d9-8e35-415e-9173-3fe0810187ce
+  where: null
+  operator:
+    type: overlay
+  unique_id: null
+  id: abb1d67c-c0fc-4146-8acb-fd93edab62b3
   columns:
-  - FOO
-  - BAR
-  geom_column: GEOMETRY
-  geometry_type: POLYGON
+  - PARCEL_FABRIC_POLY_ID
+  - GLOBAL_UID
+  - PARCEL_NAME
+  - PLAN_ID
+  - PLAN_NUMBER
+  - PIN
+  - PID
+  - PID_FORMATTED
+  - PID_NUMBER
+  - SOURCE_PARCEL_ID
+  - PARCEL_STATUS
+  - PARCEL_CLASS
+  - OWNER_TYPE
+  - PARCEL_START_DATE
+  - SURVEY_DESIGNATION_1
+  - SURVEY_DESIGNATION_2
+  - SURVEY_DESIGNATION_3
+  - LEGAL_DESCRIPTION
+  - MUNICIPALITY
+  - REGIONAL_DISTRICT
+  - IS_REMAINDER_IND
+  - GEOMETRY_SOURCE
+  - POSITIONAL_ERROR
+  - ERROR_REPORTED_BY
+  - CAPTURE_METHOD
+  - COMPILED_IND
+  - STATED_AREA
+  - WHEN_CREATED
+  - WHEN_UPDATED
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - SE_ANNO_CAD_DATA
+  - Shape_Length
+  - Shape_Area
+  geom_column: Shape
+  geometry_type: polygon
   crs: EPSG:3005
   data_adapter: FILE
-  row_count: 200
+  row_count: 513
 - name: ParcelMap BC
-  datasource: ast_engine\tests\data\Test_Data_PMBC_PARCEL_FABRIC_shp\WHSE_CADASTRE_PMBC_PARCEL_FABRIC_POLY_FA_SVW.shp
+  datasource: ast_engine/tests/data/Test_Data_PMBC_PARCEL_FABRIC_shp/WHSE_CADASTRE_PMBC_PARCEL_FABRIC_POLY_FA_SVW.shp
   definition_query: null
   aggregate_columns:
   - LEGAL_DESCRIPTION
   - PID
   - OWNER_TYPE
-  id: de18267b-334b-40ed-8266-a79e7111f1aa
+  where: null
+  operator:
+    type: overlay
+  unique_id: null
+  id: a7884e12-0a47-4405-ac6d-8e2f6bd2f139
   columns:
-  - FOO
-  - BAR
-  geom_column: GEOMETRY
-  geometry_type: POLYGON
+  - PARCEL_FAB
+  - GLOBAL_UID
+  - PARCEL_NAM
+  - PLAN_ID
+  - PLAN_NUMBE
+  - PIN
+  - PID
+  - PID_FORMAT
+  - PID_NUMBER
+  - SOURCE_PAR
+  - PARCEL_STA
+  - PARCEL_CLA
+  - OWNER_TYPE
+  - PARCEL_S_1
+  - SURVEY_DES
+  - SURVEY_D_1
+  - SURVEY_D_2
+  - LEGAL_DESC
+  - MUNICIPALI
+  - REGIONAL_D
+  - IS_REMAIND
+  - GEOMETRY_S
+  - POSITIONAL
+  - ERROR_REPO
+  - CAPTURE_ME
+  - COMPILED_I
+  - STATED_ARE
+  - WHEN_CREAT
+  - WHEN_UPDAT
+  - FEATURE_AR
+  - FEATURE_LE
+  geom_column: geometry
+  geometry_type: polygon
   crs: EPSG:3005
   data_adapter: FILE
-  row_count: 200
+  row_count: 513

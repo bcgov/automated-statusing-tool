@@ -39,6 +39,7 @@ def get_credentials() -> tuple[str, str, str]:
 def main() -> None:
     xlsx_in = "ast_engine/tests/data/Test_Registry.xlsx"
     yaml_out = "ast_engine/tests/data/Test_Registry.yaml"
+    path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
         "name": "Featureclass_Name(valid characters only)",
@@ -55,6 +56,10 @@ def main() -> None:
     }
 
     datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+    path_lookup = utils.drive_map_loader(path_lookup_conf)
+    for dataset in datasets:
+        dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
+
     hydrated = utils.hydrate_base_datasets(datasets)
 
     # One BCGW connection, reused to enrich every Oracle dataset in the build.
