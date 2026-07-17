@@ -8,7 +8,7 @@
 # secrets
 .env
 .env.*
-config/drive_map.conf
+ast_engine/config/drive_map.conf
 
 #Continue
 .continue/
