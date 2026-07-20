@@ -1,4 +1,4 @@
-import logging.config
+import logging
 import sys
 from ast_engine.config.settings import Settings
 
