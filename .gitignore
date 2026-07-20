@@ -4,6 +4,7 @@
 .idea/
 .vscode/
 *.swp
+~$*.xlsx
 
 # Windows / ArcGIS artifacts
 *:Zone.Identifier
