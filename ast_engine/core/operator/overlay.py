@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Any, Iterable, Literal
 
 import geopandas as gpd
+import pandas as pd
 
 from ..aoi import AreaOfInterest
 from ..data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
@@ -49,28 +50,35 @@ def intersection(
     geom_type: GeomKind | None = None,
     feature_id_field: str | None = None,
     keep_properties: Iterable[str] | None = None,
+    where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
 ) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
     """Return one overlay result for the dataset, features sorted by overlap descending.
 
     geom_type, when given (from the dataset registry), selects the result type and
-    the overlap measure. When None it is inferred from the returned geometries.
+    the overlap measure. When None or unrecognized (e.g. "unknown" from an empty
+    table) it is inferred from the returned geometries.
 
-    The spatial push-down ("intersects") is built into the default ReadOptions;
-    an orchestrator can pass its own read_options instead. Dataset identity
-    (table for Oracle, path/layer for files) travels in source_kwargs.
+    where, when given (the dataset's registry definition query), is pushed down as
+    an attribute filter so only the matching features are read. The spatial
+    push-down ("intersects") is built into the default ReadOptions; an orchestrator
+    can pass its own read_options instead. Dataset identity (table for Oracle,
+    path/layer for files) travels in source_kwargs.
     """
     _require_projected(aoi)
 
     # Ask the adapter for the candidate features (intersects pushed down).
     gdf = adapter.read(
-        read_options=read_options or _default_read_options(aoi, feature_id_field, keep_properties),
+        read_options=read_options or _default_read_options(aoi, feature_id_field, keep_properties, where),
         target_crs=str(aoi.gdf.crs),
         **source_kwargs,
     )
 
-    kind = geom_type or _infer_geom_kind(gdf)
+    # Trust the registry geom_type only when it is a kind we handle; otherwise
+    # (None, or "unknown" from e.g. an empty table at build time) infer it from
+    # the geometries the adapter actually returned.
+    kind = geom_type if geom_type in ("point", "line", "polygon") else _infer_geom_kind(gdf)
     if gdf.empty:
         return _empty_result(kind)
 
@@ -164,9 +172,11 @@ def _default_read_options(
     aoi: AreaOfInterest,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
+    where: Any = None,
 ) -> ReadOptions:
-    """Build a ReadOptions that pushes down the AOI ("intersects") and keeps the
-    columns the operator needs downstream.
+    """Build a ReadOptions that pushes down the AOI ("intersects"), applies the
+    dataset's attribute filter (where), and keeps the columns the operator needs
+    downstream.
 
     Without keep_columns, the base adapter could drop feature_id_field and the
     result builder would fall back to the row index, so feature_id_field is always
@@ -179,6 +189,7 @@ def _default_read_options(
         keep.update(keep_properties)
     return ReadOptions(
         spatial_filter=SpatialFilter(aoi=aoi.gdf, predicate="intersects"),
+        where=where,
         keep_columns=keep or None,
     )
 
@@ -226,7 +237,7 @@ def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | floa
         if col not in row.index:
             continue
         value = row[col]
-        if value is None:
+        if value is None or pd.isna(value):
             continue
         if isinstance(value, (int, float, str)):
             props[col] = value

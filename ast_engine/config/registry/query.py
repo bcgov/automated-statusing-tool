@@ -8,7 +8,7 @@ The compiler in core/data_adapters/where_compiler.py turns that model back into 
 """
 
 from typing import Optional, Literal
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 import sqlglot
 from sqlglot import exp
 
@@ -78,6 +78,11 @@ class Condition(BaseModel):
     
 
 class LogicalGroup(BaseModel):
+    # populate_by_name so the group loads from either the 'and' / 'or' aliases
+    # (canonical, what by_alias dumps write) or the 'and_' / 'or_' field names
+    # (what older YAMLs written without by_alias contain).
+    model_config = ConfigDict(populate_by_name=True)
+
     and_: Optional[list["WhereClause | LogicalGroup"]] = Field(default=None, alias="and")
     or_: Optional[list["WhereClause | LogicalGroup"]] = Field(default=None, alias="or")
 
