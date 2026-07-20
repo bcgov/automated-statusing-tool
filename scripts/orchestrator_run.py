@@ -14,7 +14,7 @@ from pathlib import Path
 
 import geopandas as gpd
 
-from ast_engine.utils.logging_config import setup_logging
+from ast_engine.config.logging import setup_logging
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
 from ast_engine.core.execution import AnalysisTask, run_analysis
 
