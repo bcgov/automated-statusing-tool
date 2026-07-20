@@ -59,18 +59,16 @@ def main() -> None:
         "definition_query": "Definition_Query",
     }
 
-    datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
-    path_lookup = utils.drive_map_loader(path_lookup_conf)
-    for dataset in datasets:
-        dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
-
-    hydrated = utils.hydrate_base_datasets(datasets)
-
     # One BCGW connection, reused to enrich every Oracle dataset in the build.
     user, password, host = get_credentials()
 
+    # Get drive mappings
+    path_lookup = utils.drive_map_loader(path_lookup_conf)
+
     for xlsx_in, yaml_out in spreadsheet_io.items():
         datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        for dataset in datasets:
+            dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
         hydrated = utils.hydrate_base_datasets(datasets)
         base_datasets_list = []
         with OracleConnection(user, password, host) as (conn, cursor):
