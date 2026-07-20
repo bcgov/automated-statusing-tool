@@ -8,15 +8,73 @@ gpd.read_file(): GDAL picks the right driver from the file extension, so one
 adapter covers them all.
 """
 
+import os
 import re
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
 import pyogrio # type: ignore
+import pyogrio.util
 
 from ..base import BaseSpatialAdapter, DatasetInfo, ReadOptions, SpatialFilter
 from ..exceptions import DataReadError
+
+
+# ---------------------------------------------------------------------------
+# Fix for '!' in folder names (common on network shares, where folders like
+# "!Cariboo_Data_Warehouse" are named with a '!' to sort to the top).
+#
+# Before a path reaches GDAL, pyogrio runs it through a path-parsing step
+# that treats '!' as its zip-archive marker ("data.zip!layer.shp" means "the
+# layer inside the zip"). That rule is applied blindly: a plain folder with
+# '!' in its name gets the path cut at the '!', GDAL receives only the second
+# half, and the read fails with "No such file or directory". Drive-letter
+# paths (W:\...) happen to skip that step, which is why a mapped drive works;
+# UNC paths (\\server\...) and Linux mount paths (/mnt/...) do not skip it
+# and fail. The bug is in pyogrio's parsing, not in GDAL - GDAL opens '!'
+# paths fine when it is handed the full string.
+# Reported upstream: https://github.com/geopandas/pyogrio/issues/632
+#
+# Until a pyogrio release fixes this, we swap in a slightly smarter version
+# of that parsing step: a path that contains '!' but exists on disk as-is is
+# a real file or folder, not a zip reference, and passes through untouched.
+# Reading a layer out of a real zip still works - "data.zip!layer.shp" never
+# exists on disk under that literal name, so it falls through to the original
+# behaviour.
+#
+# NOTE: this hooks a pyogrio internal (written against pyogrio 0.12.1; the
+# hooked function is unchanged in 0.13.0, which does not fix the bug either -
+# the upstream fix is targeted for 0.13.1). A future pyogrio version may
+# rename _parse_uri or fix the bug itself - then
+# this patch stops applying (the AttributeError guard keeps the adapter
+# importable) and should be deleted. test_adapter_file.py reads a shapefile
+# from a '!' folder, so the unit suite fails loudly if '!' paths ever stop
+# working.
+# ---------------------------------------------------------------------------
+
+def _bang_safe_parse_uri(original):
+    """Wrap pyogrio's path parsing so real '!' folder/file names survive."""
+
+    def parse_uri(path: str):
+        if "!" in path and os.path.exists(path):
+            # Return shape is (path, archive, scheme): a real path on disk is
+            # not inside an archive and has no scheme - use it as-is.
+            return path, "", ""
+        return original(path)
+
+    parse_uri._bang_safe = True  # marker so the patch is applied only once
+    return parse_uri
+
+
+try:
+    if not getattr(pyogrio.util._parse_uri, "_bang_safe", False):
+        pyogrio.util._parse_uri = _bang_safe_parse_uri(pyogrio.util._parse_uri)
+except AttributeError:
+    # pyogrio no longer exposes _parse_uri - likely a newer version that
+    # changed (or fixed) its path handling. The '!' folder tests in
+    # test_adapter_file.py tell us whether this patch is still needed.
+    pass
 
 
 # Container formats that hold named layers. The datasource string tacks the
