@@ -9,25 +9,23 @@ It is the glue between the four pieces that are already built:
   - the registry says, per dataset, which analysis to run and with what params;
   - the results model collects everything into AstResults.
 
-The orchestrator runs on its own small AnalysisTask object, not on the registry
-model directly, so it is insulated from registry-shape changes. A thin mapper
-turns each registry dataset into an AnalysisTask; the run loop never changes when
-the registry shape settles. The same mapper handles every registry the same way
-- provincial, regional, Tab 1 and user - so a run is just the concatenation of
-their tasks (see tasks_from_registries).
+The run loop never touches the registry. A small mapper first turns each registry
+dataset into a small AnalysisTask, and the loop runs only on those tasks. That
+keeps registry-shape changes contained in the mapper: when the registry changes,
+the mapper changes and the run loop does not. Every registry is mapped the same
+way - provincial, regional, Tab 1, user-defined.. - so a run is simply all their tasks
+concatenated in order (see tasks_from_registries).
 
 The driver itself (run_analysis) has no knowledge of the registry: it takes a
 list of AnalysisTask and a built AreaOfInterest, picks the right adapter per task,
 calls the operator, and records one DatasetResultGroup per dataset. One dataset's
 failure is logged and recorded as an empty group - the run continues, because a
-real run covers 50-100 datasets per AOI.
+real run covers 100-200 datasets per AOI.
 """
 
 from __future__ import annotations
 
-import getpass
 import logging
-import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
@@ -174,11 +172,12 @@ def run_analysis(
 ) -> AstResults:
     """Run every task for one AOI and return the assembled AstResults.
 
-    If any task reads from Oracle and no connection is passed, one BCGW
-    connection is opened from the BCGW_USER / BCGW_PASSWORD / BCGW_HOST
-    environment variables (else prompted) and closed at the end. A connection
-    passed in is reused and left open (the caller owns it). One adapter of each
-    kind is reused across all tasks.
+    A task that reads from Oracle needs an open connection: pass one as
+    oracle_connection (open it with OracleConnection). The engine never resolves
+    credentials or opens a connection itself, so it never blocks on a prompt and
+    is safe to drive from a worker, an API handler or a test - the caller owns
+    the connection's lifecycle. A run with only file tasks needs no connection.
+    One adapter of each kind is reused across all tasks.
 
     Per-dataset timings are logged through the DiagnosticTracker so a run can be
     profiled (which datasets are slow, where parallelism would help).
@@ -186,41 +185,36 @@ def run_analysis(
     tasks = list(tasks)
     tracker = tracker or DiagnosticTracker()
     file_adapter = FileSpatialAdapter()
-
-    oracle_adapter, owned_connection = _resolve_oracle_adapter(tasks, oracle_connection)
+    oracle_adapter = _oracle_adapter(tasks, oracle_connection)
 
     timings: list[tuple[str, float]] = []
-    try:
-        tracker.log("run_start", job_id=job_id, aoi_id=aoi.aoi_id, task_count=len(tasks))
-        groups = [
-            _run_one_task(task, aoi, file_adapter, oracle_adapter, tracker, timings)
-            for task in tasks
-        ]
-        _log_timing_summary(timings, tracker)
-        return AstResults(job_id=job_id, aoi_id=aoi.aoi_id, results=groups)
-    finally:
-        if owned_connection is not None:
-            owned_connection.close()
+    tracker.log("run_start", job_id=job_id, aoi_id=aoi.aoi_id, task_count=len(tasks))
+    groups = [
+        _run_one_task(task, aoi, file_adapter, oracle_adapter, tracker, timings)
+        for task in tasks
+    ]
+    _log_timing_summary(timings, tracker)
+    return AstResults(job_id=job_id, aoi_id=aoi.aoi_id, results=groups)
 
 
-def _resolve_oracle_adapter(
+def _oracle_adapter(
     tasks: list[AnalysisTask],
     oracle_connection: Optional[OracleConnection],
-) -> tuple[Optional[OracleAdapter], Optional[OracleConnection]]:
-    """Pick the Oracle adapter and say whether we own its connection.
+) -> Optional[OracleAdapter]:
+    """One Oracle adapter for the run, or None when no task needs Oracle.
 
-    Returns (adapter, owned_connection). owned_connection is non-None only when
-    we opened it here and must close it ourselves; a caller-supplied connection
-    is reused and returned as None so it is left open.
+    The engine never opens a connection: a task that reads from Oracle requires
+    the caller to pass an open oracle_connection, whose lifecycle the caller
+    owns. Raises if an Oracle task is present but no connection was given.
     """
     if oracle_connection is not None:
-        return OracleAdapter(oracle_connection.connection, oracle_connection.cursor), None
-
+        return OracleAdapter(oracle_connection.connection, oracle_connection.cursor)
     if any(task.source_type == ORACLE for task in tasks):
-        connection = _open_oracle_connection()
-        return OracleAdapter(connection.connection, connection.cursor), connection
-
-    return None, None
+        raise RuntimeError(
+            "Oracle-backed tasks need an open connection; pass oracle_connection= "
+            "to run_analysis (open one with OracleConnection)."
+        )
+    return None
 
 
 def _run_one_task(
@@ -330,31 +324,9 @@ def _run_operator(task: AnalysisTask, aoi: AreaOfInterest, adapter: BaseSpatialA
     raise ValueError(f"unknown operator {task.operator!r} for dataset {task.dataset_name!r}")
 
 
-# ---------------------------------------------------------------------------
-# Oracle connection (mirrors spreadsheet_ingestion's credential pattern)
-# ---------------------------------------------------------------------------
-
-def _open_oracle_connection() -> OracleConnection:
-    """Open one BCGW connection from env vars, falling back to a prompt.
-
-    Credentials come from BCGW_USER / BCGW_PASSWORD / BCGW_HOST; the password is
-    read with getpass so it never echoes. Same pattern as the registry build.
-    """
-    user = os.environ.get("BCGW_USER") or input("BCGW username: ").strip()
-    password = os.environ.get("BCGW_PASSWORD") or getpass.getpass("BCGW password: ")
-    host = os.environ.get("BCGW_HOST") or input(
-        "BCGW host/DSN (e.g. bcgw.bcgov:1521/idwprod1.bcgov): "
-    ).strip()
-    if not (user and password and host):
-        raise RuntimeError(
-            "Missing BCGW credentials; set BCGW_USER / BCGW_PASSWORD / BCGW_HOST"
-        )
-    return OracleConnection(user, password, host)
-
-
 def _log_timing_summary(timings: list[tuple[str, float]], tracker: DiagnosticTracker) -> None:
     """Log total time and the slowest datasets - input for the efficiency /
-    parallelization discussion."""
+    parallelization exploration work."""
     if not timings:
         return
     total = sum(seconds for _, seconds in timings)
