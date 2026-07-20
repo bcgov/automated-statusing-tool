@@ -4,6 +4,11 @@
 .idea/
 .vscode/
 *.swp
+~$*.xlsx
+
+# Windows / ArcGIS artifacts
+*:Zone.Identifier
+*.sr.lock
 
 # secrets
 .env
