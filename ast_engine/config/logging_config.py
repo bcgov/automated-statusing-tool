@@ -1,9 +1,27 @@
-import logging
+import logging.config
 import sys
 from ast_engine.config.settings import Settings
 
 def setup_logging():
-    """Configure logging based on settings."""
+    """
+    This function creates and applies a logging configuration based on values defined in `Settings`, including:
+    - Log level
+    - Log message formatting
+    - Console output
+    - Optional file logging
+
+    Returns:
+    - logging.Logger: A configured logger instance for the current module.
+
+    Side Effects:
+    - Configures the root logger.
+    - May create and write to a log file if `settings.log_file` is specified.
+    - Updates the global logging configuration for the current process.
+
+    Usage:
+    - Call `setup_logging()` during application startup before creating or using loggers elsewhere in the application..
+    """
+
     settings = Settings()
     config = {
         "version": 1,
