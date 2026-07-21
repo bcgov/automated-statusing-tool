@@ -2,7 +2,7 @@
 This code will orchestrate the pipeline from AOI --> results
 '''
 import logging
-from ast_engine.config.logging import setup_logging
+from ast_engine.config.logging_config import setup_logging
 from ast_engine.utils.diagnostics import DiagnosticTracker
 
 setup_logging()

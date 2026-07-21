@@ -1,5 +1,5 @@
 from ast_engine.config.settings import Settings
-from ast_engine.config.logging import setup_logging
+from ast_engine.config.logging_config import setup_logging
 
 def bootstrap():
     """Initialize app on startup: validate config, setup logging, etc."""
