@@ -62,11 +62,12 @@ def main() -> None:
     # One BCGW connection, reused to enrich every Oracle dataset in the build.
     user, password, host = get_credentials()
 
-    # Get drive mappings
+    # Get drive mappings for linux
     path_lookup = utils.drive_map_loader(path_lookup_conf)
 
     for xlsx_in, yaml_out in spreadsheet_io.items():
         datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        # Ensure pathing is correct for host OS
         for dataset in datasets:
             dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
         hydrated = utils.hydrate_base_datasets(datasets)
