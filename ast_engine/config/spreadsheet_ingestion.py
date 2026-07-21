@@ -20,6 +20,9 @@ import os
 import sys
 from pathlib import Path
 
+import logging
+
+from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.registry import enrichment, utils, models
 from ast_engine.core.data_adapters.oracle import OracleConnection
 from ast_engine.core.data_adapters.exceptions import DataAdapterError
@@ -35,6 +38,8 @@ def get_credentials() -> tuple[str, str, str]:
         sys.exit("Missing BCGW credentials; aborting.")
     return user, password, host
 
+setup_logging()
+logger = logging.getLogger(__name__)
 
 def main() -> None:
     # xlsx_in = "ast_engine/tests/data/Test_Registry.xlsx"
@@ -81,7 +86,7 @@ def main() -> None:
                     base_datasets_list.append(enriched.build())
                 except DataAdapterError as e:
                     print(e)
-                    print(f"skipping {dataset.name} due to a read error")
+                    logger.warning(f"Warning: skipping {dataset.name} due to a read error: {e}")
                     continue
 
         registry = models.Registry(version="0.1", datasets=base_datasets_list)
