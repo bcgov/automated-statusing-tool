@@ -1,0 +1,283 @@
+datasets:
+  - id: "00000000-0000-0000-0000-000000000001"
+    name: "Mapsheet (BCGS 20K Grid)"
+    datasource: "WHSE_BASEMAPPING.BCGS_20K_GRID"
+    definition_query: null
+    aggregate_columns:
+      - "MAP_TILE_DISPLAY_NAME"
+    columns:
+      - "MAP_TILE_DISPLAY_NAME"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000002"
+    name: "NR District"
+    datasource: "WHSE_ADMIN_BOUNDARIES.ADM_NR_DISTRICTS_SP"
+    definition_query: null
+    aggregate_columns:
+      - "DISTRICT_NAME"
+    columns:
+      - "DISTRICT_NAME"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000003"
+    name: "Municipality"
+    datasource: "WHSE_LEGAL_ADMIN_BOUNDARIES.ABMS_MUNICIPALITIES_SP"
+    definition_query: null
+    aggregate_columns:
+      - "MUNICIPALITY_NAME"
+    columns:
+      - "MUNICIPALITY_NAME"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000004"
+    name: "Provincial Forest"
+    datasource: "WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST"
+    definition_query: null
+    aggregate_columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "MAP_BLOCK_ID"
+    columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "MAP_BLOCK_ID"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000005"
+    name: "Prov Forest Addition"
+    datasource: "WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST_ADDITION"
+    definition_query: null
+    aggregate_columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "OIC_YEAR"
+      - "OIC_NUMBER"
+      - "MAP_BLOCK_ID"
+    columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "OIC_YEAR"
+      - "OIC_NUMBER"
+      - "MAP_BLOCK_ID"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000006"
+    name: "Prov Forest Deletion"
+    datasource: "WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST_DELETION"
+    definition_query: null
+    aggregate_columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "DOCUMENT_TYPE"
+      - "DELETION_YEAR"
+    columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "DOCUMENT_TYPE"
+      - "DELETION_YEAR"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000007"
+    name: "Prov Forest Exclusion"
+    datasource: "WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST_EXCLUSION"
+    definition_query: null
+    aggregate_columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "AREA_TYPE"
+      - "EXCLUSION_NUMBER"
+    columns:
+      - "PROV_FOREST_CD_DESCRIPTION"
+      - "AREA_TYPE"
+      - "EXCLUSION_NUMBER"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000008"
+    name: "Assessment Area"
+    datasource: "WHSE_TANTALIS.TA_ASSESSMENT_AREAS_SVW"
+    definition_query: null
+    aggregate_columns:
+      - "ASSESSMENT_AREA_NAME"
+    columns:
+      - "ASSESSMENT_AREA_NAME"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000009"
+    name: "Land Title District"
+    datasource: "WHSE_TANTALIS.TA_LAND_TITLE_DISTRICTS_SVW"
+    definition_query: null
+    aggregate_columns:
+      - "LAND_TITLE_DISTRICT_NAME"
+    columns:
+      - "LAND_TITLE_DISTRICT_NAME"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000010"
+    name: "Electoral District"
+    datasource: "WHSE_ADMIN_BOUNDARIES.PED_PROV_ELECTORAL_DIST_POLY"
+    definition_query: null
+    aggregate_columns:
+      - "ELECTORAL_DISTRICT_NAME"
+    columns:
+      - "ELECTORAL_DISTRICT_NAME"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000011"
+    name: "Regional District"
+    datasource: "WHSE_LEGAL_ADMIN_BOUNDARIES.ABMS_REGIONAL_DISTRICTS_SP"
+    definition_query: null
+    aggregate_columns:
+      - "REGIONAL_DISTRICT_NAME"
+    columns:
+      - "REGIONAL_DISTRICT_NAME"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000012"
+    name: "Survey Parcels — PINs within"
+    datasource: "WHSE_TANTALIS.TA_SURVEY_PARCELS_SVW"
+    definition_query: null
+    aggregate_columns:
+      - "PIN_SID"
+      - "PARCEL_LEGAL_DESCRIPTION"
+    columns:
+      - "PIN_SID"
+      - "PARCEL_LEGAL_DESCRIPTION"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000013"
+    name: "Surveyed Right of Way"
+    datasource: "WHSE_TANTALIS.TA_SURVEYED_ROW_PARCELS_SVW"
+    definition_query: null
+    aggregate_columns:
+      - "PIN_SID"
+      - "PARCEL_LEGAL_DESCRIPTION"
+    columns:
+      - "PIN_SID"
+      - "PARCEL_LEGAL_DESCRIPTION"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000014"
+    name: "ALR"
+    datasource: "WHSE_LEGAL_ADMIN_BOUNDARIES.OATS_ALR_POLYS"
+    definition_query: null
+    aggregate_columns: []
+    columns: []
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000015"
+    name: "Archaeology Potential (AOA)"
+    datasource: "WHSE_ARCHAEOLOGY.RAAD_AOA_PROVINCIAL"
+    definition_query: null
+    aggregate_columns:
+      - "POTENTIAL"
+    columns:
+      - "POTENTIAL"
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000016"
+    name: "Nearest Archaeology Site"
+    datasource: "WHSE_ARCHAEOLOGY.RAAD_TFM_SITES_SVW"
+    definition_query: null
+    aggregate_columns:
+      - "BORDENNUMBER"
+      - "DISTANCE"
+    columns:
+      - "BORDENNUMBER"
+    nearest:
+      k: 1
+      max_distance_km: 25
+    geom_column: "GEOMETRY"
+    geometry_type: "POINT"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000017"
+    name: "Nearest Indian Reserve"
+    datasource: "WHSE_ADMIN_BOUNDARIES.ADM_INDIAN_RESERVES_BANDS_SP"
+    definition_query: null
+    aggregate_columns:
+      - "ENGLISH_NAME"
+      - "BAND_NAME"
+      - "DISTANCE"
+    columns:
+      - "ENGLISH_NAME"
+      - "BAND_NAME"
+    nearest:
+      k: 1
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
+
+  - id: "00000000-0000-0000-0000-000000000018"
+    name: "Adjacent Survey Parcels: PINs touching"
+    datasource: "WHSE_TANTALIS.TA_SURVEY_PARCELS_SVW"
+    definition_query: null
+    aggregate_columns:
+      - "PIN_SID"
+      - "PARCEL_LEGAL_DESCRIPTION"
+    columns:
+      - "PIN_SID"
+      - "PARCEL_LEGAL_DESCRIPTION"
+    adjacency:
+      buffer_distance_m: 5
+    geom_column: "GEOMETRY"
+    geometry_type: "POLYGON"
+    crs: "EPSG:3005"
+    data_adapter: "ORACLE"
+    row_count: null
