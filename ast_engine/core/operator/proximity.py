@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 import geopandas as gpd
+import pandas as pd
 
 from ast_engine.core.aoi import AreaOfInterest
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
@@ -43,6 +44,7 @@ def within_distance(
     distance_m: float,
     feature_id_field: str | None = None,
     keep_properties: Iterable[str] | None = None,
+    where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
 ) -> ProximityResult:
@@ -50,8 +52,10 @@ def within_distance(
 
     The default ReadOptions pushes a SpatialFilter(predicate='within_distance',
     distance=distance_m) down to the adapter; the exact distance is then checked
-    client-side (the push-down can be approximate, e.g. a file bbox). Pass your
-    own read_options to override. Dataset identity travels in source_kwargs.
+    client-side (the push-down can be approximate, e.g. a file bbox). where, when
+    given (the dataset's registry definition query), is pushed down as an attribute
+    filter. Pass your own read_options to override. Dataset identity travels in
+    source_kwargs.
     """
     if distance_m < 0:
         raise ValueError("distance_m must be non-negative")
@@ -63,6 +67,7 @@ def within_distance(
             SpatialFilter(aoi=aoi.gdf, predicate="within_distance", distance=distance_m),
             feature_id_field,
             keep_properties,
+            where,
         ),
         target_crs=str(aoi.gdf.crs),
         **source_kwargs,
@@ -88,6 +93,7 @@ def nearest(
     max_distance_m: float | None = None,
     feature_id_field: str | None = None,
     keep_properties: Iterable[str] | None = None,
+    where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
 ) -> ProximityResult:
@@ -98,8 +104,9 @@ def nearest(
 
     The default ReadOptions pushes a SpatialFilter(predicate='nearest', k=k) down
     to the adapter (Oracle SDO_NN); file adapters read the dataset and the top-k is
-    taken client-side. Pass your own read_options to override. Dataset identity
-    travels in source_kwargs.
+    taken client-side. where, when given (the dataset's registry definition query),
+    is pushed down as an attribute filter. Pass your own read_options to override.
+    Dataset identity travels in source_kwargs.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -113,6 +120,7 @@ def nearest(
             SpatialFilter(aoi=aoi.gdf, predicate="nearest", k=k),
             feature_id_field,
             keep_properties,
+            where,
         ),
         target_crs=str(aoi.gdf.crs),
         **source_kwargs,
@@ -134,9 +142,10 @@ def _default_read_options(
     spatial_filter: SpatialFilter,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
+    where: Any = None,
 ) -> ReadOptions:
-    """Build a ReadOptions that pushes the AOI filter down and keeps the columns
-    the operator needs downstream.
+    """Build a ReadOptions that pushes the AOI filter down, applies the dataset's
+    attribute filter (where), and keeps the columns the operator needs downstream.
 
     Without keep_columns, the base adapter could drop feature_id_field and the
     result builder would fall back to the row index, so feature_id_field is always
@@ -147,7 +156,7 @@ def _default_read_options(
         keep.add(feature_id_field)
     if keep_properties:
         keep.update(keep_properties)
-    return ReadOptions(spatial_filter=spatial_filter, keep_columns=keep or None)
+    return ReadOptions(spatial_filter=spatial_filter, where=where, keep_columns=keep or None)
 
 
 
@@ -219,7 +228,7 @@ def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | floa
         if col not in row.index:
             continue
         value = row[col]
-        if value is None:
+        if value is None or pd.isna(value):
             continue
         if isinstance(value, (int, float, str)):
             props[col] = value
