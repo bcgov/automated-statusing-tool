@@ -14,7 +14,8 @@ SHP = DATA_DIR / "Test_Shape_A_shp" / "Test_Shape_A.shp"
 # A finished registry saved as YAML - the shape a registry takes on disk and
 # what the orchestrator loads at run time. Path is anchored to this file so the
 # test passes no matter which folder pytest runs from.
-SAMPLE_REGISTRY = Path(__file__).parents[1] / "data" / "sample_registry.yaml"
+SAMPLE_XLSX = Path(__file__).parents[1] / "registry" / "Test_Registry.xlsx"
+SAMPLE_REGISTRY = Path(__file__).parents[1] / "registry" / "sample_registry.yaml"
 
 DATA_DICT = [
         {
@@ -130,7 +131,7 @@ def test_ingest_spreadsheet():
         "definition":"Definition_Query",
     }
 
-    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(DATA_DIR.parent / "Test_Registry.xlsx"))
+    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(SAMPLE_XLSX))
     assert len(data)>0
 @pytest.mark.unit
 def test_ingest_spreadsheet_to_model():
@@ -149,7 +150,7 @@ def test_ingest_spreadsheet_to_model():
         "definition":"Definition_Query",
     }
 
-    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(DATA_DIR.parent / "Test_Registry.xlsx"))
+    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(SAMPLE_XLSX))
     dsets = utils.hydrate_base_datasets(data)
     assert len(dsets) > 0
 
