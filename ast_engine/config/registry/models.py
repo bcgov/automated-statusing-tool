@@ -86,9 +86,12 @@ class BaseDataset(BaseModel):
     def normalize_where(self):
 
         if self.where is None and self.definition_query:
-            logger.warning(
-                f"[Future Deprecation] Dataset '{self.name}' uses definition_query. "
-                "Future versions Please migrate to 'where'."
+            # definition_query is still the primary input (the spreadsheet's
+            # Definition_Query column); 'where' is derived from it below. Logged
+            # at debug so the normal Tab 2 path is not noisy at build time.
+            logger.debug(
+                "Dataset '%s' uses definition_query; 'where' will be derived from it.",
+                self.name,
             )
 
         # correct type → do nothing
