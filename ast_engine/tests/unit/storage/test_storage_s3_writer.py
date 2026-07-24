@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from ast_engine.storage.key_builder import StorageConfig, JobStorageContext
 from ast_engine.storage.s3_writer import S3ResultsStorageWriter
 
-
+pytestmark = pytest.mark.unit
 
 @pytest.fixture
 def mock_config():

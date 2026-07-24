@@ -6,6 +6,7 @@ from typing import Dict, Optional, Mapping
 
 from ast_engine.storage.key_builder import ResultsKeyBuilder, JobStorageContext, StorageConfig
 
+pytestmark = pytest.mark.unit
 
 @pytest.fixture
 def mock_config():
