@@ -81,3 +81,49 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
             # Append dataset to list
             dataset_list.append(row_dataset)
     return dataset_list
+
+def path_translate(in_path:str, path_dict:dict|None = None) -> str:
+    '''
+    Translates paths from nt (windows) to posix (linux) or vice versa
+        in_path: the path to translate
+        path_dict: string replaces to do
+                    Usually to translate a windows share to a mount location on linux
+                    ex: "\\\\network.share\\projects":"/mnt/projects"
+    '''
+    from os import name
+    from os.path import dirname, exists
+    if name == "nt":
+        print("windows detected")
+        in_path = in_path.replace("/", "\\")
+    elif name == "posix":
+        print("posix detected")
+        if path_dict is not None:
+            for old, new in path_dict.items():
+                in_path = in_path.replace(old, new)
+        else:
+            logger.warning("Warning: No path translation provided. Absolute paths may be invalid")
+        in_path = in_path.replace("\\", "/")
+    if not exists(dirname(in_path)):
+        # log that path not found
+        logger.error(f"Error: {in_path} not found")
+    return in_path
+
+def drive_map_loader(drive_map_path:str, delimiter:str= "|") -> dict:
+    '''
+    Loads and interpretes the drive mapping dictionary
+        map_path: path to the .conf file
+        delimiter: optional delimiter. Assumed delimiter is a pipe (|)
+
+    Output: dictionary of share:mount_location
+
+
+    '''
+    conf_dict = {}
+    with open(drive_map_path, "r") as f:
+        for line in f:
+            if line and not line.startswith("#"):
+                key, value = line.split(delimiter, 1)
+                conf_dict[key.strip()] = value.strip()
+
+    return conf_dict
+

@@ -246,3 +246,9 @@ def test_enrich_oracle_without_connection_raises():
     base = BaseDataset(name="Roads", datasource="WHSE_TRANSPORT.TRANSPORT_LINE")
     with pytest.raises(ValueError):
         enrichment.Enrich(base).enrich()
+
+@pytest.mark.unit
+def test_path_translation():
+    """Test of path translation. results vary depending on OS. asserting string"""
+    translated_path = utils.path_translate("ast_engine\\tests\\data")
+    assert isinstance(translated_path, str)

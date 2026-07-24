@@ -20,6 +20,9 @@ import os
 import sys
 from pathlib import Path
 
+import logging
+
+from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.registry import enrichment, utils, models
 from ast_engine.core.data_adapters.oracle import OracleConnection
 from ast_engine.core.data_adapters.exceptions import DataAdapterError
@@ -35,14 +38,15 @@ def get_credentials() -> tuple[str, str, str]:
         sys.exit("Missing BCGW credentials; aborting.")
     return user, password, host
 
+setup_logging()
+logger = logging.getLogger(__name__)
 
 def main() -> None:
-    # xlsx_in = "ast_engine/tests/data/Test_Registry.xlsx"
-    # yaml_out = "ast_engine/tests/data/Test_Registry.yaml"
     spreadsheet_io = {
-        "ast_engine/tests/data/Test_Registry.xlsx":"ast_engine/tests/data/Test_Registry.yaml",
-        "ast_engine/tests/data/Test_Registry_2.xlsx":"ast_engine/tests/data/Test_Registry_2.yaml",
+        "ast_engine/tests/data/registry/Test_Registry.xlsx":"ast_engine/tests/data/Test_Registry.yaml",
+        "ast_engine/tests/data/registry/Test_Registry_2.xlsx":"ast_engine/tests/data/Test_Registry_2.yaml",
     }
+    path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
         "name": "Featureclass_Name(valid characters only)",
@@ -61,8 +65,14 @@ def main() -> None:
     # One BCGW connection, reused to enrich every Oracle dataset in the build.
     user, password, host = get_credentials()
 
+    # Get drive mappings for linux
+    path_lookup = utils.drive_map_loader(path_lookup_conf)
+
     for xlsx_in, yaml_out in spreadsheet_io.items():
         datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        # Ensure pathing is correct for host OS
+        for dataset in datasets:
+            dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
         hydrated = utils.hydrate_base_datasets(datasets)
         base_datasets_list = []
         with OracleConnection(user, password, host) as (conn, cursor):
@@ -74,7 +84,7 @@ def main() -> None:
                     base_datasets_list.append(enriched.build())
                 except DataAdapterError as e:
                     print(e)
-                    print(f"skipping {dataset.name} due to a read error")
+                    logger.warning(f"Warning: skipping {dataset.name} due to a read error: {e}")
                     continue
 
         registry = models.Registry(version="0.1", datasets=base_datasets_list)

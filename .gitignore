@@ -13,6 +13,7 @@
 # secrets
 .env
 .env.*
+ast_engine/config/drive_map.conf
 
 #Continue
 .continue/
