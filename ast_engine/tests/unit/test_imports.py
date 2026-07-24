@@ -39,6 +39,13 @@ AST_MODULES = [
     "ast_engine.config.registry.models",
     "ast_engine.config.registry.utils",
     "ast_engine.config.registry.query",
+    "ast_engine.storage.checksums",
+    "ast_engine.storage.key_builder",
+    "ast_engine.storage.local_writer",
+    "ast_engine.storage.models",
+    "ast_engine.storage.publisher",
+    "ast_engine.storage.s3_writer",
+    "ast_engine.storage.writer",
 ]
 
 @pytest.mark.parametrize("module_name", AST_MODULES)
