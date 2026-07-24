@@ -37,7 +37,7 @@ def test_sha256_file(tmp_path: Path):
     test_file.write_text("hello world", encoding="utf-8")
 
     # Known sha256 for "hello world"
-    expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+    expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7Face2efcde9"
     assert sha256_file(test_file) == expected
 
 
@@ -147,7 +147,7 @@ def test_job_manifest_to_dict_and_yaml():
 
 
 # ============================================================================
-# 5. Publisher Tests
+# 5. Publisher Tests -- doesn't actually publish
 # ============================================================================
 @pytest.mark.unit
 def test_publisher_publishes_required_and_optional_artifacts(tmp_path: Path):
