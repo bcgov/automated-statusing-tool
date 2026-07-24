@@ -2,7 +2,6 @@
 
 '''
 local_writer.py contains the same classes and methods as s3_writer for use in developement and tests
-TODO: Consider removing this in favor of using minio for local development and tests, which would allow us to test the S3 writer directly.
 '''
 
 # ast/ast_engine/storage/local_writer.py

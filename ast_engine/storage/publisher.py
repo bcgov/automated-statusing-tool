@@ -7,7 +7,7 @@ from .checksums import sha256_file, write_sha256_sidecar
 from .manifest import ArtifactRecord, JobManifest
 from .writer import ResultsStorageWriter
 
-# TODO: Refine ReslutsPublisher to match results
+# TODO: Refine ResultsPublisher to match results
 class ResultsPublisher:
     def __init__(self, writer: ResultsStorageWriter):
         self.writer = writer
