@@ -37,7 +37,7 @@ def test_sha256_file(tmp_path: Path):
     test_file.write_text("hello world", encoding="utf-8")
 
     # Known sha256 for "hello world"
-    expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7Face2efcde9"
+    expected = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
     assert sha256_file(test_file) == expected
 
 
