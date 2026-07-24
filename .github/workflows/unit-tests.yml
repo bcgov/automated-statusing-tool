@@ -1,0 +1,39 @@
+name: AST Engine Unit Tests
+
+on:
+  pull_request:
+    # Only run this workflow if files in the ast-engine folder or the workflow itself change
+    paths:
+      - 'ast-engine/**'
+      - '.github/workflows/ast-engine-tests.yml'
+
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ubuntu-latest
+    
+    # Run all steps within the ast-engine subdirectory
+    defaults:
+      run:
+        working-directory: ./ast-engine
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9
+        with:
+          enable-cache: true
+          cache-dependency-glob: "ast-engine/uv.lock" # Adjust to your lockfile if you use one
+
+      # uv can automatically fetch and install the correct Python version 
+      # using .python-version file or pyproject.toml configured.
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Run unit tests
+        run: uv run pytest -m unit
