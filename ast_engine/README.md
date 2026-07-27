@@ -692,7 +692,7 @@ Logging should be configured once by the application entry point.
 Example:
 
 ```python
-from ast_engine.utils.logging_config import setup_logging
+from ast_engine.config.logging_config import setup_logging
 
 def main() -> None:
     setup_logging()
