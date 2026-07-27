@@ -12,7 +12,7 @@ jobs:
     name: Run Unit Tests
     runs-on: ubuntu-latest
     
-    # Run all steps within the ast-engine subdirectory
+    # Run all steps within the ast_engine subdirectory
     defaults:
       run:
         working-directory: ./ast_engine
