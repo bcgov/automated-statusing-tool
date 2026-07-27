@@ -2,7 +2,7 @@ name: AST Engine Unit Tests
 
 on:
   pull_request:
-    # Only run this workflow if files in the ast-engine folder or the workflow itself change
+    # Only run this workflow if files in the ast_engine folder or the workflow itself change
     paths:
       - 'ast_engine/**'
       - '.github/workflows/ast-engine-tests.yml'
@@ -15,7 +15,7 @@ jobs:
     # Run all steps within the ast-engine subdirectory
     defaults:
       run:
-        working-directory: ./ast-engine
+        working-directory: ./ast_engine
 
     steps:
       - name: Checkout repository
