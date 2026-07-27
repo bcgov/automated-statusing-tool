@@ -147,7 +147,7 @@ def test_job_manifest_to_dict_and_yaml():
 
 
 # ============================================================================
-# 5. Publisher Tests
+# 5. Publisher Tests -- doesn't actually publish
 # ============================================================================
 @pytest.mark.unit
 def test_publisher_publishes_required_and_optional_artifacts(tmp_path: Path):
