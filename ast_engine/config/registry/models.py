@@ -116,6 +116,9 @@ class RegistryDataset(BaseDataset):
 
 class Registry(BaseModel):
     version: str
+    os:str
+    date:str
+    id:str
     datasets: List[RegistryDataset]
 
 

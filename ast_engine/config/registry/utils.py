@@ -127,3 +127,46 @@ def drive_map_loader(drive_map_path:str, delimiter:str= "|") -> dict:
 
     return conf_dict
 
+class RegistryBuilder():
+    '''
+    Accepts a list of registry datasets and builds up the metadata required
+    Parameters:
+    version (optional)
+    os_type (optional)
+    date (optional)
+    id (internal)
+    datasets (required)
+
+    '''
+    def __init__(self, datasets, version:str = "0.1", os_type:str|None = None, date = None ):
+        self.version = version
+        self.os_type = os_type
+        self.date = date
+        self.datasets = datasets
+    def enrich(self):
+        '''
+        Generate the values where applicable
+        '''
+        import uuid
+        if self.os_type not in ["posix", "nt"]:
+            from os import name
+            self.os_type = name
+        if self.date is None:
+            from datetime import datetime
+            self.date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.id = str(uuid.uuid4())
+    def build(self) -> Registry:
+        '''
+        Build the registry object
+        '''
+        self.enrich()
+        registry = Registry(
+            version=self.version, 
+            os=self.os_type, 
+            date=self.date, 
+            id=self.id, 
+            datasets=self.datasets)
+        return registry
+
+
+
