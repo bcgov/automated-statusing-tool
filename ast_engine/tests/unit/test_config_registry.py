@@ -112,6 +112,7 @@ def test_registry_creation(monkeypatch):
         registry_datasets.append(rd)
     output = utils.RegistryBuilder(version="0.1", datasets=registry_datasets).build()
     assert output.version == "0.1"
+    assert output.os in ("posix", "nt")
     assert len(output.datasets) == 2
 
 @pytest.mark.unit

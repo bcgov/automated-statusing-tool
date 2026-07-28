@@ -14,7 +14,7 @@ def load_yaml(file_path: Path) -> Registry:
         data = yaml.safe_load(f)
     registry = Registry(**data)
     if not registry.os == name:
-        logger.error(f"Registry OS type {registry.os} does not match current OS {name}")
+        raise ValueError(f"Registry OS type {registry.os} does not match current OS {name}")
     return registry
 
 def dump_yaml(registry: Registry, file_path: Path):
