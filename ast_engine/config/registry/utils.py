@@ -96,19 +96,16 @@ def path_translate(in_path:str, path_dict:dict|None = None) -> str:
     from os import name
     from os.path import dirname, exists
     if name == "nt":
-        print("windows detected")
+
         in_path = in_path.replace("/", "\\")
     elif name == "posix":
-        print("posix detected")
+
         if path_dict is not None:
             for old, new in path_dict.items():
                 in_path = in_path.replace(old, new)
         else:
             logger.warning("Warning: No path translation provided. Absolute paths may be invalid")
         in_path = in_path.replace("\\", "/")
-    if not exists(dirname(in_path)):
-        # log that path not found
-        logger.error(f"Error: {in_path} not found")
     return in_path
 
 def drive_map_loader(drive_map_path:str, delimiter:str= "|") -> dict:
