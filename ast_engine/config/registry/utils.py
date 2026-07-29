@@ -8,10 +8,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 def load_yaml(file_path: Path) -> Registry:
+    from os import name
     logger.debug(f"Loading YAML file {file_path}")
     with open(file_path, "r") as f:
         data = yaml.safe_load(f)
     registry = Registry(**data)
+    if not registry.os == name:
+        raise ValueError(f"Registry OS type {registry.os} does not match current OS {name}")
     return registry
 
 def dump_yaml(registry: Registry, file_path: Path):
@@ -93,19 +96,16 @@ def path_translate(in_path:str, path_dict:dict|None = None) -> str:
     from os import name
     from os.path import dirname, exists
     if name == "nt":
-        print("windows detected")
+
         in_path = in_path.replace("/", "\\")
     elif name == "posix":
-        print("posix detected")
+
         if path_dict is not None:
             for old, new in path_dict.items():
                 in_path = in_path.replace(old, new)
         else:
             logger.warning("Warning: No path translation provided. Absolute paths may be invalid")
         in_path = in_path.replace("\\", "/")
-    if not exists(dirname(in_path)):
-        # log that path not found
-        logger.error(f"Error: {in_path} not found")
     return in_path
 
 def drive_map_loader(drive_map_path:str, delimiter:str= "|") -> dict:
@@ -126,4 +126,47 @@ def drive_map_loader(drive_map_path:str, delimiter:str= "|") -> dict:
                 conf_dict[key.strip()] = value.strip()
 
     return conf_dict
+
+class RegistryBuilder():
+    '''
+    Accepts a list of registry datasets and builds up the metadata required
+    Parameters:
+    version (optional)
+    os_type (optional)
+    date (optional)
+    id (internal)
+    datasets (required)
+
+    '''
+    def __init__(self, datasets, version:str = "0.1", os_type:str|None = None, date = None ):
+        self.version = version
+        self.os_type = os_type
+        self.date = date
+        self.datasets = datasets
+    def enrich(self):
+        '''
+        Generate the values where applicable
+        '''
+        import uuid
+        if self.os_type not in ["posix", "nt"]:
+            from os import name
+            self.os_type = name
+        if self.date is None:
+            from datetime import datetime
+            self.date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.id = str(uuid.uuid4())
+    def build(self) -> Registry:
+        '''
+        Build the registry object
+        '''
+        self.enrich()
+        registry = Registry(
+            version=self.version, 
+            os=self.os_type, 
+            date=self.date, 
+            id=self.id, 
+            datasets=self.datasets)
+        return registry
+
+
 

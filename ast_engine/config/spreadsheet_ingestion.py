@@ -43,8 +43,8 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     spreadsheet_io = {
-        "ast_engine/tests/data/registry/Test_Registry.xlsx":"ast_engine/tests/data/Test_Registry.yaml",
-        "ast_engine/tests/data/registry/Test_Registry_2.xlsx":"ast_engine/tests/data/Test_Registry_2.yaml",
+        "ast_engine/tests/registry/Test_Registry.xlsx":"ast_engine/tests/registry/Test_Registry.yaml",
+        "ast_engine/tests/registry/Test_Registry_2.xlsx":"ast_engine/tests/registry/Test_Registry_2.yaml",
     }
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
@@ -86,8 +86,8 @@ def main() -> None:
                     print(e)
                     logger.warning(f"Warning: skipping {dataset.name} due to a read error: {e}")
                     continue
-
-        registry = models.Registry(version="0.1", datasets=base_datasets_list)
+        registry = utils.RegistryBuilder(base_datasets_list).build()
+        # registry = models.Registry(version="0.1", datasets=base_datasets_list)
         utils.dump_yaml(registry, Path(yaml_out))
 
 

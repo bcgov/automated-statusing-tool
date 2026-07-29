@@ -110,8 +110,9 @@ def test_registry_creation(monkeypatch):
         enrich_data.enrich()
         rd = enrich_data.build()
         registry_datasets.append(rd)
-    output = models.Registry(version="0.1", datasets=registry_datasets)
+    output = utils.RegistryBuilder(version="0.1", datasets=registry_datasets).build()
     assert output.version == "0.1"
+    assert output.os in ("posix", "nt")
     assert len(output.datasets) == 2
 
 @pytest.mark.unit
