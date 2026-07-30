@@ -1,4 +1,4 @@
-0# Spreadsheet Ingestion
+# Spreadsheet Ingestion
 
 ## Purpose
 
@@ -6,6 +6,8 @@ Spreadsheet Ingestion is designed to take the legacy one_status_xxxxx.xlsx sprea
 This allows representations to be stored externally in .yaml files and loaded into memory quickly at runtime.
 
 ## How to run
+
+Registry builds are OS specific. filesystem pathing will not work across OS types. Use the instructions below to build test registries for your OS.
 
 ### Linux
 Be sure to run `drive_mapper.sh` first to ensure the network drives are correctly mapped.
@@ -31,3 +33,6 @@ The Ingestion process has several phases:
 * Model Dump: Dumps the generated model to yaml.
 
 ### Outputs
+
+Registry .yaml files as indicated in the spreadsheet_io variable
+These can then be used to test later stages.
