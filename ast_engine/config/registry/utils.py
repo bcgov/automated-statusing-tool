@@ -7,16 +7,17 @@ import yaml
 import logging
 logger = logging.getLogger(__name__)
 
-def load_yaml(file_path: Path) -> Registry:
+def load_yaml(file_path: Path, os_name:str|None = None) -> Registry:
     from os import name
     logger.debug(f"Loading YAML file {file_path}")
+    if os_name not in ["posix", "nt"]:
+        os_name = name
     with open(file_path, "r") as f:
         data = yaml.safe_load(f)
     registry = Registry(**data)
-    if not registry.os == name:
+    if not registry.os == os_name:
         raise ValueError(f"Registry OS type {registry.os} does not match current OS {name}")
     return registry
-
 def dump_yaml(registry: Registry, file_path: Path):
     logger.debug(f"Dumping YAML file {file_path}")
     with open(file_path, "w") as f:

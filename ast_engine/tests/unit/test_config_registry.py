@@ -54,7 +54,7 @@ def test_util_hydrate_datasets():
 @pytest.mark.unit
 def test_load_registry_from_yaml():
     '''Load the sample registry and read the fields a consumer relies on.'''
-    registry = utils.load_yaml(SAMPLE_REGISTRY)
+    registry = utils.load_yaml(SAMPLE_REGISTRY, os_name="posix")
 
     # Registry-level: a version string and a list of datasets.
     assert registry.version == "1.0"
