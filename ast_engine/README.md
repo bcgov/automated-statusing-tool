@@ -801,10 +801,11 @@ ast_engine/tests/
 | `System Tests`       | Exercise an application flow that is close to production                          |
 
 
-The current pytest configuration includes the following marker:
+The current pytest configuration includes the following markers:
 
 ```text
 unit: fast unit tests with no external dependencies
+integration: tests on real data; BCGW tests skip when credentials are not set
 ```
 
 A unit test file should include the unit marker:
@@ -828,7 +829,6 @@ pytestmark = pytest.mark.unit
 Additional markers may be added as the test suite grows:
 
 ```text
-integration: slower tests that check multiple components working together
 smoke: quick tests that confirm a main workflow runs without crashing
 external: tests that require live external systems such as Oracle, secrets, or network access
 system: tests that exercise an application flow close to production
@@ -846,6 +846,12 @@ Run all unit tests:
 
 ```bash
 uv run pytest -m unit
+```
+
+Run all integration tests:
+
+```bash
+uv run pytest -m integration
 ```
 
 Run tests in a specific folder:
@@ -877,6 +883,61 @@ Run with verbose output:
 ```bash
 uv run pytest -v
 ```
+
+### BCGW credentials for the integration tests
+
+The integration tests come in two groups:
+
+| File                              | Needs a BCGW login? |
+| --------------------------------- | ------------------- |
+| `tests/integration/test_file_pipeline.py` | No. It runs over the sample datasets in `tests/data/`, so it works on any machine. |
+| `tests/integration/test_bcgw.py`  | Yes. It runs real spatial queries against BCGW tables. |
+
+So `uv run pytest -m integration` works with no setup at all: the file tests
+run and the BCGW tests report as skipped, listing the variables that are
+missing.
+
+To run the BCGW tests as well, set three environment variables in your own
+shell before running pytest:
+
+| Variable        | Value                                                     |
+| --------------- | --------------------------------------------------------- |
+| `BCGW_USER`     | your BCGW (Oracle) username                                |
+| `BCGW_PASSWORD` | your BCGW password                                         |
+| `BCGW_HOST`     | the BCGW connection string, in `host:port/service` form     |
+
+
+**Windows (PowerShell):**
+
+```powershell
+$env:BCGW_USER="your_username"
+$env:BCGW_PASSWORD="your_password"
+$env:BCGW_HOST="host:port/service"
+
+uv run pytest -m integration
+```
+
+**Linux / WSL / macOS (bash):**
+
+```bash
+export BCGW_USER="your_username"
+export BCGW_PASSWORD="your_password"
+export BCGW_HOST="host:port/service"
+
+uv run pytest -m integration
+```
+
+Notes:
+
+* The variables live only in that terminal session. They are gone when you close the terminal. Nothing is left behind on disk.
+* Never put credentials in a file in the repo, and never commit them. If you
+  prefer to keep them in a local `.env` file that your shell loads, that is
+  fine: `.gitignore` already excludes `.env` and `.env.*`, so it cannot be
+  committed by accident.
+* The password is never printed and never logged. If you get a connection
+  error rather than a skip, the credentials were set but the login failed.
+* One BCGW connection is opened per test run and reused by every test, the
+  same way a real statusing run reuses one connection across all its datasets.
 
 Shared sample files should be placed under:
 
