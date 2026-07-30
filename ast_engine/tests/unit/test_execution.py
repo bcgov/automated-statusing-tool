@@ -30,8 +30,8 @@ from ast_engine.core.execution import (
     _pick_adapter,
     _run_operator,
     _source_kwargs,
+    build_tasks,
     run_analysis,
-    tasks_from_registries,
     tasks_from_registry,
 )
 from ast_engine.core.results import (
@@ -242,10 +242,10 @@ def test_tasks_from_registry_skips_dataset_without_operator():
     assert [t.dataset_name for t in tasks] == ["HasOp"]   # the operator-less row is skipped
 
 
-def test_tasks_from_registries_concatenates_with_provenance():
+def test_build_tasks_concatenates_with_provenance():
     reg_a = Registry(version="1.0", datasets=[_registry_dataset("A", "WHSE.A", "ORACLE", {"type": "overlay"})])
     reg_b = Registry(version="1.0", datasets=[_registry_dataset("B", "WHSE.B", "ORACLE", {"type": "overlay"})])
 
-    tasks = tasks_from_registries([("provincial", reg_a), ("west_coast", reg_b)])
+    tasks = build_tasks([("provincial", reg_a), ("west_coast", reg_b)])
     assert [t.dataset_name for t in tasks] == ["A", "B"]
     assert [t.source_registry for t in tasks] == ["provincial", "west_coast"]

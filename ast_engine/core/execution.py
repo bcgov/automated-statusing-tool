@@ -14,7 +14,7 @@ dataset into a small AnalysisTask, and the loop runs only on those tasks. That
 keeps registry-shape changes contained in the mapper: when the registry changes,
 the mapper changes and the run loop does not. Every registry is mapped the same
 way - provincial, regional, Tab 1, user-defined.. - so a run is simply all their tasks
-concatenated in order (see tasks_from_registries).
+concatenated in order (see build_tasks).
 
 The driver itself (run_analysis) has no knowledge of the registry: it takes a
 list of AnalysisTask and a built AreaOfInterest, picks the right adapter per task,
@@ -94,9 +94,9 @@ class AnalysisTask:
 # Registry -> tasks (the only place that touches the registry model)
 # ---------------------------------------------------------------------------
 
-def tasks_from_registries(registries: Iterable[tuple[str, Any]]) -> list[AnalysisTask]:
-    """Build one task list from several registries (provincial + regional + Tab 1
-    + user), in order.
+def build_tasks(registries: Iterable[tuple[str, Any]]) -> list[AnalysisTask]:
+    """Build one run's task list from several registries (provincial + regional
+    + Tab 1 + user), in order.
 
     Registries are authored not to overlap - even when two entries point at the
     same datasource they apply different filters and are distinct analyses that
