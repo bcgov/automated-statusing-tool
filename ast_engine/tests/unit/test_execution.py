@@ -114,6 +114,22 @@ def _registry_dataset(name, datasource, data_adapter, operator, geometry_type="P
     return RegistryDataset(**fields)
 
 
+def _registry(datasets):
+    """Wrap datasets in a Registry for the mapper tests.
+
+    os / date / id are provenance the registry records when it is built. The
+    orchestrator never reads them, so fixed values are fine - they are here
+    only because the registry model requires them.
+    """
+    return Registry(
+        version="1.0",
+        os="nt",
+        date="2026-07-30 00:00:00",
+        id="test-registry",
+        datasets=datasets,
+    )
+
+
 # --- End-to-end (file-based, no DB) -----------------------------------------
 def test_end_to_end_file_run_assembles_results():
     """Three file datasets, one per operator -> one AstResults with three groups."""
@@ -199,9 +215,8 @@ def test_run_operator_passes_table_and_where_for_oracle():
 
 # --- Registry -> task mapper ------------------------------------------------
 def test_tasks_from_registry_maps_fields_and_lowercases_geom():
-    registry = Registry(
-        version="1.0",
-        datasets=[
+    registry = _registry(
+        [
             _registry_dataset(
                 "Districts", "WHSE_ADMIN.ADM_NR_DISTRICTS_SP", "ORACLE",
                 {"type": "overlay"}, geometry_type="POLYGON", unique_id="OBJECTID",
@@ -210,7 +225,7 @@ def test_tasks_from_registry_maps_fields_and_lowercases_geom():
                 "Roads", "C:/data/roads.shp", "FILE",
                 {"type": "within_distance", "distance_m": 50.0}, geometry_type="line",
             ),
-        ],
+        ]
     )
 
     tasks = tasks_from_registry(registry, source_registry="provincial")
@@ -231,20 +246,19 @@ def test_tasks_from_registry_maps_fields_and_lowercases_geom():
 
 
 def test_tasks_from_registry_skips_dataset_without_operator():
-    registry = Registry(
-        version="1.0",
-        datasets=[
+    registry = _registry(
+        [
             _registry_dataset("HasOp", "WHSE.A", "ORACLE", {"type": "overlay"}),
             _registry_dataset("NoOp", "WHSE.B", "ORACLE", None),
-        ],
+        ]
     )
     tasks = tasks_from_registry(registry)
     assert [t.dataset_name for t in tasks] == ["HasOp"]   # the operator-less row is skipped
 
 
 def test_build_tasks_concatenates_with_provenance():
-    reg_a = Registry(version="1.0", datasets=[_registry_dataset("A", "WHSE.A", "ORACLE", {"type": "overlay"})])
-    reg_b = Registry(version="1.0", datasets=[_registry_dataset("B", "WHSE.B", "ORACLE", {"type": "overlay"})])
+    reg_a = _registry([_registry_dataset("A", "WHSE.A", "ORACLE", {"type": "overlay"})])
+    reg_b = _registry([_registry_dataset("B", "WHSE.B", "ORACLE", {"type": "overlay"})])
 
     tasks = build_tasks([("provincial", reg_a), ("west_coast", reg_b)])
     assert [t.dataset_name for t in tasks] == ["A", "B"]
