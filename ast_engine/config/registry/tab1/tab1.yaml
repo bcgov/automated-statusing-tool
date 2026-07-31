@@ -1,0 +1,572 @@
+version: '0.1'
+os: posix
+date: '2026-07-31 10:30:34'
+id: 835e59cc-b9a8-4e3b-991e-49b9eaf29aa0
+datasets:
+- name: Mapsheet BCGS 20KGrid
+  datasource: WHSE_BASEMAPPING.BCGS_20K_GRID
+  definition_query: null
+  aggregate_columns:
+  - MAP_TILE_DISPLAY_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 55ac495e-56f6-42c1-a23d-fb78548ad47c
+  columns:
+  - GEOMETRY
+  - FCODE
+  - MAP_TILE
+  - MAP_TILE_DISPLAY_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 7016
+- name: NR District
+  datasource: WHSE_ADMIN_BOUNDARIES.ADM_NR_DISTRICTS_SP
+  definition_query: null
+  aggregate_columns:
+  - DISTRICT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 455a7cba-af29-4359-91a6-965abaa7a9aa
+  columns:
+  - SHAPE
+  - DISTRICT_NAME
+  - ORG_UNIT
+  - ORG_UNIT_NAME
+  - REGION_ORG_UNIT
+  - REGION_ORG_UNIT_NAME
+  - FEATURE_CODE
+  - FEATURE_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 23
+- name: Municipality
+  datasource: WHSE_LEGAL_ADMIN_BOUNDARIES.ABMS_MUNICIPALITIES_SP
+  definition_query: null
+  aggregate_columns:
+  - MUNICIPALITY_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6eb87d49-8ec5-43b1-8bb1-5bfe11101772
+  columns:
+  - SHAPE
+  - LGL_ADMIN_AREA_ID
+  - ADMIN_AREA_NAME
+  - ADMIN_AREA_ABBREVIATION
+  - ADMIN_AREA_BOUNDARY_TYPE
+  - ADMIN_AREA_GROUP_NAME
+  - CHANGE_REQUESTED_ORG
+  - UPDATE_TYPE
+  - WHEN_UPDATED
+  - MAP_STATUS
+  - OIC_MO_NUMBER
+  - OIC_MO_YEAR
+  - OIC_MO_TYPE
+  - WEBSITE_URL
+  - IMAGE_URL
+  - AFFECTED_ADMIN_AREA_ABRVN
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 160
+- name: Provincial Forest
+  datasource: WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  - MAP_BLOCK_ID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 816c56e1-684f-46d9-af89-a4dfbc9218a7
+  columns:
+  - GEOMETRY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - MAP_BLOCK_ID
+  - DATA_SOURCE_CODE
+  - DATA_SOURCE_CD_DESCRIPTION
+  - CAPTURE_METHOD_CD
+  - CAPTURE_METHOD_CD_DESCRIPTION
+  - ACCURACY_CD
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 296
+- name: Prov Forest Addition
+  datasource: WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST_ADDITION
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  - OIC_YEAR
+  - OIC_NUMBER
+  - MAP_BLOCK_ID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c665a518-5f45-4414-ae64-b3136c2c63b2
+  columns:
+  - GEOMETRY
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - OIC_YEAR
+  - OIC_NUMBER
+  - MAP_BLOCK_ID
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 211
+- name: Prov Forest Deletion
+  datasource: WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST_DELETION
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  - DOCUMENT_TYPE
+  - DELETION_YEAR
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9242faf7-f589-42ca-8ae0-cae39510f366
+  columns:
+  - GEOMETRY
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - DOCUMENT_TYPE
+  - DELETION_YEAR
+  - DELETION_NUMBER
+  - MAP_BLOCK_ID
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2579
+- name: Prov Forest Exclusion
+  datasource: WHSE_ADMIN_BOUNDARIES.FADM_PROV_FOREST_EXCLUSION
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  - AREA_TYPE
+  - EXCLUSION_NUMBER
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6a729ea2-1b6e-4c3f-b5f8-cc80fa4836d5
+  columns:
+  - GEOMETRY
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - AREA_TYPE
+  - EXCLUSION_NUMBER
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 99
+- name: Assessment Area
+  datasource: WHSE_TANTALIS.TA_ASSESSMENT_AREAS_SVW
+  definition_query: null
+  aggregate_columns:
+  - ASSESSMENT_AREA_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9a53d16a-dfd4-4922-9c2e-9ea943d635d9
+  columns:
+  - SHAPE
+  - ADMIN_AREA_SID
+  - ASSESSMENT_AREA_NAME
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 19
+- name: LandTitle District
+  datasource: WHSE_TANTALIS.TA_LAND_TITLE_DISTRICTS_SVW
+  definition_query: null
+  aggregate_columns:
+  - LAND_TITLE_DISTRICT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: cfbd5c2d-b212-4bfb-b7f2-3f77b371caec
+  columns:
+  - SHAPE
+  - ADMIN_AREA_SID
+  - LAND_TITLE_DISTRICT_NAME
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 7
+- name: Electoral District
+  datasource: WHSE_ADMIN_BOUNDARIES.PED_PROV_ELECTORAL_DIST_POLY
+  definition_query: null
+  aggregate_columns:
+  - ELECTORAL_DISTRICT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: dd51b10f-56ff-4eb7-b511-9c9ac5f78fac
+  columns:
+  - GEOMETRY
+  - BC_ELECTORAL_DISTRICT_ID
+  - ELECTORAL_DISTRICT_NAME
+  - ELECTORAL_DISTRICT_ABBR
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 85
+- name: Regional District
+  datasource: WHSE_LEGAL_ADMIN_BOUNDARIES.ABMS_REGIONAL_DISTRICTS_SP
+  definition_query: null
+  aggregate_columns:
+  - REGIONAL_DISTRICT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9435c0f3-7312-4da2-b7c8-90704ae79b80
+  columns:
+  - SHAPE
+  - LGL_ADMIN_AREA_ID
+  - ADMIN_AREA_NAME
+  - ADMIN_AREA_ABBREVIATION
+  - ADMIN_AREA_BOUNDARY_TYPE
+  - ADMIN_AREA_GROUP_NAME
+  - CHANGE_REQUESTED_ORG
+  - UPDATE_TYPE
+  - WHEN_UPDATED
+  - MAP_STATUS
+  - OIC_MO_NUMBER
+  - OIC_MO_YEAR
+  - OIC_MO_TYPE
+  - WEBSITE_URL
+  - IMAGE_URL
+  - AFFECTED_ADMIN_AREA_ABRVN
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 28
+- name: Survey Parcels PINs Within
+  datasource: WHSE_TANTALIS.TA_SURVEY_PARCELS_SVW
+  definition_query: null
+  aggregate_columns:
+  - PIN_SID
+  - PARCEL_LEGAL_DESCRIPTION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 8e7b9e6d-75c7-4644-8fd8-43cbab60b4ee
+  columns:
+  - SHAPE
+  - STATE_OF_PARCEL_SURVEY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - PIN_SID
+  - SURVPARC_TYPE_CDE
+  - LAND_TITLE_OFFICE_IDENTIFIER
+  - PARCEL_TYPE
+  - ACT_GOVERNING_PARCEL_SURVEY
+  - PARCEL_SHORT_DESCRIPTION
+  - PARCEL_LEGAL_DESCRIPTION
+  - PRIMARY_PARCEL_OF_SUBDIV
+  - SURVEYOR_GENERAL_PLAN_NO
+  - CONFIRMED_DAT
+  - PARCEL_AREA_DERIVATION
+  - PARCEL_AREA_IN_HECTARES
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 275154
+- name: Surveyed Right Of Way
+  datasource: WHSE_TANTALIS.TA_SURVEYED_ROW_PARCELS_SVW
+  definition_query: null
+  aggregate_columns:
+  - PIN_SID
+  - PARCEL_LEGAL_DESCRIPTION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ec20cd6b-94b6-4cdb-960d-008a5a35cee1
+  columns:
+  - SHAPE
+  - PIN_SID
+  - SURVPARC_TYPE_CDE
+  - LAND_TITLE_OFFICE_IDENTIFIER
+  - PARCEL_TYPE
+  - ACT_GOVERNING_PARCEL_SURVEY
+  - PARCEL_SHORT_DESCRIPTION
+  - PARCEL_LEGAL_DESCRIPTION
+  - PRIMARY_PARCEL_OF_SUBDIV
+  - SURVEYOR_GENERAL_PLAN_NO
+  - PARCEL_AREA_DERIVATION
+  - PARCEL_AREA_IN_HECTARES
+  - STATE_OF_PARCEL_SURVEY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 20832
+- name: ALR
+  datasource: WHSE_LEGAL_ADMIN_BOUNDARIES.OATS_ALR_POLYS
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: a028a354-46b5-4b59-b0f8-4457b6e32558
+  columns:
+  - GEOMETRY
+  - ALR_POLY_ID
+  - STATUS
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3226
+- name: Archaeology Potential AOA
+  datasource: WHSE_ARCHAEOLOGY.RAAD_AOA_PROVINCIAL
+  definition_query: null
+  aggregate_columns:
+  - POTENTIAL
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: e1ec0c79-f104-4323-8dbb-eb3024b122e5
+  columns:
+  - GEOMETRY
+  - POTENTIAL
+  - STUDY
+  - STUDY_ID
+  - PERMIT
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 7074430
+- name: Nearest Archaeology Site
+  datasource: WHSE_ARCHAEOLOGY.RAAD_TFM_SITES_SVW
+  definition_query: null
+  aggregate_columns:
+  - BORDENNUMBER
+  - DISTANCE
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 25000.0
+  unique_id: OBJECTID
+  id: 81fc2e30-9d4c-43a3-bb3d-e7b11c504d7d
+  columns:
+  - SHAPE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - BORDENNUMBER
+  - REGTY_SITECLASS
+  - REGTY_TYPE
+  - REGTY_SUBTYPE
+  - REGTY_SITETYPEDESCRIPTOR
+  - REGISTRATIONSTATUS
+  - ISHERITAGESITE
+  - BORDENUPPER
+  - BORDENLOWER
+  - BORDENSEQUENCE
+  - FORMRECEIVED
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 57928
+- name: Nearest Indian Reserve
+  datasource: WHSE_ADMIN_BOUNDARIES.ADM_INDIAN_RESERVES_BANDS_SP
+  definition_query: null
+  aggregate_columns:
+  - ENGLISH_NAME
+  - BAND_NAME
+  - DISTANCE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 15e06475-0afa-4522-931b-46f5ef9d7759
+  columns:
+  - GEOMETRY
+  - CLAB_ID
+  - ENGLISH_NAME
+  - FRENCH_NAME
+  - ABSOLUTE_ACCURACY
+  - BAND_NUMBER
+  - BAND_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1652
+- name: Adjacent Survey Parcels PINs Touching
+  datasource: WHSE_TANTALIS.TA_SURVEY_PARCELS_SVW
+  definition_query: null
+  aggregate_columns:
+  - PIN_SID
+  - PARCEL_LEGAL_DESCRIPTION
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5000.0
+  unique_id: OBJECTID
+  id: b29055b2-2ef8-49ac-a41d-fc6ed1b97320
+  columns:
+  - SHAPE
+  - STATE_OF_PARCEL_SURVEY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - PIN_SID
+  - SURVPARC_TYPE_CDE
+  - LAND_TITLE_OFFICE_IDENTIFIER
+  - PARCEL_TYPE
+  - ACT_GOVERNING_PARCEL_SURVEY
+  - PARCEL_SHORT_DESCRIPTION
+  - PARCEL_LEGAL_DESCRIPTION
+  - PRIMARY_PARCEL_OF_SUBDIV
+  - SURVEYOR_GENERAL_PLAN_NO
+  - CONFIRMED_DAT
+  - PARCEL_AREA_DERIVATION
+  - PARCEL_AREA_IN_HECTARES
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 275154
