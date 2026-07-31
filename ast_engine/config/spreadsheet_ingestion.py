@@ -43,9 +43,9 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     spreadsheet_io = {
-        "/home/jfoy/automated-statusing-tool/ast_engine/config/registry/tab1/tab1.xlsx":"/home/jfoy/automated-statusing-tool/ast_engine/config/registry/tab1/tab1.yaml",
+        "ast_engine/config/registry/tab1/tab1.xlsx":"ast_engine/config/registry/tab1/tab1.yaml",
     }
-    path_lookup_conf = "/home/jfoy/automated-statusing-tool/ast_engine/config/drive_map.conf"
+    path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
         "name": "Featureclass_Name(valid characters only)",
