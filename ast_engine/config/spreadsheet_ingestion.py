@@ -43,8 +43,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     spreadsheet_io = {
-        "ast_engine/tests/registry/Test_Registry.xlsx":"ast_engine/tests/registry/Test_Registry.yaml",
-        "ast_engine/tests/registry/Test_Registry_2.xlsx":"ast_engine/tests/registry/Test_Registry_2.yaml",
+        "ast_engine/config/registry/tab1/tab1.xlsx":"ast_engine/config/registry/tab1/tab1.yaml",
     }
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
