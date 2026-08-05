@@ -97,7 +97,7 @@ class OracleAdapter(BaseSpatialAdapter):
         # requested columns (plus SHAPE), so the base class post-filter's
         # keep_columns slice keeps the same set the SQL already returned.
         keep = list(read_options.keep_columns) if read_options.keep_columns else None
-        cols_csv = self._resolve_columns(table, keep)
+        cols_csv = self._resolve_columns(table, keep, geom_col)
 
         # 5. Pick + format SQL template
         template = queries.PREDICATE_TEMPLATES.get(predicate)
@@ -187,13 +187,13 @@ class OracleAdapter(BaseSpatialAdapter):
             geom_column=geom_col,
             crs=f"EPSG:{srid}",
             geometry_type=geometry_type,
-            columns=utils.get_columns(self.connection, self.cursor, table),
+            columns=utils.get_columns(self.connection, self.cursor, table, geom_col),
             row_count=utils.get_row_count(self.connection, self.cursor, table),
         )
 
     # Resolve columns discrepancies between requested columns (from xlxs) and actual table columns - Review this later: will be handled upstream by Data inventory module!
     def _resolve_columns(
-        self, table: str, requested: list[str] | None
+        self, table: str, requested: list[str] | None, geom_col: str | None = None
     ) -> str:
         """Return a comma-separated column list for the SELECT clause.
 
@@ -201,8 +201,11 @@ class OracleAdapter(BaseSpatialAdapter):
         - given -> intersect with available; fall back to OBJECTID if
                    none of the requested columns exist (preserves the
                    previous tool's behaviour)
+
+        geom_col is left out either way - the SDO templates already select the
+        geometry themselves, as WKT named SHAPE.
         """
-        available = utils.get_columns(self.connection, self.cursor, table)
+        available = utils.get_columns(self.connection, self.cursor, table, geom_col)
         if not available:
             raise DataReadError(f"Could not list columns for {table}")
 

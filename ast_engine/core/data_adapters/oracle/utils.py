@@ -97,8 +97,23 @@ def _srid_from_row_sample(cursor: Any, table: str, geom_col: str) -> int | None:
     return int(df["SP_REF"].iloc[0])
 
 
-def get_columns(connection: Any, cursor: Any, table: str) -> list[str]:
-    """Return the list of column names available on the table."""
+def get_columns(
+    connection: Any,
+    cursor: Any,
+    table: str,
+    geom_col: str | None = None,
+) -> list[str]:
+    """Return the table's attribute column names.
+
+    Pass geom_col to leave the geometry column out, which is what both callers
+    want. The geometry column is not an attribute: the SDO queries add it
+    themselves as WKT under the name SHAPE, and a dataset's recorded columns
+    are meant to be the attribute columns only.
+
+    Leaving it in breaks a read. The SELECT would carry the raw SDO_GEOMETRY
+    column *and* the WKT output, both called SHAPE, and the two same-named
+    columns stop the result being turned into a GeoDataFrame.
+    """
     owner, tab_name = _split_table(table)
     try:
         df = _read_query(
@@ -107,7 +122,13 @@ def get_columns(connection: Any, cursor: Any, table: str) -> list[str]:
     except Exception as exc:
         logger.error("Failed to retrieve columns for %s: %s", table, exc)
         return []
-    return df["COLUMN_NAME"].tolist() if not df.empty else []
+    if df.empty:
+        return []
+
+    columns = df["COLUMN_NAME"].tolist()
+    if geom_col:
+        columns = [c for c in columns if c.upper() != geom_col.upper()]
+    return columns
 
 
 # SDO_GTYPE type code -> normalized geometry type. SDO_GTYPE is a 4-digit
