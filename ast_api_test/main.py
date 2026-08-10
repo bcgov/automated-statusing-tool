@@ -1,173 +1,99 @@
-from typing import Annotated
-from uuid import uuid4
 import json
+from datetime import datetime
 
+import redis
+from database import get_db
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from schemas import JobsCreate, JobsResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
-
-import models
-from database import get_db
-from schemas import PostCreate, PostResponse, UserCreate, UserResponse
-
 
 app = FastAPI()
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 templates = Jinja2Templates(directory="templates")
 
-#Database thing - need to convert
-@app.get("/", include_in_schema=False)
-@app.post("/posts")
-def create_post(title: str, content: str):
-    post = {
-        "id": str(uuid4()),
-        "title": title,
-        "content": content,
-    }
 
-    get_db().lpush("posts", json.dumps(post))
-
-    return post
+# Helper function to avoid code duplication
+def _get_all_jobs(db: redis.Redis) -> list[dict]:
+    raw_jobs = db.lrange("jobs_queue", 0, -1)
+    return [json.loads(j) for j in raw_jobs]
 
 
-#Database thing - need to convert
-@app.get("/posts/{post_id}", include_in_schema=False)
-def create_post(title: str, content: str):
-    post = {
-        "id": str(uuid4()),
-        "title": title,
-        "content": content,
-    }
+@app.get("/", include_in_schema=False, name="home")
+@app.get("/jobs", include_in_schema=False, name="jobs")
+def home(request: Request, db: redis.Redis = Depends(get_db)):
 
-    get_db().lpush("posts", json.dumps(post))
+    # get the json and put in back into a python object
+    jobs = _get_all_jobs(db)
 
-    return post
-
-
-@app.get("/users/{user_id}/posts", include_in_schema=False, name="user_posts")
-def user_posts_page(
-    request: Request,
-    user_id: int,
-    db: Annotated[Session, Depends(get_db)],
-):
-    result = db.execute(select(models.User).where(models.User.id == user_id))
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    result = db.execute(select(models.Post).where(models.Post.user_id == user_id))
-    posts = result.scalars().all()
+    # return the jobs list
     return templates.TemplateResponse(
         request,
-        "user_posts.html",
-        {"posts": posts, "user": user, "title": f"{user.username}'s Posts"},
+        "home.html",
+        {"jobs": jobs, "title": "Home"},
     )
+
+
+@app.get("/jobs/{job_id}", include_in_schema=False)
+def job_page(request: Request, job_id: int, db: redis.Redis = Depends(get_db)):
+    # get all items from the redis que with lrange
+
+    # get the json and put in back into a python object
+    jobs = _get_all_jobs(db)
+
+    for job in jobs:
+        if job.get("id") == job_id:
+            description = job.get("description", "")
+            return templates.TemplateResponse(
+                request,
+                "post.html",
+                {"job": job, "description": description},
+            )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
 
 @app.post(
-    "/api/users",
-    response_model=UserResponse,
+    "/api/jobs",
+    response_model=JobsResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_user(user: UserCreate, db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(
-        select(models.User).where(models.User.username == user.username),
-    )
-    existing_user = result.scalars().first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already exists",
-        )
-    result = db.execute(
-        select(models.User).where(models.User.email == user.email),
-    )
-    existing_email = result.scalars().first()
-    if existing_email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered",
-        )
-    new_user = models.User(
-        username=user.username,
-        email=user.email,
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return new_user
+def create_job(job: JobsCreate, db: redis.Redis = Depends(get_db)):
+    jobs = _get_all_jobs(db)
+    new_id = max((j["id"] for j in jobs if "id" in j), default=0) + 1
+
+    new_job = {
+        "id": new_id,
+        "title": job.title,
+        "description": job.description,
+        "date_posted": datetime.now().strftime("%B %d, %Y")
+    }
+
+    # Persist directly into the Redis queue
+    db.rpush("jobs_queue", json.dumps(new_job))
+    return new_job
 
 
-@app.get("/api/users/{user_id}", response_model=UserResponse)
-def get_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(
-        select(models.User).where(models.User.id == user_id),
-    )
-    user = result.scalars().first()
-    if user:
-        return user
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+@app.get("/api/jobs", response_model=list[JobsResponse])
+def get_jobs(db: redis.Redis = Depends(get_db)):
+
+    return _get_all_jobs(db)
 
 
-@app.get("/api/users/{user_id}/posts", response_model=list[PostResponse])
-def get_user_posts(user_id: int, db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(select(models.User).where(models.User.id == user_id))
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    result = db.execute(select(models.Post).where(models.Post.user_id == user_id))
-    posts = result.scalars().all()
-    return posts
+@app.get("/api/jobs/{job_id}", response_model=JobsResponse)
+def get_job(job_id: int, db: redis.Redis = Depends(get_db)):
 
+    # get the json and put in back into a python object
+    jobs = _get_all_jobs(db)
 
-@app.get("/api/posts", response_model=list[PostResponse])
-def get_posts(db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(select(models.Post))
-    posts = result.scalars().all()
-    return posts
-
-
-@app.post(
-    "/api/posts",
-    response_model=PostResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-def create_post(post: PostCreate, db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(select(models.User).where(models.User.id == post.user_id))
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
-        )
-    new_post = models.Post(
-        title=post.title,
-        content=post.content,
-        user_id=post.user_id,
-    )
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
-    return new_post
-
-
-@app.get("/api/posts/{post_id}", response_model=PostResponse)
-def get_post(post_id: int, db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(select(models.Post).where(models.Post.id == post_id))
-    post = result.scalars().first()
-    if post:
-        return post
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+    for job in jobs:
+        if job.get("id") == job_id:
+            return job
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
 
 @app.exception_handler(StarletteHTTPException)
@@ -177,11 +103,13 @@ def general_http_exception_handler(request: Request, exception: StarletteHTTPExc
         if exception.detail
         else "An error occurred. Please check your request and try again."
     )
+
     if request.url.path.startswith("/api"):
         return JSONResponse(
             status_code=exception.status_code,
             content={"detail": message},
         )
+
     return templates.TemplateResponse(
         request,
         "error.html",
@@ -201,12 +129,13 @@ def validation_exception_handler(request: Request, exception: RequestValidationE
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             content={"detail": exception.errors()},
         )
+
     return templates.TemplateResponse(
         request,
         "error.html",
         {
-            "status_code": status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "title": status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "status_code": status.HTTP_422_UNPROCESSABLE_ENTITY,
+            "title": status.HTTP_422_UNPROCESSABLE_ENTITY,
             "message": "Invalid request. Please check your input and try again.",
         },
         status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
