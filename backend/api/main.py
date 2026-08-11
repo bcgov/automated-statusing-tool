@@ -3,11 +3,15 @@
 from fastapi import FastAPI
 
 from models import JobCreate
-from database import create_table, create_job, get_jobs
+from database import create_table
+
+from routers import jobs
 
 app = FastAPI()
 
 create_table()
+
+app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
 
 @app.get("/", include_in_schema=False, name="home")
 def home():
@@ -21,19 +25,6 @@ def get_user_jobs(user_id):
 def add_user():
     pass
 
-@app.get("/api/jobs")
-def get_all_jobs():
-    jobs = get_jobs()
-    return jobs
-
-@app.get("/api/jobs/{job_id}/status")
-def get_job_status(job_id):
-    pass
-
-@app.post("/api/jobs")
-def add_job(job: JobCreate):
-    create_job(job.status)
-    return {"message": "job created"}
 
 # from https://github.com/bcgov/burn-severity-map/blob/main/backend/api/main.py
 @app.get("/health", include_in_schema=False, summary="Health Check", tags=["Monitoring"])
