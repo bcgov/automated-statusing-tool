@@ -26,7 +26,8 @@ include = ["ast_engine*"]
 
 [tool.pytest.ini_options]
 markers = [
-  "unit: fast unit tests with no external dependencies"
+  "unit: fast unit tests with no external dependencies",
+  "integration: tests on real data; BCGW tests skip when credentials are not set"
 ]
 
 [dependency-groups]
