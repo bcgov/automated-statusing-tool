@@ -42,6 +42,7 @@ from ..utils.diagnostics import DiagnosticTracker
 from ..config.settings import Settings
 
 logger = logging.getLogger(__name__)
+settings = Settings()
 
 # Analysis names, shared 1:1 with the registry operator block (operator.type)
 # and the operator functions.
@@ -236,20 +237,28 @@ def _run_one_task(
     try:
         adapter = _pick_adapter(task, file_adapter, oracle_adapter)
         result = _run_operator(task, aoi, adapter)
+        if settings.record_spatial:
+            _write_spatial(gdf=result.dataframe, 
+                           dataset_id=task.dataset_id, 
+                           dataset_name=task.dataset_name, 
+                           operator_name=task.operator,
+                           output_dir=settings.temp_dir,enabled=settings.record_spatial)
         elapsed = time.perf_counter() - start
         timings.append((task.dataset_name, elapsed))
+
         tracker.log(
             "dataset_done",
             dataset=task.dataset_name,
             operator=task.operator,
             source=task.source_type,
-            features=result.feature_count,
+            features=result.result.feature_count,
             seconds=round(elapsed, 3),
         )
+
         return DatasetResultGroup(
             dataset_id=task.dataset_id,
             dataset_name=task.dataset_name,
-            results=[result],
+            results=[result.result],
         )
     except Exception:
         elapsed = time.perf_counter() - start
@@ -299,7 +308,7 @@ def _source_kwargs(task: AnalysisTask) -> dict[str, str]:
     return {"path": task.datasource}
 
 
-def _run_operator(task: AnalysisTask, aoi: AreaOfInterest, adapter: BaseSpatialAdapter) -> AnalysisResult:
+def _run_operator(task: AnalysisTask, aoi: AreaOfInterest, adapter: BaseSpatialAdapter) -> OperatorOutcome:
     """Dispatch a task to its operator and return the typed result.
 
     The orchestrator passes params + ids + the attribute filter; each operator
