@@ -7,7 +7,8 @@ from datetime import datetime, UTC
 from enum import Enum
 from functools import partial
 from typing import List, Union, Literal, Annotated, Dict
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, ConfigDict
+import geopandas as gpd
 
 class FeatureRecord(BaseModel):
     # non-spatial record
@@ -90,6 +91,14 @@ AnalysisResult = Annotated[
     Union[PointOverlayResult, LineOverlayResult, PolyOverlayResult, AdjacencyResult, ProximityResult],
     Field(discriminator="operator_type")
 ]
+
+class OperatorOutcome(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    status: Literal["success", "failure"]
+    result: AnalysisResult | None = None
+    dataframe: gpd.GeoDataFrame | None = None
+
 class DatasetResultGroup(BaseModel):
     dataset_id: str
     dataset_name: str
