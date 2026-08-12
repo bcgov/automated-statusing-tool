@@ -29,14 +29,17 @@ import logging
 import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
+from pathlib import Path
+import geopandas as gpd
 
 from .aoi import AreaOfInterest
 from .data_adapters.base import BaseSpatialAdapter
 from .data_adapters.file.adapter import FileSpatialAdapter
 from .data_adapters.oracle import OracleAdapter, OracleConnection
 from .operator import adjacent, overlay, proximity
-from .results import AnalysisResult, AstResults, DatasetResultGroup
+from .results import AnalysisResult, AstResults, DatasetResultGroup, OperatorOutcome
 from ..utils.diagnostics import DiagnosticTracker
+from ..config.settings import Settings
 
 logger = logging.getLogger(__name__)
 
@@ -337,3 +340,10 @@ def _log_timing_summary(timings: list[tuple[str, float]], tracker: DiagnosticTra
         total_seconds=round(total, 2),
         slowest=[(name, round(seconds, 3)) for name, seconds in slowest],
     )
+
+def _write_spatial(gdf: gpd.GeoDataFrame, dataset_id: str, dataset_name: str, operator_name: str, output_dir: str, enabled:bool):
+    if not enabled or not output_dir:
+        return None
+    path = Path(output_dir) / operator_name / f"{dataset_name}.gpkg"
+    gdf.to_file(path, driver="GPKG")
+    return str(path)
