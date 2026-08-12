@@ -36,6 +36,7 @@ from ..results import (
     LineOverlayResult,
     PointOverlayResult,
     PolyOverlayResult,
+    OperatorOutcome,
 )
 
 _MEASURE_COL = "_overlay_measure"
@@ -53,7 +54,7 @@ def intersection(
     where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
-) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
+) -> OperatorOutcome:
     """Return one overlay result for the dataset, features sorted by overlap descending.
 
     geom_type, when given (from the dataset registry), selects the result type and
@@ -116,7 +117,7 @@ def _build_result(
     kind: GeomKind,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
-) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
+) -> OperatorOutcome:
     """Turn the filtered/sorted rows into one typed overlay result.
 
     Polygons/lines carry a per-feature `measure` (their own overlap) and a
@@ -136,11 +137,19 @@ def _build_result(
 
     if kind == "polygon":
         total = float(gdf[_MEASURE_COL].sum()) if not gdf.empty else 0.0
-        return PolyOverlayResult(features=features, total_area=total)
-    if kind == "line":
+        overlay_result = PolyOverlayResult(features=features, total_area=total)
+    elif kind == "line":
         total = float(gdf[_MEASURE_COL].sum()) if not gdf.empty else 0.0
-        return LineOverlayResult(features=features, total_length=total)
-    return PointOverlayResult(features=features)
+        overlay_result =  LineOverlayResult(features=features, total_length=total)
+    else:
+        overlay_result = None
+    # TODO: handle failures with status = 'failure'
+    if overlay_result is None:
+        result = OperatorOutcome(status="success",result=overlay_result,dataframe=gdf)
+    else:
+        result = OperatorOutcome(status="failed",result=overlay_result,dataframe=gdf)
+    return result
+    
 
 
 def _empty_result(kind: GeomKind) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:

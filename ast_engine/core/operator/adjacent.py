@@ -39,7 +39,7 @@ from shapely.geometry import LineString, MultiLineString, GeometryCollection
 
 from ..aoi import AreaOfInterest
 from ..data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
-from ..results import AdjacencyResult, FeatureRecord
+from ..results import AdjacencyResult, FeatureRecord, OperatorOutcome
 
 try:
     from shapely.validation import make_valid
@@ -57,7 +57,7 @@ def adjacency(
     where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
-) -> AdjacencyResult:
+) -> OperatorOutcome:
     """Return one AdjacencyResult for the dataset, features sorted by shared length descending.
 
     tolerance_m chooses the match: 0 is a true touch (exact shared edge), above 0
@@ -110,7 +110,7 @@ def _build_result(
     match_target,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
-) -> AdjacencyResult:
+) -> OperatorOutcome:
     """Turn the cleaned rows into one AdjacencyResult, longest shared border first.
 
     Each feature's shared boundary is merged into clean segments and its length
@@ -135,7 +135,9 @@ def _build_result(
         )
 
     features.sort(key=lambda feature: feature.measure, reverse=True)
-    return AdjacencyResult(is_adjacent=bool(features), features=features)
+    # TODO: handle failures with status = 'failure'
+    result = OperatorOutcome(status="success",result=AdjacencyResult(is_adjacent=bool(features), features=features),dataframe=gdf)
+    return result
 
 
 def _default_read_options(

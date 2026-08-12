@@ -31,7 +31,7 @@ import pandas as pd
 
 from ast_engine.core.aoi import AreaOfInterest
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
-from ast_engine.core.results import FeatureRecord, ProximityResult
+from ast_engine.core.results import FeatureRecord, ProximityResult, OperatorOutcome
 
 
 _DISTANCE_COL = "_proximity_distance_m"
@@ -96,7 +96,7 @@ def nearest(
     where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
-) -> ProximityResult:
+) -> OperatorOutcome:
     """Return one ProximityResult holding up to k closest features, nearest first.
 
     If max_distance_m is given, candidates beyond that distance are dropped
@@ -175,7 +175,7 @@ def _build_results(
     gdf: gpd.GeoDataFrame,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
-) -> ProximityResult:
+) -> OperatorOutcome:
     """Turn the filtered/sorted GeoDataFrame into a single ProximityResult.
 
         Each matched feature becomes one FeatureRecord whose `measure` is its
@@ -192,7 +192,9 @@ def _build_results(
         )
         for idx, row in gdf.iterrows()
     ]
-    return ProximityResult(features=features)
+    # TODO: handle failures with status = 'failure'
+    result = OperatorOutcome(status="success",result=ProximityResult(features=features),dataframe=gdf)
+    return result
 
 
 def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str:
