@@ -29,6 +29,11 @@ markers = [
   "unit: fast unit tests with no external dependencies"
 ]
 
+[tool.uv.workspace]
+members = [
+    "ast_api",
+]
+
 [dependency-groups]
 dev = [
     "ipykernel>=7.2.0",
