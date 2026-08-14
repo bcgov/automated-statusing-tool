@@ -102,6 +102,12 @@ class OperatorOutcome(BaseModel):
 class DatasetResultGroup(BaseModel):
     dataset_id: str
     dataset_name: str
+    # did this dataset run? set by the orchestrator, not the operator. Tells a
+    # dataset that failed apart from one that ran and found nothing - both come
+    # back with no results.
+    status: Literal["success", "failure"] = "success"
+    # why it failed; empty when the dataset ran
+    error: str | None = None
     results: List[AnalysisResult]
 
 class AstResults(BaseModel):
