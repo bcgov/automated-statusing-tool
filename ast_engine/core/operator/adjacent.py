@@ -84,11 +84,13 @@ def adjacency(
         **source_kwargs,
     )
     if gdf.empty:
-        return AdjacencyResult(is_adjacent=False, features=[])
+        # Nothing read is still a successful run: no features, no geometry to save.
+        return OperatorOutcome(status="success", result=AdjacencyResult(is_adjacent=False, features=[]), dataframe=gdf)
 
     gdf = _clean_geometries(gdf)
     if gdf.empty:
-        return AdjacencyResult(is_adjacent=False, features=[])
+        # Every candidate was dropped as unusable geometry - same as nothing read.
+        return OperatorOutcome(status="success", result=AdjacencyResult(is_adjacent=False, features=[]), dataframe=gdf)
 
     # Dissolve the AOI so a boundary shared between two of its parts is not
     # counted; each dataset feature is then measured against it on its own, which
@@ -121,11 +123,13 @@ def _build_result(
     """
     keep_list = list(keep_properties) if keep_properties else []
     features = []
+    matched_rows = []
     for idx, row in gdf.iterrows():
         shared_lines = _merge_shared_lines(row.geometry.boundary.intersection(match_target))
         length = sum(line.length for line in shared_lines)
         if length <= 0:
             continue
+        matched_rows.append(idx)
         features.append(
             FeatureRecord(
                 feature_id=_extract_feature_id(row, idx, feature_id_field),
@@ -135,9 +139,20 @@ def _build_result(
         )
 
     features.sort(key=lambda feature: feature.measure, reverse=True)
-    # TODO: handle failures with status = 'failure'
-    result = OperatorOutcome(status="success",result=AdjacencyResult(is_adjacent=bool(features), features=features),dataframe=gdf)
-    return result
+
+    # Keep only the features that really share a border. The adapter's search is a
+    # rough first pass, so the frame still holds candidates that turned out not to
+    # be adjacent - a polygon touching the AOI at a single corner, for example. The
+    # frame is saved to disk, so it has to show the same features the result reports.
+    gdf = gdf.loc[matched_rows]
+    # A failure raises out of the operator, so reaching here always means success.
+    # dataframe carries the matched features as they were read (no clipping) so the
+    # orchestrator can save them; it is dropped once written.
+    return OperatorOutcome(
+        status="success",
+        result=AdjacencyResult(is_adjacent=bool(features), features=features),
+        dataframe=gdf,
+    )
 
 
 def _default_read_options(

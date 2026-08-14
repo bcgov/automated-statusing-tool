@@ -47,7 +47,7 @@ def within_distance(
     where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
-) -> ProximityResult:
+) -> OperatorOutcome:
     """Return one ProximityResult holding every feature within distance_m, nearest first.
 
     The default ReadOptions pushes a SpatialFilter(predicate='within_distance',
@@ -73,7 +73,8 @@ def within_distance(
         **source_kwargs,
     )
     if gdf.empty:
-        return ProximityResult(features=[])
+        # Nothing read is still a successful run: no features, no geometry to save.
+        return OperatorOutcome(status="success", result=ProximityResult(features=[]), dataframe=gdf)
 
     aoi_geom = aoi.gdf.geometry.union_all()
     gdf = gdf.copy()
@@ -126,7 +127,8 @@ def nearest(
         **source_kwargs,
     )
     if gdf.empty:
-        return ProximityResult(features=[])
+        # Nothing read is still a successful run: no features, no geometry to save.
+        return OperatorOutcome(status="success", result=ProximityResult(features=[]), dataframe=gdf)
 
     aoi_geom = aoi.gdf.geometry.union_all()
     gdf = gdf.copy()
@@ -192,9 +194,17 @@ def _build_results(
         )
         for idx, row in gdf.iterrows()
     ]
-    # TODO: handle failures with status = 'failure'
-    result = OperatorOutcome(status="success",result=ProximityResult(features=features),dataframe=gdf)
-    return result
+    # _DISTANCE_COL is this operator's own scratch column. It used to disappear
+    # with the frame, but the frame is now saved to disk, so it ends up in the
+    # GeoPackage an analyst opens - it needs a name that says what the number is.
+    # Renamed here rather than by the orchestrator, so the
+    # column name stays private to the operator that created it.
+    gdf = gdf.rename(columns={_DISTANCE_COL: "distance_to_aoi_m"})
+
+    # A failure raises out of the operator, so reaching here always means success.
+    # dataframe carries the matched features as they were read (no clipping) so the
+    # orchestrator can save them; it is dropped once written.
+    return OperatorOutcome(status="success", result=ProximityResult(features=features), dataframe=gdf)
 
 
 def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str:
