@@ -8,12 +8,16 @@ no BCGW connection is needed.
 What we check:
 - an end-to-end run over the three operators (overlay / within_distance /
   adjacency) returns the right AstResults shape and result types;
-- one dataset's failure is isolated: its group comes back empty and the rest of
-  the run still produces results;
+- one dataset's failure is isolated: its group comes back empty and marked
+  status="failure", and the rest of the run still produces results. A dataset
+  that ran but found nothing stays "success", so the two are told apart;
 - the per-task helpers route correctly (table for Oracle, path for files; the
   attribute filter is forwarded to the adapter);
 - the registry -> task mapper fills the task fields (and lower-cases the geometry
-  type), skips a dataset with no operator, and tags provenance across registries.
+  type), skips a dataset with no operator, and tags provenance across registries;
+- saving the spatial output: off by default, one GeoPackage per dataset when it
+  is on, nothing written for a dataset with no matches, and a failed write never
+  costs the analysis result.
 
 The AOI is the Test_Shape_A box (a rectangle in BC Albers / EPSG:3005).
 """
@@ -29,11 +33,13 @@ from ast_engine.core.execution import (
     AnalysisTask,
     _pick_adapter,
     _run_operator,
+    _safe_filename,
     _source_kwargs,
     build_tasks,
     run_analysis,
     tasks_from_registry,
 )
+from ast_engine.config.settings import Settings
 from ast_engine.core.results import (
     AdjacencyResult,
     AstResults,
@@ -172,8 +178,101 @@ def test_per_task_error_isolation():
     bad = next(g for g in result.results if g.dataset_name == "missing")
     good = next(g for g in result.results if g.dataset_name == "polys")
     assert bad.results == []                       # failure recorded as an empty group
+    assert bad.status == "failure"                 # ...and marked, so it is not read as "nothing found"
+    assert bad.error                               # with the reason kept for the analyst
     assert len(good.results) == 1                  # the good dataset still ran
+    assert good.status == "success"
+    assert good.error is None
     assert good.results[0].feature_count == 2
+
+
+def test_a_dataset_with_no_matches_is_a_success_not_a_failure():
+    """The empty-vs-failed check: nothing found still counts as a dataset that ran."""
+    far_point = DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
+    task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
+
+    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id="job-7")
+
+    group = result.results[0]
+    assert group.status == "success"               # the read worked
+    assert group.error is None
+    assert group.results[0].feature_count == 0     # there was just nothing near the AOI
+
+
+# --- Saving the spatial output ----------------------------------------------
+# record_spatial is off by default; when it is on, each dataset's matched
+# features are saved as a GeoPackage under temp_dir and the file path is recorded
+# on the result as spatial_link.
+
+def _overlay_task() -> AnalysisTask:
+    """One polygon overlay task - 2 of the 3 test polygons match the AOI."""
+    return _file_task("1", "test polys", POLYGONS, "overlay", geom_type="polygon")
+
+
+def test_record_spatial_off_writes_nothing(tmp_path):
+    """The default: no files, and spatial_link stays empty."""
+    settings = Settings(record_spatial=False, temp_dir=str(tmp_path))
+
+    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id="job-3", settings=settings)
+
+    assert result.results[0].results[0].spatial_link is None
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_record_spatial_writes_a_gpkg_and_records_the_path(tmp_path):
+    """One GeoPackage per dataset, in a folder named after the analysis."""
+    settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
+
+    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id="job-4", settings=settings)
+
+    # the space in "test polys" is replaced so the name works as a file name
+    written = tmp_path / "overlay" / "test_polys.gpkg"
+    assert written.exists()
+
+    saved = result.results[0].results[0]
+    assert saved.spatial_link == str(written)
+
+    # the features are saved as they were read - same count as the result
+    on_disk = gpd.read_file(written)
+    assert len(on_disk) == saved.feature_count
+    # the operator's working column is renamed on the way out, so what an analyst
+    # opens says what the number is and what unit it is in
+    assert "overlap_area_m2" in on_disk.columns
+    assert "_overlay_measure" not in on_disk.columns
+
+
+def test_record_spatial_skips_a_dataset_with_no_matches(tmp_path):
+    """Nothing found means nothing to save - no empty file, no link."""
+    far_point = DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
+    task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
+    settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
+
+    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id="job-5", settings=settings)
+
+    assert result.results[0].results[0].feature_count == 0
+    assert result.results[0].results[0].spatial_link is None
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_failed_write_keeps_the_analysis_result(tmp_path, monkeypatch):
+    """A file that cannot be written is logged and skipped - the result survives."""
+    def boom(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(gpd.GeoDataFrame, "to_file", boom)
+    settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
+
+    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id="job-6", settings=settings)
+
+    saved = result.results[0].results[0]
+    assert saved.feature_count == 2        # the analysis still came through
+    assert saved.spatial_link is None      # but nothing was saved
+
+
+def test_safe_filename_cleans_registry_names():
+    """Registry names carry spaces and brackets; the file name keeps only safe characters."""
+    assert _safe_filename("Indian Reserves (Tab 1)") == "Indian_Reserves_Tab_1"
+    assert _safe_filename("///") == "dataset"
 
 
 # --- Routing helpers --------------------------------------------------------
