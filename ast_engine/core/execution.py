@@ -19,13 +19,14 @@ concatenated in order (see build_tasks).
 The driver itself (run_analysis) has no knowledge of the registry: it takes a
 list of AnalysisTask and a built AreaOfInterest, picks the right adapter per task,
 calls the operator, and records one DatasetResultGroup per dataset. One dataset's
-failure is logged and recorded as an empty group - the run continues, because a
-real run covers 100-200 datasets per AOI.
+failure is logged and recorded as an empty group marked failed - the run
+continues, because a real run covers 100-200 datasets per AOI.
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
@@ -37,12 +38,11 @@ from .data_adapters.base import BaseSpatialAdapter
 from .data_adapters.file.adapter import FileSpatialAdapter
 from .data_adapters.oracle import OracleAdapter, OracleConnection
 from .operator import adjacent, overlay, proximity
-from .results import AnalysisResult, AstResults, DatasetResultGroup, OperatorOutcome
+from .results import AstResults, DatasetResultGroup, OperatorOutcome
 from ..utils.diagnostics import DiagnosticTracker
 from ..config.settings import Settings
 
 logger = logging.getLogger(__name__)
-settings = Settings()
 
 # Analysis names, shared 1:1 with the registry operator block (operator.type)
 # and the operator functions.
@@ -173,6 +173,7 @@ def run_analysis(
     job_id: str,
     oracle_connection: Optional[OracleConnection] = None,
     tracker: Optional[DiagnosticTracker] = None,
+    settings: Optional[Settings] = None,
 ) -> AstResults:
     """Run every task for one AOI and return the assembled AstResults.
 
@@ -185,16 +186,20 @@ def run_analysis(
 
     Per-dataset timings are logged through the DiagnosticTracker so a run can be
     profiled (which datasets are slow, where parallelism would help).
+
+    settings is read once per run. Pass your own to control where the spatial
+    output goes (record_spatial / temp_dir); the default reads the .env file.
     """
     tasks = list(tasks)
     tracker = tracker or DiagnosticTracker()
+    settings = settings or Settings()
     file_adapter = FileSpatialAdapter()
     oracle_adapter = _oracle_adapter(tasks, oracle_connection)
 
     timings: list[tuple[str, float]] = []
     tracker.log("run_start", job_id=job_id, aoi_id=aoi.aoi_id, task_count=len(tasks))
     groups = [
-        _run_one_task(task, aoi, file_adapter, oracle_adapter, tracker, timings)
+        _run_one_task(task, aoi, file_adapter, oracle_adapter, tracker, timings, settings)
         for task in tasks
     ]
     _log_timing_summary(timings, tracker)
@@ -228,21 +233,43 @@ def _run_one_task(
     oracle_adapter: Optional[OracleAdapter],
     tracker: DiagnosticTracker,
     timings: list[tuple[str, float]],
+    settings: Settings,
 ) -> DatasetResultGroup:
     """Run one task and wrap its result in a DatasetResultGroup.
 
-    A failure is logged and recorded as an empty group so the run continues.
+    A failure is logged and recorded as an empty group marked status="failure" so
+    the run continues. The status is what tells a dataset that failed apart from
+    one that ran and found nothing near the AOI - both come back with no results.
+
+    The operator hands back its matched features alongside the result. When
+    record_spatial is on they are saved here, one dataset at a time, and the file
+    path is recorded on the result as spatial_link. The features are dropped as
+    soon as the task ends, so only one dataset's geometry is ever held in memory.
     """
     start = time.perf_counter()
     try:
         adapter = _pick_adapter(task, file_adapter, oracle_adapter)
-        result = _run_operator(task, aoi, adapter)
+        outcome = _run_operator(task, aoi, adapter)
+        result = outcome.result
+
         if settings.record_spatial:
-            _write_spatial(gdf=result.dataframe, 
-                           dataset_id=task.dataset_id, 
-                           dataset_name=task.dataset_name, 
-                           operator_name=task.operator,
-                           output_dir=settings.temp_dir,enabled=settings.record_spatial)
+            write_start = time.perf_counter()
+            result.spatial_link = _write_spatial(
+                gdf=outcome.dataframe,
+                dataset_name=task.dataset_name,
+                operator_name=task.operator,
+                output_dir=settings.temp_dir,
+            )
+            # Only logged when a file was actually written - a dataset with no
+            # matches, or a write that failed, records nothing.
+            if result.spatial_link:
+                tracker.log(
+                    "spatial_written",
+                    dataset=task.dataset_name,
+                    path=result.spatial_link,
+                    seconds=round(time.perf_counter() - write_start, 3),
+                )
+
         elapsed = time.perf_counter() - start
         timings.append((task.dataset_name, elapsed))
 
@@ -251,16 +278,17 @@ def _run_one_task(
             dataset=task.dataset_name,
             operator=task.operator,
             source=task.source_type,
-            features=result.result.feature_count,
+            features=result.feature_count,
             seconds=round(elapsed, 3),
         )
 
         return DatasetResultGroup(
             dataset_id=task.dataset_id,
             dataset_name=task.dataset_name,
-            results=[result.result],
+            status=outcome.status,
+            results=[result],
         )
-    except Exception:
+    except Exception as exc:
         elapsed = time.perf_counter() - start
         timings.append((task.dataset_name, elapsed))
         logger.exception(
@@ -278,6 +306,8 @@ def _run_one_task(
         return DatasetResultGroup(
             dataset_id=task.dataset_id,
             dataset_name=task.dataset_name,
+            status="failure",
+            error=f"{type(exc).__name__}: {exc}",
             results=[],
         )
 
@@ -350,9 +380,40 @@ def _log_timing_summary(timings: list[tuple[str, float]], tracker: DiagnosticTra
         slowest=[(name, round(seconds, 3)) for name, seconds in slowest],
     )
 
-def _write_spatial(gdf: gpd.GeoDataFrame, dataset_id: str, dataset_name: str, operator_name: str, output_dir: str, enabled:bool):
-    if not enabled or not output_dir:
+def _write_spatial(
+    gdf: Optional[gpd.GeoDataFrame],
+    dataset_name: str,
+    operator_name: str,
+    output_dir: Optional[str],
+) -> Optional[str]:
+    """Save one dataset's matched features as a GeoPackage; return the path, or None.
+
+    Files are grouped by analysis: <output_dir>/<operator>/<dataset name>.gpkg. One
+    file per dataset rather than one shared GeoPackage, so parallel workers never
+    write to the same file. Nothing is written when the output folder is not set or
+    the dataset matched no features.
+
+    A write that fails is logged and skipped: a missing file must never cost a good
+    analysis result.
+    """
+    if not output_dir or gdf is None or gdf.empty:
         return None
-    path = Path(output_dir) / operator_name / f"{dataset_name}.gpkg"
-    gdf.to_file(path, driver="GPKG")
+
+    path = Path(output_dir) / operator_name / f"{_safe_filename(dataset_name)}.gpkg"
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        gdf.to_file(path, driver="GPKG")
+    except Exception:
+        logger.exception("Could not save the spatial output for dataset %r", dataset_name)
+        return None
     return str(path)
+
+
+def _safe_filename(name: str) -> str:
+    """Make a dataset name usable as a file name.
+
+    Registry names can -carry spaces, brackets and slashes; anything that is not a
+    letter, number, dash or underscore becomes an underscore.
+    """
+    cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")
+    return cleaned or "dataset"
