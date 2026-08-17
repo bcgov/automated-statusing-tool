@@ -18,6 +18,9 @@ What we check:
   IDs and kept columns;
 - bad input (negative tolerance) and a lat/long AOI are rejected;
 - the operator asks the source for the right search (touches vs within_distance).
+
+Note: the operator returns an OperatorOutcome - the analysis result plus the
+features it was built from - so these tests read `.result` off the call.
 """
 
 import pytest
@@ -92,7 +95,7 @@ def test_shares_full_edge_is_adjacent():
     aoi = _valid_aoi()
     minx, miny, maxx, maxy = aoi.gdf.total_bounds
     poly = Polygon([(maxx, miny), (maxx + 500, miny), (maxx + 500, maxy), (maxx, maxy)])
-    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0)
+    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).result
     assert result.is_adjacent is True
     assert result.measure_value == pytest.approx(maxy - miny)  # the AOI's height
 
@@ -102,7 +105,7 @@ def test_corner_touch_not_adjacent():
     aoi = _valid_aoi()
     minx, miny, maxx, maxy = aoi.gdf.total_bounds
     poly = Polygon([(maxx, maxy), (maxx + 500, maxy), (maxx + 500, maxy + 500), (maxx, maxy + 500)])
-    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0)
+    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).result
     assert result.is_adjacent is False
     assert result.measure_value == 0.0
 
@@ -112,17 +115,36 @@ def test_sliver_gap_missed_at_zero_caught_with_tolerance():
     aoi = _valid_aoi()
     minx, miny, maxx, maxy = aoi.gdf.total_bounds
     poly = Polygon([(maxx + 0.3, miny), (maxx + 500, miny), (maxx + 500, maxy), (maxx + 0.3, maxy)])
-    exact = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0)
-    tolerant = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0.5)
+    exact = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).result
+    tolerant = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0.5).result
     assert exact.is_adjacent is False
     assert tolerant.is_adjacent is True
 
 
 def test_empty_dataset_not_adjacent():
     """Nothing comes back from the source -> not adjacent."""
-    result = adjacency(aoi=_valid_aoi(), adapter=FakeAdapter(), tolerance_m=0)
+    result = adjacency(aoi=_valid_aoi(), adapter=FakeAdapter(), tolerance_m=0).result
     assert result.is_adjacent is False
     assert result.feature_count == 0
+
+
+def test_saved_features_match_the_result():
+    """The features handed over for saving are the adjacent ones only.
+
+    The source's search is a rough first pass: the corner-touch box comes back as a
+    candidate but shares no border, so it must not end up in the saved file.
+    """
+    aoi = _valid_aoi()
+    minx, miny, maxx, maxy = aoi.gdf.total_bounds
+    edge = Polygon([(minx, maxy), (maxx, maxy), (maxx, maxy + 300), (minx, maxy + 300)])
+    corner = Polygon([(maxx, maxy), (maxx + 300, maxy), (maxx + 300, maxy + 300), (maxx, maxy + 300)])
+    gdf = _gdf([edge, corner], Id=[1, 2], Name=["edge", "corner"])
+
+    outcome = adjacency(aoi=aoi, adapter=FakeAdapter(gdf), tolerance_m=0, keep_properties=["Name"])
+
+    assert outcome.result.feature_count == 1
+    assert len(outcome.dataframe) == outcome.result.feature_count
+    assert list(outcome.dataframe["Name"]) == ["edge"]
 
 
 def test_multiple_adjacent_sorted_longest_first():
@@ -136,7 +158,7 @@ def test_multiple_adjacent_sorted_longest_first():
     result = adjacency(
         aoi=aoi, adapter=FakeAdapter(gdf), tolerance_m=0,
         feature_id_field="Id", keep_properties=["Name"],
-    )
+    ).result
     assert result.feature_count == 2
     measures = [f.measure for f in result.features]
     assert measures[0] > measures[1]                     # longest shared border first
