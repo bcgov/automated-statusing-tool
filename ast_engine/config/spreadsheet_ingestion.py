@@ -14,7 +14,7 @@ variables if set, otherwise the script prompts for them (the password is read
 with getpass so it never echoes ).
 '''
 
-
+import argparse
 import getpass
 import os
 import sys
@@ -42,9 +42,50 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 def main() -> None:
-    spreadsheet_io = {
-        "ast_engine/config/registry/tab1/tab1.xlsx":"ast_engine/config/registry/tab1/tab1.yaml",
-    }
+    parser = argparse.ArgumentParser(
+        description="Build a dataset registry from an input spreadsheet."
+    )
+    parser.add_argument(
+        "--input",
+        "-i",
+        help="Folder that contains the spreadsheet (xlsx) files.",
+        required=False,
+    )
+    parser.add_argument(
+        "--file",
+        "-f",
+        help="Single spreadsheet (xlsx) file to ingest.",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        help="Folder to write the registry (yaml) files.",
+        required=False,
+    )
+    args = parser.parse_args()
+    print(args)
+    if args.output is not None:
+        output_dir = args.output
+    else:
+        output_dir = "ast_engine/tests/registry"
+        print(f"No output folder specified, defaulting to {output_dir}")
+    if args.input is not None:
+        spreadsheet_io = {
+            f"{args.input}/{xlsx}": f"{output_dir}/{xlsx.replace('.xlsx', '.yaml')}"
+            for xlsx in os.listdir(args.input)
+            if xlsx.endswith(".xlsx")
+        }
+        if len(spreadsheet_io) == 0:
+            sys.exit(f"No .xlsx files found in {args.input}")
+    elif args.file is not None:
+        spreadsheet_io = {
+            args.file: f"{output_dir}/{Path(args.file).stem}.yaml"
+        }
+    else: # demo mode
+        print("No parameters provided. Running in demo mode")
+        spreadsheet_io = {
+            "ast_engine/config/registry/tab1/tab1.xlsx":"ast_engine/config/registry/tab1/tab1.yaml",
+        }
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
