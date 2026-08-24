@@ -28,6 +28,14 @@ def dump_yaml(registry: Registry, file_path: Path):
 
 def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     '''Hydrates a list of BaseDatasets from a dictionary
+
+    A dataset that cannot be hydrated is logged and skipped, so one bad row does
+    not stop the whole build. The usual cause is a Definition_Query the parser
+    does not understand (definition_to_where raises while the dataset is being
+    validated) - most often an ESRI-flavoured expression from a regional
+    spreadsheet, such as a date calculated with sysdate. The dataset is left out
+    of the registry rather than silently losing its filter, so check the warnings
+    after a build and fix the spreadsheet or add the dataset by hand.
     -------------
     example:
     -------------
@@ -41,7 +49,21 @@ def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     ]
     '''
     logger.debug(f"Hydrating datasets: Count {len(seed)}")
-    return [BaseDataset(**item) for item in seed]
+    hydrated = []
+    for item in seed:
+        try:
+            hydrated.append(BaseDataset(**item))
+        except Exception as exc:
+            logger.warning(
+                "Skipping dataset %r: could not build it from the spreadsheet row (%s: %s)",
+                item.get("name", "?"),
+                type(exc).__name__,
+                exc,
+            )
+    skipped = len(seed) - len(hydrated)
+    if skipped:
+        logger.warning("Hydrated %d of %d datasets; %d skipped", len(hydrated), len(seed), skipped)
+    return hydrated
 
 
 def infer_operator(buffer_distance) -> dict:
