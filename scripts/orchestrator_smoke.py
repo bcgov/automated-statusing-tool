@@ -7,8 +7,7 @@ long the run took, which datasets were slowest, and how much of the time went to
 Oracle versus local files - the numbers we need to talk about efficiency (where
 parallelism would help, which datasets dominate a run).
 
-Registry YAMLs are kept OUTSIDE the repo (some regional dataset paths are
-sensitive), so point --registry at the YAMLs you generated yourself with
+Registry YAMLs are kept OUTSIDE the repo, so point --registry at the YAMLs you generated yourself with
 ast_engine/config/spreadsheet_ingestion.py.
 
 The AOI is either a file you point at with --aoi, or a Crown tenure parcel looked
@@ -17,12 +16,11 @@ lookup is the same one a real statusing run uses, so it is the closer match to
 how the tool is actually driven.
 
 Credentials come from the BCGW_USER / BCGW_PASSWORD / BCGW_HOST environment
-variables. The script never prompts and never writes them anywhere. BCGW_PWD is
-accepted as an alias for the password (this script only). The connection is
+variables. The connection is
 opened only when it is needed - when a registry has Oracle datasets, or when the
 AOI comes from Tantalis.
 
-Saving the matched features is optional and off by default. Pass --spatial-out
+Saving the spatial output is optional and off by default. Pass --spatial-out
 to turn it on; run the same registries twice, with and without, to see what the
 spatial export costs. The per-dataset write times are reported separately, so a
 single run with --spatial-out already tells you the write cost on its own.
