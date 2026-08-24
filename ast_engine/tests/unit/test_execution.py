@@ -269,6 +269,33 @@ def test_a_failed_write_keeps_the_analysis_result(tmp_path, monkeypatch):
     assert saved.spatial_link is None      # but nothing was saved
 
 
+def test_same_dataset_name_in_two_registries_writes_two_files(tmp_path):
+    """Two registries can carry the same dataset name - each keeps its own file.
+
+    Tab 1 is a selection of datasets that also sit in the provincial registry, so
+    a run covering both sees the same name twice. The registry folder is what
+    keeps the two outputs apart; without it the second write replaced the first.
+    """
+    tasks = [
+        _file_task("1", "Provincial Forest", POLYGONS, "overlay",
+                   geom_type="polygon", source_registry="tab1"),
+        _file_task("2", "Provincial Forest", POLYGONS, "overlay",
+                   geom_type="polygon", source_registry="provincial"),
+    ]
+    settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
+
+    result = run_analysis(aoi=_valid_aoi(), tasks=tasks, job_id="job-7", settings=settings)
+
+    from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest.gpkg"
+    from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest.gpkg"
+    assert from_tab1.exists()
+    assert from_provincial.exists()
+
+    # each result points at its own file, not at a shared one
+    links = [group.results[0].spatial_link for group in result.results]
+    assert links == [str(from_tab1), str(from_provincial)]
+
+
 def test_safe_filename_cleans_registry_names():
     """Registry names carry spaces and brackets; the file name keeps only safe characters."""
     assert _safe_filename("Indian Reserves (Tab 1)") == "Indian_Reserves_Tab_1"

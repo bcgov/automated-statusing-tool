@@ -259,6 +259,7 @@ def _run_one_task(
                 dataset_name=task.dataset_name,
                 operator_name=task.operator,
                 output_dir=settings.temp_dir,
+                source_registry=task.source_registry,
             )
             # Only logged when a file was actually written - a dataset with no
             # matches, or a write that failed, records nothing.
@@ -385,13 +386,22 @@ def _write_spatial(
     dataset_name: str,
     operator_name: str,
     output_dir: Optional[str],
+    source_registry: Optional[str] = None,
 ) -> Optional[str]:
     """Save one dataset's matched features as a GeoPackage; return the path, or None.
 
-    Files are grouped by analysis: <output_dir>/<operator>/<dataset name>.gpkg. One
-    file per dataset rather than one shared GeoPackage, so parallel workers never
-    write to the same file. Nothing is written when the output folder is not set or
-    the dataset matched no features.
+    Files are grouped by registry and then by analysis:
+    <output_dir>/<registry>/<operator>/<dataset name>.gpkg. One file per dataset
+    rather than one shared GeoPackage, so parallel workers never write to the same
+    file. Nothing is written when the output folder is not set or the dataset
+    matched no features.
+
+    The registry folder is what keeps two datasets apart when they share a name.
+    That happens for real: Tab 1 is a curated selection of datasets that also
+    appear in the provincial registry, so a run covering both carries the same
+    dataset name twice. Without the registry in the path they both write to one
+    file, the second silently replaces the first, and both results point at
+    whatever survived. Tasks built by hand (no registry) keep the shorter path.
 
     A write that fails is logged and skipped: a missing file must never cost a good
     analysis result.
@@ -399,7 +409,10 @@ def _write_spatial(
     if not output_dir or gdf is None or gdf.empty:
         return None
 
-    path = Path(output_dir) / operator_name / f"{_safe_filename(dataset_name)}.gpkg"
+    folder = Path(output_dir)
+    if source_registry:
+        folder = folder / _safe_filename(source_registry)
+    path = folder / operator_name / f"{_safe_filename(dataset_name)}.gpkg"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         gdf.to_file(path, driver="GPKG")
