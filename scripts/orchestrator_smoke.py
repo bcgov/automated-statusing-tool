@@ -59,7 +59,8 @@ from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.settings import Settings
 from ast_engine.config.registry import utils as registry_utils
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
-from ast_engine.core.data_adapters.oracle import OracleConnection, fetch_tantalis_aoi
+from ast_engine.core.data_adapters.base import BaseSpatialAdapter
+from ast_engine.core.data_adapters.oracle import OracleAdapter, OracleConnection, fetch_tantalis_aoi
 from ast_engine.core.execution import build_tasks, run_analysis
 # The orchestrator's own file-name cleaner, so the duplicate-output check below
 # matches exactly what actually gets written to disk.
@@ -121,6 +122,57 @@ def parse_args() -> argparse.Namespace:
     if all(tantalis) and args.aoi:
         parser.error("Give either --aoi or the three Tantalis values, not both.")
     return args
+
+
+# --- Read time vs operator time ---------------------------------------------
+# The orchestrator times each dataset as one number covering both the adapter
+# read and the operator's own geometry work. To see the split, this script wraps
+# the adapter read for the length of the run and records how long each one took.
+# It is done here rather than in the engine because it is a measurement, not
+# something the engine has to carry into production.
+#
+# Reads are grouped by adapter type, not matched up to individual datasets, so
+# nothing depends on the order they happen in.
+
+READ_TIMES: dict[str, list[float]] = defaultdict(list)
+
+
+def time_adapter_reads() -> None:
+    """Record how long every adapter read takes, split by Oracle vs file."""
+    original = BaseSpatialAdapter.read
+
+    def read(self, **kwargs):
+        start = time.perf_counter()
+        try:
+            return original(self, **kwargs)
+        finally:
+            source = "oracle" if isinstance(self, OracleAdapter) else "file"
+            READ_TIMES[source].append(time.perf_counter() - start)
+
+    BaseSpatialAdapter.read = read
+
+
+def print_read_split(source_time: dict[str, float], spatial_on: bool) -> None:
+    """Show how much of each source's time went on reading the data.
+
+    Whatever is left after the read is the operator's own work - the geometry
+    maths. If the read is nearly all of it, the run is waiting on the database
+    and the network, which is the case parallel workers help most.
+    """
+    if not READ_TIMES:
+        return
+    print("\nRead vs operator time:")
+    for source in sorted(READ_TIMES):
+        reads = READ_TIMES[source]
+        read_total = sum(reads)
+        dataset_total = source_time.get(source, 0.0)
+        rest = dataset_total - read_total
+        share = (read_total / dataset_total * 100) if dataset_total else 0.0
+        print(f"  {source:<8} {len(reads):>4} reads   read {read_total:>7.1f}s ({share:>4.1f}%)   "
+              f"rest {rest:>6.1f}s   median read {statistics.median(reads):.2f}s")
+    if spatial_on:
+        print("  (\"rest\" also includes saving the GeoPackage - run without "
+              "--spatial-out for a clean split)")
 
 
 def uses_tantalis_aoi(args) -> bool:
@@ -256,7 +308,8 @@ def percentile(values: list[float], fraction: float) -> float:
     return ordered[index]
 
 
-def print_run_summary(tasks, results, tracker: DiagnosticTracker, wall_seconds: float) -> None:
+def print_run_summary(tasks, results, tracker: DiagnosticTracker, wall_seconds: float,
+                      spatial_on: bool = False) -> None:
     """Summarise the run: what ran, what found nothing, what failed, and timings.
 
     "Found nothing" and "failed" are different answers and are kept apart here.
@@ -304,6 +357,8 @@ def print_run_summary(tasks, results, tracker: DiagnosticTracker, wall_seconds: 
     print("\nBy source:")
     for source in sorted(by_source_count):
         print(f"  {source:<8} {by_source_count[source]:>4} datasets   {by_source_time[source]:>8.1f} s")
+
+    print_read_split(by_source_time, spatial_on)
 
     by_operator = Counter(task.operator for task, _, _ in all_rows)
     print(f"\nBy operator      : {dict(by_operator)}")
@@ -393,6 +448,7 @@ def write_results_spreadsheet(tasks, results, tracker: DiagnosticTracker, out_pa
 def main() -> None:
     args = parse_args()
     setup_logging()
+    time_adapter_reads()
 
     registries = load_registries(args.registry, args.ignore_os_check)
     tasks = build_tasks(registries)
@@ -429,7 +485,7 @@ def main() -> None:
         if connection is not None:
             connection.close()
 
-    print_run_summary(tasks, results, tracker, wall)
+    print_run_summary(tasks, results, tracker, wall, spatial_on=bool(args.spatial_out))
     print(f"\nAssembled AstResults: {len(results.results)} dataset groups, job_id={results.job_id}")
 
     out_path = Path(args.out)
