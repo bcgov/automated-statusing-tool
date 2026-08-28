@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Any
+from typing import Literal, Any, cast, get_args
 from pyproj import CRS
 import geopandas as gpd
 from shapely.geometry.base import BaseGeometry
@@ -14,61 +14,142 @@ from .utils import count_vertices, has_m, has_z
 # AOI Request model
 # ============================================================
 
+DissolveMode = Literal[
+    "full_union",
+    "by_fields",
+    "preserve_features",
+]
+
+SUPPORTED_DISSOLVE_MODES: frozenset[str] = frozenset(
+    get_args(DissolveMode)
+)
+
+
 @dataclass(frozen=True)
 class AOIRequest:
-    """
-    AOI request schema to be consumed by the builder.
-    - This schema represents the input parameters for building an AOI, and any relevant metadata or policy controls.
-    - The builder will take this request object and process it through normalization, inspection, and validation
-    """
     aoi_id: str
     name: str
     target_crs: str = "EPSG:3005"
 
-    # AOI policy controls
-    dissolve_mode: Literal["full_union", "by_fields", "preserve_features"] = "full_union"
+    dissolve_mode: DissolveMode = "full_union"
     dissolve_fields: tuple[str, ...] = field(default_factory=tuple)
     allow_overlaps: bool = False
 
+    _target_crs_obj: CRS = field(
+        init=False,
+        repr=False,
+        compare=False,
+    )
+
     def __post_init__(self) -> None:
-        aoi_id = self.aoi_id.strip()
-        name = self.name.strip()
-        dissolve_fields = tuple(f.strip() for f in self.dissolve_fields if f.strip())
-
-        if not aoi_id:
-            raise AOIRequestError("AOIRequest.aoi_id cannot be empty")
-
-        if not name:
-            raise AOIRequestError("AOIRequest.name cannot be empty")
-
-        try:
-            crs = CRS.from_user_input(self.target_crs)
-        except Exception as ex:
+        # Validate scalar input types before normalizing them.
+        if not isinstance(self.aoi_id, str):
             raise AOIRequestError(
-                f"Invalid AOIRequest.target_crs: {self.target_crs!r}"
-            ) from ex
-
-        if not crs.is_projected:
-            raise AOIRequestError(
-                f"AOIRequest.target_crs must be projected. "
-                f"Received: {self.target_crs}"
+                "AOIRequest.aoi_id must be a string."
             )
 
-        if self.dissolve_mode == "by_fields" and not dissolve_fields:
+        if not isinstance(self.name, str):
+            raise AOIRequestError(
+                "AOIRequest.name must be a string."
+            )
+
+        if not isinstance(self.dissolve_mode, str):
+            raise AOIRequestError(
+                "AOIRequest.dissolve_mode must be a string."
+            )
+
+        if not isinstance(self.dissolve_fields, (tuple, list)):
+            raise AOIRequestError(
+                "AOIRequest.dissolve_fields must be a sequence of strings."
+            )
+
+        if not all(
+            isinstance(field_name, str)
+            for field_name in self.dissolve_fields
+        ):
+            raise AOIRequestError(
+                "AOIRequest.dissolve_fields must contain only strings."
+            )
+
+        if not isinstance(self.target_crs, str):
+            raise AOIRequestError(
+                "AOIRequest.target_crs must be a string."
+            )
+
+        if not isinstance(self.allow_overlaps, bool):
+            raise AOIRequestError(
+                "AOIRequest.allow_overlaps must be a boolean."
+            )
+
+        # Normalize values.
+        aoi_id = self.aoi_id.strip()
+        name = self.name.strip()
+        dissolve_mode = self.dissolve_mode.strip().lower()
+        dissolve_fields = tuple(
+            field_name.strip()
+            for field_name in self.dissolve_fields
+            if field_name.strip()
+        )
+
+        if not aoi_id:
+            raise AOIRequestError(
+                "AOIRequest.aoi_id cannot be empty."
+            )
+
+        if not name:
+            raise AOIRequestError(
+                "AOIRequest.name cannot be empty."
+            )
+
+        if dissolve_mode not in SUPPORTED_DISSOLVE_MODES:
+            raise AOIRequestError(
+                f"Unsupported AOIRequest.dissolve_mode: "
+                f"{self.dissolve_mode!r}. Expected one of: "
+                f"{sorted(SUPPORTED_DISSOLVE_MODES)}."
+            )
+
+        if dissolve_mode == "by_fields" and not dissolve_fields:
             raise AOIRequestError(
                 "AOIRequest.dissolve_fields must be provided when "
                 "dissolve_mode='by_fields'."
             )
 
-        if self.dissolve_mode != "by_fields" and dissolve_fields:
+        if dissolve_mode != "by_fields" and dissolve_fields:
             raise AOIRequestError(
                 "AOIRequest.dissolve_fields should only be provided when "
                 "dissolve_mode='by_fields'."
             )
 
+        if len(set(self.dissolve_fields)) != len(self.dissolve_fields):
+            raise AOIRequestError(
+                "AOIRequest.dissolve_fields cannot contain duplicates."
+            )
+
+        try:
+            crs = CRS.from_user_input(self.target_crs)
+        except Exception as exc:
+            raise AOIRequestError(
+                f"Invalid AOIRequest.target_crs: {self.target_crs!r}."
+            ) from exc
+
+        if not crs.is_projected:
+            raise AOIRequestError(
+                "AOIRequest.target_crs must be projected. "
+                f"Received: {self.target_crs!r}."
+            )
+
         object.__setattr__(self, "aoi_id", aoi_id)
         object.__setattr__(self, "name", name)
-        object.__setattr__(self, "dissolve_fields", dissolve_fields)
+        object.__setattr__(
+            self,
+            "dissolve_mode",
+            cast(DissolveMode, dissolve_mode),
+        )
+        object.__setattr__(
+            self,
+            "dissolve_fields",
+            dissolve_fields,
+        )
         object.__setattr__(self, "_target_crs_obj", crs)
 
     @property
@@ -124,7 +205,7 @@ class AreaOfInterest:
 
     # Convenience properties pulled from immutable AOIProperties
     @property
-    def crs_epsg(self) -> int:
+    def crs_epsg(self) -> int | None:
         return self.properties.crs_epsg
 
     @property
@@ -146,7 +227,7 @@ class AreaOfInterest:
 
 @dataclass(frozen=True)
 class AOIProperties:
-    crs_epsg: int
+    crs_epsg: int | None
     crs_string: str
 
     footprint_area_ha: float
@@ -251,7 +332,7 @@ class AOIPart:
 # Normalization results models
 # ============================================================
 
-@dataclass
+@dataclass(frozen=True)
 class AOINormalizationReport:
     # Input / output summary
     input_feature_count: int
