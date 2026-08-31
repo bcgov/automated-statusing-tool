@@ -19,6 +19,7 @@ dependencies = [
     "sqlglot>=30.11.0",
     "boto3>=1.43.36",
     "redis>=8.1.0",
+    "fastapi>=0.141.1",
 ]
 
 [build-system]
@@ -33,11 +34,6 @@ include = ["ast_engine*"]
 markers = [
   "unit: fast unit tests with no external dependencies",
   "integration: tests on real data; BCGW tests skip when credentials are not set"
-]
-
-[tool.uv.workspace]
-members = [
-    "ast_api",
 ]
 
 [dependency-groups]

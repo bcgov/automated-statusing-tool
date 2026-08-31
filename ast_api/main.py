@@ -11,10 +11,15 @@ from fastapi.templating import Jinja2Templates
 from models import CreateJobs, JobDatabase
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+redis_client=redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+def get_db(): 
+    yield redis_client
 
 def main():
     app = FastAPI()
-    get_db = None
+
+    templates = Jinja2Templates(directory="templates")
 
     
     app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -40,61 +45,63 @@ def main():
             {"jobs": jobs, "title": "Home"},
         )
 
-
+    #route for getting specific jobs
     @app.get("/jobs/{job_id}", include_in_schema=False)
-    def job_page(request: Request, job_id: int, db: redis.Redis = Depends(get_db)):
-        # get all items from the redis que with lrange
-
-        # get the json and put in back into a python object
+    def job_page(request: Request, job_id: str, db: redis.Redis = Depends(get_db)):
+        # get all items from the redis queue with lrange
         jobs = _get_all_jobs(db)
 
         for job in jobs:
-            if job.get("id") == job_id:
-                description = job.get("description", "")
+            if str(job.get("job_id")) == str(job_id):
                 return templates.TemplateResponse(
                     request,
                     "post.html",
-                    {"job": job, "description": description},
+                    {"job": job, "description": job.get("area_of_interest", "")},
                 )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
 
     @app.post(
         "/api/jobs",
-        response_model=JobsDatabase,
+        response_model=JobDatabase,
         status_code=status.HTTP_201_CREATED,
     )
     def create_job(job: CreateJobs, db: redis.Redis = Depends(get_db)):
         jobs = _get_all_jobs(db)
-        new_id = max((j["id"] for j in jobs if "id" in j), default=0) + 1
+
+        existing_ids = [
+            int(j["job_id"]) for j in jobs if isinstance(j, dict) and "job_id" in j and str(j["job_id"]).isdigit()
+        ]
+        new_id = max(existing_ids, default=0) + 1
 
         new_job = {
-            "id": new_id,
-            "title": job.title,
-            "description": job.description,
-            "date_posted": datetime.now().strftime("%B %d, %Y")
+            "job_id": str(new_id),
+            "region": job.region.value,
+            "area_of_interest": job.area_of_interest,
+            "crown_file_number": job.crown_file_number,
+            "disposition_number": job.disposition_number,
+            "parcel_number": job.parcel_number,
+            "output_directory": job.output_directory,
+            "status": "Pending",
         }
 
         # Persist directly into the Redis queue
         db.rpush("jobs_queue", json.dumps(new_job))
-        return new_job
+        return JobDatabase.model_validate(new_job)
 
 
-    @app.get("/api/jobs", response_model=list[JobsDatabase])
+    @app.get("/api/jobs", response_model=list[JobDatabase])
     def get_jobs(db: redis.Redis = Depends(get_db)):
+        return [JobDatabase.model_validate(job) for job in _get_all_jobs(db)]
 
-        return _get_all_jobs(db)
 
-
-    @app.get("/api/jobs/{job_id}", response_model=JobsDatabase)
-    def get_job(job_id: int, db: redis.Redis = Depends(get_db)):
-
-        # get the json and put in back into a python object
+    @app.get("/api/jobs/{job_id}", response_model=JobDatabase)
+    def get_job(job_id: str, db: redis.Redis = Depends(get_db)):
         jobs = _get_all_jobs(db)
 
         for job in jobs:
-            if job.get("id") == job_id:
-                return job
+            if str(job.get("job_id")) == str(job_id):
+                return JobDatabase.model_validate(job)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
 
