@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from models import CreateJobs, JobsDatabase
+from models import CreateJobs, JobDatabase
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
@@ -16,6 +16,7 @@ def main():
     app = FastAPI()
     get_db = None
 
+    
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
