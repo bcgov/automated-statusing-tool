@@ -1,0 +1,46 @@
+<h1>{{ title }}</h1>
+
+{% if error %}
+<p style="color: red;">{{ error }}</p>
+{% endif %}
+
+{% if created_job %}
+<p style="color: green;">Job created: {{ created_job.job_id }}</p>
+{% endif %}
+
+<form method="post" action="/jobs">
+    <label for="region">Region</label>
+    <select id="region" name="region" required>
+        <option value="Cariboo">Cariboo</option>
+        <option value="Kootenay Boundary">Kootenay Boundary</option>
+        <option value="Thompson Okanagan">Thompson Okanagan</option>
+        <option value="Omineca">Omineca</option>
+        <option value="Northeast">Northeast</option>
+        <option value="Skeena">Skeena</option>
+        <option value="South Coast">South Coast</option>
+        <option value="West Coast">West Coast</option>
+    </select>
+
+    <label for="area_of_interest">Area of Interest</label>
+    <input type="text" id="area_of_interest" name="area_of_interest" required>
+
+    <label for="crown_file_number">Crown File Number</label>
+    <input type="text" id="crown_file_number" name="crown_file_number" required>
+
+    <label for="disposition_number">Disposition Number</label>
+    <input type="text" id="disposition_number" name="disposition_number" required>
+
+    <label for="parcel_number">Parcel Number</label>
+    <input type="text" id="parcel_number" name="parcel_number" required>
+
+    <label for="output_directory">Output Directory</label>
+    <input type="text" id="output_directory" name="output_directory" required>
+
+    <label><input type="checkbox" name="retain_existing_outputs" value="true"> Retain Existing Outputs</label>
+    <label><input type="checkbox" name="suppress_tab_3" value="true"> Suppress Tab 3</label>
+    <label><input type="checkbox" name="suppress_map_creation" value="true"> Suppress Map Creation</label>
+    <label><input type="checkbox" name="open_output_directory_on_completion" value="true"> Open Output Directory on Completion</label>
+    <label><input type="checkbox" name="enable_portable_spreadsheet" value="true"> Enable Portable Spreadsheet</label>
+
+    <button type="submit">Submit</button>
+</form>
