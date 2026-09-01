@@ -51,6 +51,9 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# OS-dependent registries
+tests/registry/Test*.yaml
+
 # Translations
 *.mo
 *.pot

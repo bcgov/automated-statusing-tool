@@ -23,9 +23,12 @@ def test_file_adapter_spatial_filter()
 def test_file_adapter_keep_columns()
 def test_file_adapter_definition_query()
 """
+import shutil
+
 import pytest
 from pathlib import Path
 import geopandas as gpd
+import pyogrio.util
 
 from ast_engine.core.data_adapters.file.adapter import (
     FileSpatialAdapter,
@@ -207,6 +210,52 @@ def test_file_adapter_read_gpkg_with_layer():
         path=f"{GPKG}/Test_Shape_A", read_options=ReadOptions()
     )
     assert not gdf.empty
+
+
+# ---------------------------------------------------------------------------
+# '!' in folder names (network-share folders like "!Cariboo_Data_Warehouse")
+# The adapter patches pyogrio's path parsing at import time so paths with a
+# '!' are not cut at the '!' (see the note in file/adapter.py). The tests use
+# a relative path on purpose: drive-letter paths (C:\...) skip the parsing
+# step entirely, so they would pass even without the patch; relative, UNC and
+# Linux paths all go through it. If a pyogrio upgrade removes or fixes that
+# parsing, these tests say whether the patch still applies / is still needed.
+# ---------------------------------------------------------------------------
+
+def _copy_shp_to_bang_folder(tmp_path: Path) -> Path:
+    """Copy the Test_Shape_A shapefile set into a folder with '!' in its name."""
+    bang_dir = tmp_path / "!bang_folder"
+    bang_dir.mkdir()
+    for part in SHP.parent.glob("Test_Shape_A.*"):
+        shutil.copy(part, bang_dir / part.name)
+    return bang_dir / "Test_Shape_A.shp"
+
+
+def test_bang_path_survives_pyogrio_parsing(tmp_path, monkeypatch):
+    """An existing path with '!' comes out of pyogrio's parsing whole,
+    not cut at the '!'."""
+    shp = _copy_shp_to_bang_folder(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    relative = str(shp.relative_to(tmp_path))
+
+    parsed, archive, scheme = pyogrio.util._parse_uri(relative)
+
+    assert parsed == relative
+    assert archive == ""
+
+
+def test_file_adapter_read_and_describe_bang_folder(tmp_path, monkeypatch):
+    """Read + inspect a shapefile inside a '!' folder (both are what the
+    registry build and a run do per dataset)."""
+    shp = _copy_shp_to_bang_folder(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    relative = str(shp.relative_to(tmp_path))
+
+    gdf = FileSpatialAdapter().read(path=relative, read_options=ReadOptions())
+    assert len(gdf) == 1
+
+    info = FileSpatialAdapter().describe(path=relative)
+    assert info.geometry_type == "polygon"
 
 
 # ---------------------------------------------------------------------------

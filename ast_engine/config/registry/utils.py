@@ -7,17 +7,24 @@ import yaml
 import logging
 logger = logging.getLogger(__name__)
 
-def load_yaml(file_path: Path) -> Registry:
+def load_yaml(file_path: Path, os_name:str|None = None) -> Registry:
+    from os import name
     logger.debug(f"Loading YAML file {file_path}")
+    if os_name not in ["posix", "nt"]:
+        os_name = name
     with open(file_path, "r") as f:
         data = yaml.safe_load(f)
     registry = Registry(**data)
+    if not registry.os == os_name:
+        raise ValueError(f"Registry OS type {registry.os} does not match current OS {name}")
     return registry
-
 def dump_yaml(registry: Registry, file_path: Path):
     logger.debug(f"Dumping YAML file {file_path}")
     with open(file_path, "w") as f:
-        yaml.dump(registry.model_dump(), f, sort_keys=False)
+        # by_alias=True so a where LogicalGroup is written with its 'and' / 'or'
+        # keys (not the Python field names 'and_' / 'or_'); otherwise load_yaml
+        # cannot parse the where back. Matches enrichment.build()'s dump.
+        yaml.dump(registry.model_dump(by_alias=True), f, sort_keys=False)
 
 def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     '''Hydrates a list of BaseDatasets from a dictionary
@@ -81,3 +88,89 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
             # Append dataset to list
             dataset_list.append(row_dataset)
     return dataset_list
+
+def path_translate(in_path:str, path_dict:dict|None = None) -> str:
+    '''
+    Translates paths from nt (windows) to posix (linux) or vice versa
+        in_path: the path to translate
+        path_dict: string replaces to do
+                    Usually to translate a windows share to a mount location on linux
+                    ex: "\\\\network.share\\projects":"/mnt/projects"
+    '''
+    from os import name
+    from os.path import dirname, exists
+    if name == "nt":
+
+        in_path = in_path.replace("/", "\\")
+    elif name == "posix":
+
+        if path_dict is not None:
+            for old, new in path_dict.items():
+                in_path = in_path.replace(old, new)
+        else:
+            logger.warning("Warning: No path translation provided. Absolute paths may be invalid")
+        in_path = in_path.replace("\\", "/")
+    return in_path
+
+def drive_map_loader(drive_map_path:str, delimiter:str= "|") -> dict:
+    '''
+    Loads and interpretes the drive mapping dictionary
+        map_path: path to the .conf file
+        delimiter: optional delimiter. Assumed delimiter is a pipe (|)
+
+    Output: dictionary of share:mount_location
+
+
+    '''
+    conf_dict = {}
+    with open(drive_map_path, "r") as f:
+        for line in f:
+            if line and not line.startswith("#"):
+                key, value = line.split(delimiter, 1)
+                conf_dict[key.strip()] = value.strip()
+
+    return conf_dict
+
+class RegistryBuilder():
+    '''
+    Accepts a list of registry datasets and builds up the metadata required
+    Parameters:
+    version (optional)
+    os_type (optional)
+    date (optional)
+    id (internal)
+    datasets (required)
+
+    '''
+    def __init__(self, datasets, version:str = "0.1", os_type:str|None = None, date = None ):
+        self.version = version
+        self.os_type = os_type
+        self.date = date
+        self.datasets = datasets
+    def enrich(self):
+        '''
+        Generate the values where applicable
+        '''
+        import uuid
+        if self.os_type not in ["posix", "nt"]:
+            from os import name
+            self.os_type = name
+        if self.date is None:
+            from datetime import datetime
+            self.date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.id = str(uuid.uuid4())
+    def build(self) -> Registry:
+        '''
+        Build the registry object
+        '''
+        self.enrich()
+        registry = Registry(
+            version=self.version, 
+            os=self.os_type, 
+            date=self.date, 
+            id=self.id, 
+            datasets=self.datasets)
+        return registry
+
+
+

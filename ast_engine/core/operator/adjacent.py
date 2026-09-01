@@ -32,6 +32,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 import geopandas as gpd
+import pandas as pd
 
 from shapely.ops import unary_union, linemerge
 from shapely.geometry import LineString, MultiLineString, GeometryCollection
@@ -53,6 +54,7 @@ def adjacency(
     tolerance_m: float = 0,
     feature_id_field: str | None = None,
     keep_properties: Iterable[str] | None = None,
+    where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
 ) -> AdjacencyResult:
@@ -62,11 +64,12 @@ def adjacency(
     counts dataset boundary within that distance of the AOI boundary as shared.
 
     feature_id_field (the registry unique_id) names the column that identifies each
-    feature; keep_properties names attribute columns to carry onto the records. The
-    spatial push-down is built into the default ReadOptions ('touches', or
-    'within_distance' when tolerance_m > 0); an orchestrator can pass its own
-    read_options instead. Dataset identity (table for Oracle, path/layer for files)
-    travels in source_kwargs.
+    feature; keep_properties names attribute columns to carry onto the records.
+    where, when given (the dataset's registry definition query), is pushed down as
+    an attribute filter. The spatial push-down is built into the default ReadOptions
+    ('touches', or 'within_distance' when tolerance_m > 0); an orchestrator can pass
+    its own read_options instead. Dataset identity (table for Oracle, path/layer for
+    files) travels in source_kwargs.
     """
     if tolerance_m < 0:
         raise ValueError("tolerance_m must be non-negative")
@@ -75,7 +78,7 @@ def adjacency(
     # Ask the adapter for the candidate features (touches / within_distance pushed down).
     gdf = adapter.read(
         read_options=read_options or _default_read_options(
-            aoi, tolerance_m, feature_id_field, keep_properties
+            aoi, tolerance_m, feature_id_field, keep_properties, where
         ),
         target_crs=str(aoi.gdf.crs),
         **source_kwargs,
@@ -140,9 +143,10 @@ def _default_read_options(
     tolerance_m: float,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
+    where: Any = None,
 ) -> ReadOptions:
-    """Build a ReadOptions that pushes the AOI filter down and keeps the columns
-    the operator needs downstream.
+    """Build a ReadOptions that pushes the AOI filter down, applies the dataset's
+    attribute filter (where), and keeps the columns the operator needs downstream.
 
     'touches' for an exact match (tolerance_m == 0); 'within_distance' for a
     tolerant match, so the slivers a tolerance is meant to catch are not filtered
@@ -161,7 +165,7 @@ def _default_read_options(
         )
     else:
         spatial_filter = SpatialFilter(aoi=aoi.gdf, predicate="touches")
-    return ReadOptions(spatial_filter=spatial_filter, keep_columns=keep or None)
+    return ReadOptions(spatial_filter=spatial_filter, where=where, keep_columns=keep or None)
 
 
 def _require_projected(aoi: AreaOfInterest) -> None:
@@ -271,7 +275,7 @@ def _extract_properties(row: Any, keep: list[str]) -> dict[str, str | int | floa
         if col not in row.index:
             continue
         value = row[col]
-        if value is None:
+        if value is None or pd.isna(value):
             continue
         if isinstance(value, (int, float, str)):
             props[col] = value

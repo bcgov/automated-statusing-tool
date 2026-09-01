@@ -4,10 +4,16 @@
 .idea/
 .vscode/
 *.swp
+~$*.xlsx
+
+# Windows / ArcGIS artifacts
+*:Zone.Identifier
+*.sr.lock
 
 # secrets
 .env
 .env.*
+ast_engine/config/drive_map.conf
 
 #Continue
 .continue/

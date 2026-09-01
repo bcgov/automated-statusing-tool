@@ -1,6 +1,7 @@
-
-version: "1.0"
-
+version: '1.0'
+os: posix
+date: '2026-07-28 14:52:48'
+id: 526ce644-c440-41c1-875e-62eb64be04bb
 datasets:
   - id: "c574a3ea-7113-431e-b43a-85faa986c7a2"
     name: "Mapsheet"

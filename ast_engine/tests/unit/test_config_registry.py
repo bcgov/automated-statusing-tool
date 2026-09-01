@@ -14,7 +14,8 @@ SHP = DATA_DIR / "Test_Shape_A_shp" / "Test_Shape_A.shp"
 # A finished registry saved as YAML - the shape a registry takes on disk and
 # what the orchestrator loads at run time. Path is anchored to this file so the
 # test passes no matter which folder pytest runs from.
-SAMPLE_REGISTRY = Path(__file__).parents[1] / "data" / "sample_registry.yaml"
+SAMPLE_XLSX = Path(__file__).parents[1] / "registry" / "Test_Registry.xlsx"
+SAMPLE_REGISTRY = Path(__file__).parents[1] / "registry" / "sample_registry.yaml"
 
 DATA_DICT = [
         {
@@ -53,7 +54,7 @@ def test_util_hydrate_datasets():
 @pytest.mark.unit
 def test_load_registry_from_yaml():
     '''Load the sample registry and read the fields a consumer relies on.'''
-    registry = utils.load_yaml(SAMPLE_REGISTRY)
+    registry = utils.load_yaml(SAMPLE_REGISTRY, os_name="posix")
 
     # Registry-level: a version string and a list of datasets.
     assert registry.version == "1.0"
@@ -109,8 +110,9 @@ def test_registry_creation(monkeypatch):
         enrich_data.enrich()
         rd = enrich_data.build()
         registry_datasets.append(rd)
-    output = models.Registry(version="0.1", datasets=registry_datasets)
+    output = utils.RegistryBuilder(version="0.1", datasets=registry_datasets).build()
     assert output.version == "0.1"
+    assert output.os in ("posix", "nt")
     assert len(output.datasets) == 2
 
 @pytest.mark.unit
@@ -130,7 +132,7 @@ def test_ingest_spreadsheet():
         "definition":"Definition_Query",
     }
 
-    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(DATA_DIR.parent / "Test_Registry.xlsx"))
+    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(SAMPLE_XLSX))
     assert len(data)>0
 @pytest.mark.unit
 def test_ingest_spreadsheet_to_model():
@@ -149,7 +151,7 @@ def test_ingest_spreadsheet_to_model():
         "definition":"Definition_Query",
     }
 
-    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(DATA_DIR.parent / "Test_Registry.xlsx"))
+    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(SAMPLE_XLSX))
     dsets = utils.hydrate_base_datasets(data)
     assert len(dsets) > 0
 
@@ -246,3 +248,9 @@ def test_enrich_oracle_without_connection_raises():
     base = BaseDataset(name="Roads", datasource="WHSE_TRANSPORT.TRANSPORT_LINE")
     with pytest.raises(ValueError):
         enrichment.Enrich(base).enrich()
+
+@pytest.mark.unit
+def test_path_translation():
+    """Test of path translation. results vary depending on OS. asserting string"""
+    translated_path = utils.path_translate("ast_engine\\tests\\data")
+    assert isinstance(translated_path, str)
