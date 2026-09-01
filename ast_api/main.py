@@ -1,5 +1,6 @@
 #main to run the fastapi backend connection to the ast_engine
 import json
+import logging
 
 import redis
 from fastapi import Depends, FastAPI, Form, HTTPException, Request, status
@@ -8,9 +9,20 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from ast_api.models import CreateJobs, JobDatabase, Regions
+from ast_engine.config.logging_config import setup_logging
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+setup_logging()
+logger = logging.getLogger("ast_api.main")
+import logging
+from ast_engine.config.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger("ast_api")
+
 redis_client=redis.Redis(host='localhost', port=6379, decode_responses=True)
+
+
 
 def get_db(): 
     yield redis_client
@@ -109,41 +121,51 @@ def job_page(request: Request, job_id: str, db: redis.Redis = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
 )
 def create_job(job: CreateJobs, db: redis.Redis = Depends(get_db)):
+    logger.info("Creating job for AOI %s in region %s", job.area_of_interest, job.region.value)
     jobs = _get_all_jobs(db)
 
-    existing_ids = [
-        int(j["job_id"]) for j in jobs if isinstance(j, dict) and "job_id" in j and str(j["job_id"]).isdigit()
-    ]
-    new_id = max(existing_ids, default=0) + 1
+    try:
+        existing_ids = [
+            int(j["job_id"]) for j in jobs if isinstance(j, dict) and "job_id" in j and str(j["job_id"]).isdigit()
+        ]
+        new_id = max(existing_ids, default=0) + 1
 
-    new_job = {
-        "job_id": str(new_id),
-        "region": job.region.value,
-        "area_of_interest": job.area_of_interest,
-        "crown_file_number": job.crown_file_number,
-        "disposition_number": job.disposition_number,
-        "parcel_number": job.parcel_number,
-        "output_directory": job.output_directory,
-        "status": "Pending",
-    }
+        new_job = {
+            "job_id": str(new_id),
+            "region": job.region.value,
+            "area_of_interest": job.area_of_interest,
+            "crown_file_number": job.crown_file_number,
+            "disposition_number": job.disposition_number,
+            "parcel_number": job.parcel_number,
+            "output_directory": job.output_directory,
+            "status": "Pending",
+        }
 
-    # Persist directly into the Redis queue
-    db.rpush("jobs_queue", json.dumps(new_job))
-    return JobDatabase.model_validate(new_job)
+        # Persist directly into the Redis queue
+        db.rpush("jobs_queue", json.dumps(new_job))
+        logger.info("Job created successfully: %s", new_job["job_id"])
+        return JobDatabase.model_validate(new_job)
+    except Exception:
+        logger.exception("Failed to create job")
+        raise
 
 
 @app.get("/api/jobs", response_model=list[JobDatabase])
 def get_jobs(db: redis.Redis = Depends(get_db)):
+    logger.info("Listing all jobs")
     return [JobDatabase.model_validate(job) for job in _get_all_jobs(db)]
 
 
 @app.get("/api/jobs/{job_id}", response_model=JobDatabase)
 def get_job(job_id: str, db: redis.Redis = Depends(get_db)):
+    logger.info("Looking up job %s", job_id)
     jobs = _get_all_jobs(db)
 
     for job in jobs:
         if str(job.get("job_id")) == str(job_id):
+            logger.info("Job %s found", job_id)
             return JobDatabase.model_validate(job)
+    logger.warning("Job %s not found", job_id)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
 
 
