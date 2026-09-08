@@ -1,8 +1,12 @@
-# tests/unit/aoi/test_aoi_builder.py
-
 from __future__ import annotations
 
 import pytest
+
+from ast_engine.tests.helpers.aoi_requests import (
+    build_aoi_request,
+    full_union_request,
+    preserve_features_request,
+)
 
 from ast_engine.core.aoi.exceptions import (
     AOIBuildError,
@@ -21,43 +25,39 @@ from ast_engine.tests.helpers.aoi_geometry import (
     missing_crs_gdf,
     squares_gdf,
 )
-from ast_engine.tests.helpers.aoi_requests import full_union_request, preserve_features_request
 
 pytestmark = pytest.mark.unit
 
 ### Tests for successful AOI builds #####
 def test_builder_handles_overlapping_polygons_with_full_union(
     aoi_builder,
-    make_aoi_build_request,
 ):
-    build_request = make_aoi_build_request(
+    request = build_aoi_request(
         spec=full_union_request(),
         raw_gdf=overlapping_polygons_gdf(),
     )
 
-    result = aoi_builder.build_from_request(build_request)
+    result = aoi_builder.build_from_request(request)
 
     assert_successful_aoi_build(result)
 
-    assert result.aoi.part_count >= 1
+    assert result.aoi.part_count == 1
+    assert result.aoi.footprint_area_ha == 1.96
+    assert result.aoi.parts_area_ha == 1.96
+    assert result.aoi.footprint_area_ha == result.aoi.parts_area_ha
     assert result.normalization_report.policy_name == "full_union"
     assert not result.normalization_report.overlaps_present_after_policy
 
 
-
-def test_builder_splits_multipolygon_into_parts(
-    aoi_builder,
-    make_aoi_build_request,
-):
-    build_request = make_aoi_build_request(
+def test_builder_splits_multipolygon_into_parts(aoi_builder):
+    request = build_aoi_request(
         spec=full_union_request(),
         raw_gdf=multipolygon_gdf(),
     )
 
-    result = aoi_builder.build_from_request(build_request)
+    result = aoi_builder.build_from_request(request)
 
     assert_successful_aoi_build(result)
-
     assert result.aoi.part_count == 2
     assert len(result.aoi.parts) == 2
 
@@ -65,9 +65,8 @@ def test_builder_splits_multipolygon_into_parts(
 ### Tests for unsuccessful validation from AOI builds #####
 def test_builder_fail_validation(
     aoi_builder,
-    make_aoi_build_request,
 ):
-    build_request = make_aoi_build_request(
+    request = build_aoi_request(
         spec=preserve_features_request(),
         raw_gdf=squares_gdf(
             count=5,
@@ -77,7 +76,7 @@ def test_builder_fail_validation(
         )
     )
 
-    result = aoi_builder.build_from_request(build_request)
+    result = aoi_builder.build_from_request(request)
 
     assert_validation_issue_codes(
         result,
@@ -86,6 +85,7 @@ def test_builder_fail_validation(
         ],
     )
 
+    assert result.validation.is_valid is False
     assert result.aoi.part_count == 5
     assert len(result.aoi.parts) == 5
 
@@ -93,29 +93,27 @@ def test_builder_fail_validation(
 ### Tests for failures to build AOI due to invalid input data. Should raise AOIBuildError #####
 def test_builder_rejects_missing_crs(
     aoi_builder,
-    make_aoi_build_request,
 ):
-    build_request = make_aoi_build_request(
+    request = build_aoi_request(
         spec=full_union_request(),
         raw_gdf=missing_crs_gdf(),
     )
 
     with pytest.raises(AOIBuildError) as exc_info:
-        aoi_builder.build_from_request(build_request)
+        aoi_builder.build_from_request(request)
 
     assert isinstance(root_cause(exc_info.value), DataCRSError)
 
 
 def test_builder_rejects_overlaps_when_not_allowed(
     aoi_builder,
-    make_aoi_build_request,
 ):
-    build_request = make_aoi_build_request(
+    request = build_aoi_request(
         spec=preserve_features_request(allow_overlaps=False),
         raw_gdf=overlapping_polygons_gdf(),
     )
 
     with pytest.raises(AOIBuildError) as exc_info:
-        aoi_builder.build_from_request(build_request)
+        aoi_builder.build_from_request(request)
 
     assert isinstance(root_cause(exc_info.value), SpatialGeometryError)

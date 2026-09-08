@@ -125,16 +125,13 @@ def line_point_collection() -> GeometryCollection:
 
 
 def aoi_gdf(
-    geometries: list,
+    geometries,
     *,
-    crs: str | None = PROJECTED_CRS,
+    crs=PROJECTED_CRS,
     **columns,
 ) -> gpd.GeoDataFrame:
-    """Create a GeoDataFrame for AOI tests."""
-    data = columns or {"id": list(range(1, len(geometries) + 1))}
-
     return gpd.GeoDataFrame(
-        data,
+        columns,
         geometry=geometries,
         crs=crs,
     )
@@ -216,10 +213,13 @@ def squares_gdf(
 
     Delegates GeoDataFrame construction to aoi_gdf().
     """
-    if count != len(columns.get("id", [])) and count != len(columns.get("group_id", [])):
-        raise ValueError(
-            "count must match the length of 'id' or 'group_id' columns if provided"
-        )
+    for field_name, values in columns.items():
+        if len(values) != count:
+            raise ValueError(
+                f"{field_name!r} must contain {count} values; "
+                f"received {len(values)}."
+            )
+        
     geometries = squares(
         count=count,
         size=size,
@@ -242,6 +242,6 @@ def mixed_geometry_kml_overlap_aoi_gdf() -> gpd.GeoDataFrame:
     """
     return aoi_gdf(
         [mixed_geometry_kml_overlap_aoi()],
-        crs=PROJECTED_CRS,
+        crs=WGS84_CRS,
         group_id=["mixed_geometry_kml"],
     )
