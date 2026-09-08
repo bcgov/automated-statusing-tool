@@ -16,7 +16,11 @@ def test_overlapping_polygons_gdf_contains_overlapping_features():
     gdf = overlapping_polygons_gdf()
 
     assert len(gdf) == 2
-    assert gdf.geometry.iloc[0].intersects(gdf.geometry.iloc[1])
+    assert (
+        gdf.geometry.iloc[0]
+        .intersection(gdf.geometry.iloc[1])
+        .area
+    ) == pytest.approx(400.0)
 
 
 def test_bowtie_gdf_contains_invalid_geometry():

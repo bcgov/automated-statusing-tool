@@ -1,5 +1,3 @@
-# tests/helpers/aoi_requests.py
-
 from __future__ import annotations
 
 from dataclasses import dataclass

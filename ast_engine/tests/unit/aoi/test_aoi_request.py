@@ -8,6 +8,7 @@ from pyproj import CRS
 
 from ast_engine.core.aoi.exceptions import AOIRequestError
 from ast_engine.core.aoi.models import AOIRequest
+from ast_engine.tests.helpers.aoi_requests import make_aoi_request
 
 
 pytestmark = pytest.mark.unit
@@ -25,24 +26,6 @@ CUSTOM_METRIC_CRS = (
     "+no_defs "
     "+type=crs"
 )
-
-
-def make_request(**overrides: Any) -> AOIRequest:
-    """
-    Build a valid request, replacing only the fields relevant to a test.
-    """
-    values: dict[str, Any] = {
-        "aoi_id": "test_aoi",
-        "name": "Test AOI",
-        "target_crs": "EPSG:3005",
-        "dissolve_mode": "full_union",
-        "dissolve_fields": (),
-        "allow_overlaps": False,
-    }
-
-    values.update(overrides)
-
-    return AOIRequest(**values)
 
 
 # ============================================================
@@ -64,7 +47,7 @@ def test_request_uses_expected_defaults():
 
 
 def test_request_exposes_resolved_crs_properties():
-    request = make_request()
+    request = make_aoi_request()
 
     assert isinstance(request.target_crs_obj, CRS)
     assert request.target_crs_obj.equals(CRS.from_epsg(3005))
@@ -84,7 +67,7 @@ def test_request_accepts_supported_dissolve_modes(
     dissolve_mode,
     dissolve_fields,
 ):
-    request = make_request(
+    request = make_aoi_request(
         dissolve_mode=dissolve_mode,
         dissolve_fields=dissolve_fields,
     )
@@ -97,7 +80,7 @@ def test_request_accepts_supported_dissolve_modes(
 def test_request_accepts_boolean_overlap_policy(
     allow_overlaps,
 ):
-    request = make_request(
+    request = make_aoi_request(
         allow_overlaps=allow_overlaps,
     )
 
@@ -109,7 +92,7 @@ def test_request_accepts_boolean_overlap_policy(
 # ============================================================
 
 def test_request_normalizes_identifier_and_name():
-    request = make_request(
+    request = make_aoi_request(
         aoi_id="  test123  ",
         name="  Test AOI Name  ",
     )
@@ -137,7 +120,7 @@ def test_request_normalizes_dissolve_mode(
         else ()
     )
 
-    request = make_request(
+    request = make_aoi_request(
         dissolve_mode=input_mode,
         dissolve_fields=dissolve_fields,
     )
@@ -146,7 +129,7 @@ def test_request_normalizes_dissolve_mode(
 
 
 def test_request_normalizes_dissolve_fields_to_tuple():
-    request = make_request(
+    request = make_aoi_request(
         dissolve_mode="by_fields",
         dissolve_fields=[
             " REGION ",
@@ -164,7 +147,7 @@ def test_request_normalizes_dissolve_fields_to_tuple():
 
 
 def test_request_removes_blank_fields_for_non_field_policy():
-    request = make_request(
+    request = make_aoi_request(
         dissolve_mode="full_union",
         dissolve_fields=(" ", ""),
     )
@@ -210,7 +193,7 @@ def test_request_rejects_invalid_text_types(
         AOIRequestError,
         match=message,
     ):
-        make_request(**{field_name: value})
+        make_aoi_request(**{field_name: value})
 
 
 @pytest.mark.parametrize(
@@ -247,7 +230,7 @@ def test_request_rejects_blank_required_text(
         AOIRequestError,
         match=message,
     ):
-        make_request(**{field_name: value})
+        make_aoi_request(**{field_name: value})
 
 
 # ============================================================
@@ -271,7 +254,7 @@ def test_request_rejects_unsupported_dissolve_mode(
         AOIRequestError,
         match="Unsupported AOIRequest.dissolve_mode",
     ):
-        make_request(
+        make_aoi_request(
             dissolve_mode=dissolve_mode,
         )
 
@@ -292,7 +275,7 @@ def test_request_rejects_non_string_dissolve_mode(
         AOIRequestError,
         match="dissolve_mode must be a string",
     ):
-        make_request(
+        make_aoi_request(
             dissolve_mode=dissolve_mode,
         )
 
@@ -313,7 +296,7 @@ def test_by_fields_requires_nonempty_dissolve_fields(
         AOIRequestError,
         match="dissolve_fields must be provided",
     ):
-        make_request(
+        make_aoi_request(
             dissolve_mode="by_fields",
             dissolve_fields=dissolve_fields,
         )
@@ -333,7 +316,7 @@ def test_non_field_modes_reject_dissolve_fields(
         AOIRequestError,
         match="should only be provided",
     ):
-        make_request(
+        make_aoi_request(
             dissolve_mode=dissolve_mode,
             dissolve_fields=("REGION",),
         )
@@ -355,7 +338,7 @@ def test_request_rejects_invalid_dissolve_fields_container(
         AOIRequestError,
         match="must be a sequence of strings",
     ):
-        make_request(
+        make_aoi_request(
             dissolve_mode="by_fields",
             dissolve_fields=dissolve_fields,
         )
@@ -376,7 +359,7 @@ def test_request_rejects_non_string_dissolve_fields(
         AOIRequestError,
         match="must contain only strings",
     ):
-        make_request(
+        make_aoi_request(
             dissolve_mode="by_fields",
             dissolve_fields=dissolve_fields,
         )
@@ -387,7 +370,7 @@ def test_request_rejects_non_string_dissolve_fields(
 # ============================================================
 
 # def test_request_accepts_alternative_metric_projected_crs():
-#     request = make_request(
+#     request = make_aoi_request(
 #         target_crs="EPSG:26910",
 #     )
 
@@ -400,7 +383,7 @@ def test_request_rejects_invalid_crs():
         AOIRequestError,
         match="Invalid AOIRequest.target_crs",
     ) as exc_info:
-        make_request(
+        make_aoi_request(
             target_crs="not-a-real-crs",
         )
 
@@ -413,7 +396,7 @@ def test_request_rejects_geographic_crs():
         AOIRequestError,
         match="target_crs must be projected",
     ):
-        make_request(
+        make_aoi_request(
             target_crs="EPSG:4326",
         )
 
@@ -423,7 +406,7 @@ def test_request_rejects_non_string_crs():
         AOIRequestError,
         match="target_crs must be a string",
     ):
-        make_request(
+        make_aoi_request(
             target_crs=3005,
         )
 
@@ -434,13 +417,13 @@ def test_request_rejects_non_string_crs():
 #         AOIRequestError,
 #         match="must use metres",
 #     ):
-#         make_request(
+#         make_aoi_request(
 #             target_crs="EPSG:2263",
 #         )
 
 
 def test_custom_metric_crs_may_have_no_epsg_code():
-    request = make_request(
+    request = make_aoi_request(
         target_crs=CUSTOM_METRIC_CRS,
     )
 
@@ -473,7 +456,7 @@ def test_request_rejects_non_boolean_overlap_policy(
         AOIRequestError,
         match="allow_overlaps must be a boolean",
     ):
-        make_request(
+        make_aoi_request(
             allow_overlaps=allow_overlaps,
         )
 
@@ -483,14 +466,14 @@ def test_request_rejects_non_boolean_overlap_policy(
 # ============================================================
 
 def test_request_is_immutable():
-    request = make_request()
+    request = make_aoi_request()
 
     with pytest.raises(FrozenInstanceError):
         request.name = "Changed name"  # type: ignore[misc]
 
 
 def test_normalized_dissolve_fields_are_immutable():
-    request = make_request(
+    request = make_aoi_request(
         dissolve_mode="by_fields",
         dissolve_fields=["REGION"],
     )

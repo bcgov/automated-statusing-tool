@@ -1,8 +1,8 @@
 from __future__ import annotations
 from unittest import result
+from collections.abc import Collection
 
 from ast_engine.core.aoi.models import AOIBuildResult
-from ast_engine.core.aoi.exceptions import root_cause
 
 
 def format_validation_issues(result: AOIBuildResult) -> list[str]:
@@ -32,30 +32,32 @@ def assert_successful_aoi_build(
 def assert_validation_issue_codes(
     result: AOIBuildResult,
     *,
-    expected_codes: set[str],
+    expected_codes: Collection[str],
 ) -> None:
-    actual_codes = {issue.code for issue in result.validation.issues}
+    actual = {
+        issue.code
+        for issue in result.validation.issues
+    }
+    expected = set(expected_codes)
 
-    for code in expected_codes:
-        assert code in actual_codes, (
-            f"Expected validation issue code '{code}' not found in actual codes: "
-            f"{sorted(actual_codes)}."
-        )
-    for code in actual_codes:
-        assert code in expected_codes, (
-            f"Unexpected validation issue code '{code}' found in actual codes: "
-            f"{sorted(actual_codes)}."
-        )
+    assert actual == expected, (
+        f"Expected validation codes {sorted(expected)}; "
+        f"received {sorted(actual)}."
+    )
 
 
 def assert_no_validation_issue_codes(
     result: AOIBuildResult,
     *,
-    unexpected_codes: set[str],
+    unexpected_codes: Collection[str],
 ) -> None:
-    actual_codes = {issue.code for issue in result.validation.issues}
+    actual_codes = {
+        issue.code
+        for issue in result.validation.issues
+    }
+    found = actual_codes.intersection(unexpected_codes)
 
-    assert actual_codes.isdisjoint(unexpected_codes), (
-        f"Unexpected validation issue codes found: "
-        f"{sorted(actual_codes & unexpected_codes)}."
+    assert not found, (
+        f"Unexpected validation issue codes found: {sorted(found)}."
     )
+    
