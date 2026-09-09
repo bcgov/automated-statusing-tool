@@ -37,6 +37,26 @@ def projected_operator_aoi() -> AOIStub:
         )
     )
 
+def projected_execution_aoi() -> AOIStub:
+    """Return a rectangular AOI from the bounds of data/Test_Shape_A.shp.
+       This is the AOI used in the execution tests, which aligns with existing file.
+       based input data. The AOI is 3,595 m by 3,343 m in BC Albers (EPSG:3005).
+    """
+
+    return AOIStub(
+        gdf=aoi_gdf(
+            [
+            rect(
+                1_331_637.5494999997,
+                713_157.9225999992,
+                1_335_232.2644999996,
+                716_501.1124000009,
+            )
+            ],
+            crs=PROJECTED_CRS,
+        )
+    )
+
 
 def geographic_operator_aoi() -> AOIStub:
     """Return the operator AOI transformed to geographic coordinates."""
