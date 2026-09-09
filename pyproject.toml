@@ -20,6 +20,10 @@ dependencies = [
     "boto3>=1.43.36",
 ]
 
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ast_engine*"]

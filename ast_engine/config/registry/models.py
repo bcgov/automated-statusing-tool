@@ -117,11 +117,31 @@ class RegistryDataset(BaseDataset):
     row_count: int
 
 
+class SkippedDataset(BaseModel):
+    '''A dataset from the source spreadsheet that could not be built.
+
+    A run carries on without it, so this is how the registry says what is not in
+    it. Without this the registry just comes out short and nothing downstream can
+    tell the difference between "this dataset was checked and found nothing" and
+    "this dataset was never checked at all".
+    '''
+    name: str
+    datasource: str
+    # where it failed: "spreadsheet row" (the row itself could not be read, usually
+    # a definition query the parser does not understand) or "reading the dataset"
+    # (the table or file could not be opened, usually a path that no longer exists)
+    stage: str
+    reason: str
+
+
 class Registry(BaseModel):
     version: str
     os:str
     date:str
     id:str
     datasets: List[RegistryDataset]
+    # Datasets that are NOT in the list above, and why. Empty on a clean build.
+    # Defaults to empty so registries built before this existed still load.
+    skipped: List[SkippedDataset] = []
 
 
