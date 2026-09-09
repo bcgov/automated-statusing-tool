@@ -1,0 +1,31 @@
+<h1>{{ title }}</h1>
+
+{% if jobs %}
+<table border="1" cellpadding="8" cellspacing="0">
+    <thead>
+        <tr>
+            <th>Job ID</th>
+            <th>Region</th>
+            <th>Area of Interest</th>
+            <th>Parcel Number</th>
+            <th>Status</th>
+            <th>Output Directory</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for job in jobs %}
+        <tr>
+            <td><a href="/jobs/{{ job.job_id }}">{{ job.job_id }}</a></td>
+            <td>{{ job.region }}</td>
+            <td>{{ job.area_of_interest }}</td>
+            <td>{{ job.parcel_number }}</td>
+            <td>{{ job.status }}</td>
+            <td>{{ job.output_directory }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No jobs found.</p>
+{% endif %}
+``
