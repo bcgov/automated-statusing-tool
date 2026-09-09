@@ -1,5 +1,6 @@
 from copy import deepcopy
 from .models import Registry, BaseDataset
+from pydantic import ValidationError
 import pandas as pd
 from pathlib import Path
 import yaml
@@ -26,16 +27,59 @@ def dump_yaml(registry: Registry, file_path: Path):
         # cannot parse the where back. Matches enrichment.build()'s dump.
         yaml.dump(registry.model_dump(by_alias=True), f, sort_keys=False)
 
+class IncompleteRegistryError(Exception):
+    '''Raised when a registry cannot be built from every dataset it was given.
+
+    A registry is the list of what has to be checked for an AOI. One that is
+    missing datasets still looks complete to everything downstream, and the
+    analyst gets a report with no sign that anything was left out. So a build
+    either covers every row or it does not produce a registry at all.
+    '''
+
+
+def short_reason(exc: Exception) -> str:
+    '''Turn an error into one readable line for the build report.
+
+    A validation error normally prints over several lines and repeats the whole
+    spreadsheet row back at you. When you are looking for the cell to fix, only
+    the message itself helps.
+    '''
+    if isinstance(exc, ValidationError):
+        text = "; ".join(e.get("msg", "") for e in exc.errors() if e.get("msg"))
+    else:
+        text = f"{type(exc).__name__}: {exc}"
+    text = " ".join(text.split())
+    return text if len(text) <= 200 else text[:197] + "..."
+
+
+def report_problems(stage: str, problems: list[tuple[str, str]], total: int) -> None:
+    '''Log every dataset that failed at one stage of the build, then stop the build.
+
+    All the failures are gathered first and reported together, so one build tells
+    you everything that needs fixing instead of surfacing the problems one rebuild
+    at a time - a full build reads metadata for every dataset over BCGW and is slow.
+    '''
+    if not problems:
+        return
+    logger.error("%d of %d datasets could not be built at %s:", len(problems), total, stage)
+    for name, reason in problems:
+        logger.error("    %s -> %s", name, reason)
+    raise IncompleteRegistryError(
+        f"{len(problems)} of {total} datasets failed at {stage}, so no registry was written. "
+        f"Fix the spreadsheet rows listed above and build again."
+    )
+
+
 def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     '''Hydrates a list of BaseDatasets from a dictionary
 
-    A dataset that cannot be hydrated is logged and skipped, so one bad row does
-    not stop the whole build. The usual cause is a Definition_Query the parser
-    does not understand (definition_to_where raises while the dataset is being
-    validated) - most often an ESRI-flavoured expression from a regional
-    spreadsheet, such as a date calculated with sysdate. The dataset is left out
-    of the registry rather than silently losing its filter, so check the warnings
-    after a build and fix the spreadsheet or add the dataset by hand.
+    Every row is tried, so one build reports all the bad rows at once rather than
+    stopping at the first. If any row fails the build is stopped and no registry is
+    written - a registry missing datasets would look complete to everything that
+    reads it later. The usual cause is a Definition_Query the parser does not
+    understand (definition_to_where raises while the dataset is being validated),
+    most often an ESRI-flavoured expression from a regional spreadsheet such as a
+    date calculated with sysdate.
     -------------
     example:
     -------------
@@ -50,19 +94,13 @@ def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
     '''
     logger.debug(f"Hydrating datasets: Count {len(seed)}")
     hydrated = []
+    problems: list[tuple[str, str]] = []
     for item in seed:
         try:
             hydrated.append(BaseDataset(**item))
         except Exception as exc:
-            logger.warning(
-                "Skipping dataset %r: could not build it from the spreadsheet row (%s: %s)",
-                item.get("name", "?"),
-                type(exc).__name__,
-                exc,
-            )
-    skipped = len(seed) - len(hydrated)
-    if skipped:
-        logger.warning("Hydrated %d of %d datasets; %d skipped", len(hydrated), len(seed), skipped)
+            problems.append((str(item.get("name", "?")), short_reason(exc)))
+    report_problems("hydration (reading the spreadsheet row)", problems, len(seed))
     return hydrated
 
 

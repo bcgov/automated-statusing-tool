@@ -74,6 +74,12 @@ def main() -> None:
             dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
         hydrated = utils.hydrate_base_datasets(datasets)
         base_datasets_list = []
+        # Every dataset is tried before anything is reported, so one build lists all
+        # the datasets that could not be read - typically a path in the spreadsheet
+        # that no longer points at anything. If any failed, no registry is written:
+        # a registry short a few datasets looks complete to everything downstream,
+        # and those datasets would simply never be checked against an AOI.
+        problems: list[tuple[str, str]] = []
         with OracleConnection(user, password, host) as (conn, cursor):
             for dataset in hydrated:
                 print(dataset)
@@ -83,8 +89,11 @@ def main() -> None:
                     base_datasets_list.append(enriched.build())
                 except DataAdapterError as e:
                     print(e)
-                    logger.warning(f"Warning: skipping {dataset.name} due to a read error: {e}")
-                    continue
+                    logger.warning(f"Could not read {dataset.name}: {e}")
+                    problems.append((dataset.name, f"{dataset.datasource} - {e}"))
+        utils.report_problems(
+            "enrichment (reading the dataset's details)", problems, len(hydrated)
+        )
         registry = utils.RegistryBuilder(base_datasets_list).build()
         # registry = models.Registry(version="0.1", datasets=base_datasets_list)
         utils.dump_yaml(registry, Path(yaml_out))
