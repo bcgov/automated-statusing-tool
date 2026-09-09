@@ -767,6 +767,29 @@ Examples:
 
 ---
 
+# Setting up a working copy
+
+From the repo root, after cloning:
+
+```bash
+uv sync
+```
+
+That creates the `.venv`, installs the dependencies, and installs `ast_engine` itself into the
+environment so `import ast_engine` works from anywhere - including the scripts in `scripts/`,
+which are run from a subfolder and would not otherwise find the package.
+
+Then:
+
+```bash
+uv run pytest -m unit                              # the fast test suite
+uv run python scripts/orchestrator_run.py          # the file-based demo, no database needed
+```
+
+If you see `ModuleNotFoundError: No module named 'ast_engine'`, the package is not installed in
+your environment. Run `uv sync` from the repo root. On an older working copy created before the
+build settings were added to `pyproject.toml`, run `uv pip install -e .` once instead.
+
 # Testing
 
 This document describes the testing structure and conventions for the `ast_engine` package.
