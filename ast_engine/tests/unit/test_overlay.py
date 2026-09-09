@@ -15,9 +15,12 @@ Purpose:
     - Non-overlapping features are dropped
     - Invalid AOIs are rejected
 
-Examples: 
+Examples:
 _valid_aoi()
 non_valid_aoi()
+
+Note: the operator returns an OperatorOutcome - the analysis result plus the
+features it was built from - so these tests read `.result` off the call.
 
 --------------------------------------------------------------------------
 """
@@ -85,7 +88,7 @@ def test_polygon_overlap_exact_values():
         adapter=FileSpatialAdapter(),
         keep_properties=["Name"],
         path=POLYGONS,
-    )
+    ).result
 
     assert test.feature_count == 2  # outside dropped
 
@@ -104,7 +107,7 @@ def test_line_overlap_exact_values():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POLYLINES,
-    )
+    ).result
 
     assert test.feature_count == 2
 
@@ -121,7 +124,7 @@ def test_point_overlay_count():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POINTS,
-    )
+    ).result
 
     assert test.feature_count == 2
     assert all(f.measure is None for f in test.features)
@@ -136,7 +139,7 @@ def test_sorted_descending_by_overlap():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POLYGONS,
-    )
+    ).result
 
     measures = [f.measure for f in test.features]
     assert measures == sorted(measures, reverse=True)
@@ -152,7 +155,7 @@ def test_zero_overlap_removed():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POLYGONS,
-    )
+    ).result
 
     assert all(f.measure > 0 for f in test.features)
 
@@ -167,7 +170,7 @@ def test_properties_preserved():
         adapter=FileSpatialAdapter(),
         keep_properties=["Name"],
         path=POLYGONS,
-    )
+    ).result
 
     names = [f.properties["Name"] for f in test.features]
     assert len(names) == test.feature_count
@@ -180,7 +183,7 @@ def test_feature_id_fallback():
         adapter=FileSpatialAdapter(),
         feature_id_field="NOT_REAL",
         path=POLYGONS,
-    )
+    ).result
 
     ids = [f.feature_id for f in test.features]
     assert len(set(ids)) == len(ids)
@@ -210,7 +213,7 @@ def test_build_results():
         feature_id_field="FID",
         keep_properties=["Name"],
         path = POINTS,
-    )
+    ).result
     # extract_properties: the Name column comes through for the points inside the AOI
     assert [f.properties.get("Name") for f in test.features] == ["First", "Second"]
     # extract_feature_id: no real "FID" column, so IDs fall back to distinct row numbers
@@ -283,7 +286,7 @@ def test_empty_returns_zero_area():
         adapter=adapter,
         geom_type="polygon",
         path=POLYGONS,
-    )
+    ).result
 
     assert test.total_area == 0.0
     assert test.features == []
@@ -334,7 +337,7 @@ def test_geom_type_override_returns_correct_result_types():
             adapter=FileSpatialAdapter(),
             geom_type=geom_type,
             path=path,
-        )
+        ).result
 
         assert isinstance(result, expected_type)
 

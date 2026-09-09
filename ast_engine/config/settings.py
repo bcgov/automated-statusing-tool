@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     s3_max_retries: int = 5
     s3_retry_mode: Literal["standard"] = "standard"
 
+    # retain spatial results
+    record_spatial: bool = False
+
+    # temporary directory for storing results
+    temp_dir: str | None = None
+    
 
     model_config = SettingsConfigDict(
         env_file=".env",
