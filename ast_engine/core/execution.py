@@ -203,7 +203,8 @@ def run_analysis(
         for task in tasks
     ]
     _log_timing_summary(timings, tracker)
-    return AstResults(job_id=job_id, aoi_id=aoi.aoi_id, results=groups)
+    total_time = sum(seconds for _, seconds in timings)
+    return AstResults(job_id=job_id, aoi_id=aoi.aoi_id, results=groups,execution_time=round(total_time, 3))
 
 
 def _oracle_adapter(
@@ -310,6 +311,7 @@ def _run_one_task(
             status="failure",
             error=f"{type(exc).__name__}: {exc}",
             results=[],
+            execution_time=round(elapsed, 3),
         )
 
 
