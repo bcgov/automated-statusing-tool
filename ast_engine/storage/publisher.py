@@ -1,10 +1,11 @@
 # ast/ast_engine/storage/publisher.py
 
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional,List
 
 from .checksums import sha256_file, write_sha256_sidecar
 from .manifest import ArtifactRecord, JobManifest
+from .models import OperatorArtifact
 from .writer import ResultsStorageWriter
 
 # TODO: Refine ResultsPublisher to match results
@@ -16,14 +17,16 @@ class ResultsPublisher:
         self,
         *,
         job_id: str,
+        user: str,
         created_at: str,
         completed_at: str,
+        execution_time: str,
         status: str,
         engine_version: str,
         raw_results_json: Path,
         summary_results_json: Optional[Path] = None,
         validation_report_json: Optional[Path] = None,
-        extracted_gpkg: Optional[Path] = None,
+        operator_outputs: Optional[List[OperatorArtifact]] = None,
         extracted_pmtiles: Optional[Path] = None,
         request_parameters_yaml: Optional[Path] = None,
         aoi_geojson: Optional[Path] = None,
@@ -42,17 +45,21 @@ class ResultsPublisher:
             relative_key: str,
             content_type: str,
             checksum: bool = True,
+            extra_metadata: Optional[Dict[str, str]] = None,
         ) -> None:
             digest = sha256_file(path) if checksum else None
+            meta = {
+                "job_id": job_id,
+                "artifact_name": name,
+            }
+            if extra_metadata:
+                meta.update(extra_metadata)
 
             uri = self.writer.put_file(
                 path,
                 relative_key,
                 content_type=content_type,
-                metadata={
-                    "job_id": job_id,
-                    "artifact_name": name,
-                },
+                metadata=meta,
             )
 
             artifacts[name] = ArtifactRecord(
@@ -60,6 +67,7 @@ class ResultsPublisher:
                 content_type=content_type,
                 sha256=digest,
                 uri=uri,
+                metadata=extra_metadata
             )
 
             if checksum:
@@ -97,13 +105,25 @@ class ResultsPublisher:
                 "application/json",
             )
 
-        if extracted_gpkg:
-            upload_artifact(
-                "geopackage",
-                extracted_gpkg,
-                "data/geopackage/extracted.gpkg",
-                "application/geopackage+sqlite3",
-            )
+        if operator_outputs:
+            for item in operator_outputs:
+                artifact_name = f"gpkg_{item.registry}_{item.operator}_{item.dataset_name}"
+                relative_key = f"data/{item.registry}/{item.operator}/{item.dataset_name}.gpkg"
+
+                item_metadata = {
+                    "registry": item.registry,
+                    "operator": item.operator,
+                    "dataset_name": item.dataset_name,
+                }
+
+                upload_artifact(
+                    name=artifact_name,
+                    path=item.path,
+                    relative_key=relative_key,
+                    content_type="application/geopackage+sqlite3",
+                    checksum=True,
+                    extra_metadata=item_metadata,
+                )
 
         if extracted_pmtiles:
             upload_artifact(
@@ -168,8 +188,10 @@ class ResultsPublisher:
         manifest = JobManifest(
             schema_version=1,
             job_id=job_id,
+            user=user,
             created_at=created_at,
             completed_at=completed_at,
+            execution_time=execution_time,
             status=status,
             engine_name="ast-engine",
             engine_version=engine_version,

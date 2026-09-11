@@ -12,7 +12,12 @@ EnvironmentName = Literal["dev", "test", "prod"]
 MAX_RETRIES = 5
 RETRY_MODE = "standard" 
 
-
+@dataclass
+class OperatorArtifact:
+    registry: str
+    operator: str
+    dataset_name: str
+    path: Path
 
 @dataclass(frozen=True)
 class StorageConfig:

@@ -12,14 +12,17 @@ class ArtifactRecord:
     content_type: str
     sha256: Optional[str] = None
     uri: Optional[str] = None
+    metadata: Optional[Dict[str,Any]] = None
 
 
 @dataclass
 class JobManifest:
     schema_version: int
     job_id: str
+    user: str
     created_at: str
     completed_at: Optional[str]
+    execution_time: str
     status: str
     engine_name: str
     engine_version: str
@@ -31,8 +34,10 @@ class JobManifest:
         return {
             "schema_version": self.schema_version,
             "job_id": self.job_id,
+            "user": self.user,
             "created_at": self.created_at,
             "completed_at": self.completed_at,
+            "execution_time": self.execution_time,
             "status": self.status,
             "engine": {
                 "name": self.engine_name,
@@ -47,6 +52,7 @@ class JobManifest:
                         "content_type": artifact.content_type,
                         "sha256": artifact.sha256,
                         "uri": artifact.uri,
+                        "metadata": artifact.metadata,
                     }.items()
                     if value is not None
                 }
