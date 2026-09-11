@@ -10,17 +10,17 @@ from .writer import ResultsStorageWriter
 from ast_engine.config import settings
 
 def create_results_writer(context: JobStorageContext) -> ResultsStorageWriter:
-    backend = settings.AST_RESULTS_STORAGE_BACKEND
+    backend = settings.STORAGE_TYPE
 
     config = StorageConfig(
-        bucket=settings.AST_RESULTS_BUCKET,
-        environment=settings.AST_RESULTS_ENV,
-        prefix=settings.AST_RESULTS_PREFIX,
-        endpoint_url=settings.AST_RESULTS_S3_ENDPOINT_URL,
-        local_root=Path(settings.AST_RESULTS_LOCAL_ROOT).resolve(),
+        bucket=settings.RESULTS_BUCKET,
+        environment=settings.RESULTS_ENV,
+        prefix=settings.RESULTS_PREFIX,
+        endpoint_url=settings.RESULTS_S3_ENDPOINT_URL,
+        local_root=Path(settings.RESULTS_LOCAL_ROOT).resolve(),
     )
 
-    if backend == "s3":
+    if backend == "S3":
         return S3ResultsStorageWriter(config, context)
 
     if backend == "local":
