@@ -114,3 +114,4 @@ class AstResults(BaseModel):
     job_id: str
     aoi_id: str
     results: List[DatasetResultGroup]
+    execution_time: float | None = None
