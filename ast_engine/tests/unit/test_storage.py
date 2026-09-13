@@ -119,8 +119,10 @@ def test_job_manifest_to_dict_and_yaml():
     manifest = JobManifest(
         schema_version=1,
         job_id="job-123",
+        user="jboy",
         created_at="2026-03-31T10:00:00Z",
         completed_at="2026-03-31T10:05:00Z",
+        execution_time="2400",
         status="SUCCESS",
         engine_name="ast-engine",
         engine_version="1.0.0",
@@ -165,8 +167,10 @@ def test_publisher_publishes_required_and_optional_artifacts(tmp_path: Path):
 
     manifest_uri = publisher.publish_job_results(
         job_id="job-123",
+        user="jboy",
         created_at="2026-03-31T10:00:00Z",
         completed_at="2026-03-31T10:01:00Z",
+        execution_time="2400",
         status="COMPLETED",
         engine_version="0.1.0",
         raw_results_json=raw_results,
