@@ -108,7 +108,7 @@ def main():
                 status="success",
                 engine_version="1.0.0", # TODO: draw from config
                 raw_results_json=raw_results_file,
-                operator_outputs=
+                operator_outputs=operator_outputs
                 # Include other optional paths as they become available:
                 # extracted_gpkg=..., 
                 # aoi_geojson=...,
