@@ -1,0 +1,2 @@
+DEFAULT_CRS = "EPSG:3005"
+DEFAULT_GEOM_FIELD = "geometry"
