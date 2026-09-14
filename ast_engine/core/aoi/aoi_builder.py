@@ -39,15 +39,16 @@ class AOIBuilder:
         validator: AOIValidator | None = None,
         part_builder: AOIPartBuilder | None = None,
     ) -> None:
-        self.normalizer = normalizer or AOINormalizer()
-        self.inspector = inspector or AOIInspector()
-        self.validator = validator or AOIValidator()
-        self.part_builder = part_builder or AOIPartBuilder()
+        self.normalizer = normalizer if normalizer is not None else AOINormalizer()
+        self.inspector = inspector if inspector is not None else AOIInspector()
+        self.validator = validator if validator is not None else AOIValidator()
+        self.part_builder = part_builder if part_builder is not None else AOIPartBuilder()
 
     def build_from_request(
         self,
         request: AOIBuildRequest,
     ) -> AOIBuildResult:
+        """Build an AreaOfInterest from a raw AOI build request."""
         spec = request.spec
 
         logger.info(
@@ -116,6 +117,7 @@ class AOIBuilder:
         operation: Callable[..., T],
         **operation_kwargs: Any,
     ) -> T:
+        """Stage runner that wraps each build stage with error handling and logging."""
         try:
             return operation(**operation_kwargs)
 
@@ -170,6 +172,7 @@ class AOIBuilder:
         self,
         result: AOIBuildResult,
     ) -> None:
+        """Build summary logger that reports the final AOI build result and validation outcome."""
         aoi = result.aoi
         validation = result.validation
 
