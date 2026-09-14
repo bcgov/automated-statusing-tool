@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 SLIVER_THRESHOLD = 0.1 # Minimum area in hectares for a part to be considered valid (e.g. to filter out slivers from processing)
 LARGE_AREA_THRESHOLD = 10_000 # Area in hectares above which a part is flagged for review (e.g. to identify parts that may need to be split for reporting or processing)
+MAX_VERTICES = 10_000 # Maximum number of vertices for a part before it is flagged for review (e.g. to identify complex geometries that may cause processing issues)
 
 
 class AOIValidator():
@@ -48,27 +49,6 @@ class AOIValidator():
         properties: AOIProperties,
     ) -> AOIValidationResult:
         issues: list[ValidationIssue] = []
-
-        # Validate AOI object for required properties
-        if gdf is None or gdf.empty:
-            issues.append(
-                ValidationIssue("error", "NO_GDF", "AOI has no Geopandas GeoDataFrame")
-            )
-        if not properties:
-            issues.append(
-                ValidationIssue("error", "NO_PROPERTIES", "AOI has no properties")
-            )
-
-        if not parts:
-            issues.append(
-                ValidationIssue("error", "NO_PARTS", "AOI has no parts")
-            )
-
-        ##### VALIDATE AGAINST NORMALIZATION REPORT #####
-        if not report:
-            issues.append(
-                ValidationIssue("error", "NO_NORMALIZATION_REPORT", "AOI has no normalization report")
-            )
 
         if not report.allow_overlaps and report.overlaps_present_after_policy:
             issues.append(
