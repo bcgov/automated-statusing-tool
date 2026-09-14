@@ -39,7 +39,7 @@ def main():
         try:
             ast_job = run_worker(job=job, publish=False)
             ast_job.status = JobStatus.COMPLETED
-            logging.info("Completed ")
+            logging.info("Completed job-id: %s",job.job_id)
             return ast_job
         except Exception as e:
             # add ast job info
