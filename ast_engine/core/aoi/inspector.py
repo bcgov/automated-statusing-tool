@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 
 import geopandas as gpd
-from shapely.geometry.base import BaseGeometry
 
-from .exceptions import AOIInspectionError, SpatialGeometryError
+from .exceptions import (
+    AOIInspectionError,
+    SpatialGeometryError,
+    SpatialDataError,
+)
 from .models import AOIProperties, AOIPart
 from .utils import check_gdf, parse_crs
 
@@ -70,13 +73,15 @@ class AOIInspector:
                 has_m=any(part.has_m for part in parts),
             )
 
-        except SpatialGeometryError:
+        except AOIInspectionError:
             raise
 
-        except Exception as ex:
+        except (
+            SpatialDataError,
+        ) as exc:
             raise AOIInspectionError(
-                "Failed to inspect normalized AOI properties."
-            ) from ex
+                f"Failed to inspect normalized AOI properties.: {exc}"
+            ) from exc
 
         logger.debug(
             "AOI inspection summary | crs=%s | features=%s | parts=%s | "
@@ -105,6 +110,7 @@ class AOIInspector:
 
     @staticmethod
     def _resolve_geometry_type(gdf: gpd.GeoDataFrame) -> str:
+        """Resolve the geometry type of the AOI, or return a mixed type string."""
         geom_types = tuple(sorted(set(gdf.geometry.geom_type)))
 
         if not geom_types:
