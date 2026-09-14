@@ -8,6 +8,7 @@ from shapely.geometry.base import BaseGeometry
 
 from .exceptions import AOIRequestError, DataCRSError, SpatialDataError, SpatialGeometryError, AOIPartBuildError
 from .utils import count_vertices, has_m, has_z
+from .constants import DEFAULT_CRS
 
 
 # ============================================================
@@ -29,7 +30,7 @@ SUPPORTED_DISSOLVE_MODES: frozenset[str] = frozenset(
 class AOIRequest:
     aoi_id: str
     name: str
-    target_crs: str = "EPSG:3005"
+    target_crs: str = DEFAULT_CRS
 
     dissolve_mode: DissolveMode = "full_union"
     dissolve_fields: tuple[str, ...] = field(default_factory=tuple)
@@ -42,7 +43,6 @@ class AOIRequest:
     )
 
     def __post_init__(self) -> None:
-        # Validate scalar input types before normalizing them.
         if not isinstance(self.aoi_id, str):
             raise AOIRequestError(
                 "AOIRequest.aoi_id must be a string."
@@ -120,7 +120,7 @@ class AOIRequest:
                 "dissolve_mode='by_fields'."
             )
 
-        if len(set(self.dissolve_fields)) != len(self.dissolve_fields):
+        if len(set(dissolve_fields)) != len(dissolve_fields):
             raise AOIRequestError(
                 "AOIRequest.dissolve_fields cannot contain duplicates."
             )
@@ -137,6 +137,15 @@ class AOIRequest:
                 "AOIRequest.target_crs must be projected. "
                 f"Received: {self.target_crs!r}."
             )
+        
+        if not crs.axis_info[0].unit_name in {
+                "metre",
+                "meter",
+            }:
+                raise AOIRequestError(
+                    "AOIRequest.target_crs must use metres as its unit. "
+                    f"Received: {self.target_crs!r}."
+                )
 
         object.__setattr__(self, "aoi_id", aoi_id)
         object.__setattr__(self, "name", name)
