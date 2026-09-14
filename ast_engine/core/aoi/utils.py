@@ -28,10 +28,9 @@ def check_gdf(
     strict=True:
         Downstream-ready checks expected after normalization.
     """
-
     if gdf is None:
         raise SpatialDataError(f"{context} is None.")
-
+    
     if not isinstance(gdf, gpd.GeoDataFrame):
         raise SpatialDataError(
             f"{context} must be a GeoDataFrame. "
@@ -40,6 +39,13 @@ def check_gdf(
 
     if gdf.empty:
         raise SpatialDataError(f"{context} is empty.")
+
+    geometry_col = get_geometry_column_name(gdf, context=context)
+
+    if geometry_col not in gdf.columns:
+        raise SpatialGeometryError(
+            f"{context} active geometry column {geometry_col!r} is missing."
+        )
 
     if gdf.crs is None:
         raise DataCRSError(f"{context} has no CRS.")
@@ -51,12 +57,7 @@ def check_gdf(
             f"{context} must use a projected CRS. Got: {crs.to_string()}."
         )
 
-    geometry_col = get_geometry_column_name(gdf, context=context)
 
-    if geometry_col not in gdf.columns:
-        raise SpatialGeometryError(
-            f"{context} active geometry column {geometry_col!r} is missing."
-        )
 
     # Minimum mode stops here.
     # Raw AOI input may still contain null, empty, invalid, or non-polygon geometry
