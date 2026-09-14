@@ -3,8 +3,15 @@ from __future__ import annotations
 import logging
 
 import geopandas as gpd
+from geopandas.array import GeometryDtype
 from pyproj import CRS
-from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+from shapely.geometry import (
+    GeometryCollection,
+    MultiLineString,
+    MultiPoint,
+    MultiPolygon,
+    Polygon,
+)
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.validation import make_valid
@@ -19,6 +26,7 @@ from .exceptions import (
 )
 from .models import AOIRequest, NormalizedAOI
 from .utils import check_gdf, parse_crs, has_area_overlaps
+from .constants import DEFAULT_GEOM_FIELD
 
 
 logger = logging.getLogger(__name__)
@@ -122,9 +130,48 @@ class AOINormalizer:
         reporter: AOINormalizationReportBuilder,
     ) -> gpd.GeoDataFrame:
         """
-        Remove unusable geometry, repair invalid geometry, and extract polygonal parts.
+        Remove unusable geometry, repair invalid geometry, and extract polygonal parts only.
         """
         work = gdf.copy()
+        geometry_column = work.geometry.name
+
+        # Identify secondary geometry columns by dtype, not by their names.
+        secondary_geometry_columns = [
+            column
+            for column, dtype in work.dtypes.items()
+            if column != geometry_column
+            and isinstance(dtype, GeometryDtype)
+        ]
+
+        if secondary_geometry_columns:
+            work.drop(
+                columns=secondary_geometry_columns,
+                inplace=True,
+            )
+
+            reporter.add_note(
+                "Removed secondary geometry columns: "
+                f"{secondary_geometry_columns!r}."
+            )
+
+        # Standardize the retained active geometry column.
+        if geometry_column != DEFAULT_GEOM_FIELD:
+            if DEFAULT_GEOM_FIELD in work.columns:
+                raise SpatialDataError(
+                    f"Cannot rename active geometry column {geometry_column!r} "
+                    f"to {DEFAULT_GEOM_FIELD!r}: another column already "
+                    "uses that name."
+                )
+
+            work.rename_geometry(
+                DEFAULT_GEOM_FIELD,
+                inplace=True,
+            )
+
+            reporter.add_note(
+                f"Active geometry column renamed from {geometry_column!r} "
+                f"to {DEFAULT_GEOM_FIELD!r}."
+            )
 
         before = len(work)
         work = work.loc[
@@ -208,6 +255,15 @@ class AOINormalizer:
             raise DataCRSError(
                 "AOI request target CRS must be projected. "
                 f"Got: {requested_crs.to_string()}."
+            )
+
+        if require_projected and not requested_crs.axis_info[0].unit_name in {
+                "metre",
+                "meter",
+            }:
+            raise DataCRSError(
+                "AOI request target CRS must have meter units. "
+                f"Got: {requested_crs.axis_info[0].unit_name}."
             )
 
         current_crs = parse_crs(
@@ -297,8 +353,8 @@ class AOINormalizer:
             )
 
         return gpd.GeoDataFrame(
-            {"geometry": [geom]},
-            geometry="geometry",
+            {DEFAULT_GEOM_FIELD: [geom]},
+            geometry=DEFAULT_GEOM_FIELD,
             crs=gdf.crs,
         )
 
@@ -324,72 +380,85 @@ class AOINormalizer:
                 f"AOI data is missing dissolve field(s): {missing}."
             )
 
-        return gdf.dissolve(
+        geometry_column = gdf.geometry.name
+
+        if geometry_column in dissolve_fields:
+            raise AOIRequestError(
+                "The active geometry column cannot be a dissolve field."
+            )
+
+        columns = [*dissolve_fields, geometry_column]
+
+        return gdf.loc[:, columns].dissolve(
             by=list(dissolve_fields),
             as_index=False,
+            dropna=False,
         )
+
 
     def _extract_polygonal(
         self,
         geom: BaseGeometry | None,
     ) -> tuple[Polygon | MultiPolygon | None, dict[str, int]]:
         """
-        Extract polygonal geometry from Polygon, MultiPolygon, or GeometryCollection.
+        Extract polygons from nested collections and multipart geometries.
 
-        Non-polygon standalone geometries return None.
-        GeometryCollections retain only Polygon/MultiPolygon components.
+        Counts describe non-empty individual components before union:
+        - each Polygon counts as one retained component;
+        - each non-polygon component counts as one discarded component;
+        - collections themselves are not counted;
+        - None and empty geometries are ignored.
+
+        Geometry repair is handled by the caller before extraction.
         """
         meta = {
             "input_component_count": 0,
             "polygon_component_count": 0,
             "nonpolygon_component_drop_count": 0,
         }
+        polygon_parts: list[Polygon] = []
 
-        if geom is None or geom.is_empty:
+        def collect(part: BaseGeometry | None) -> None:
+            if part is None or part.is_empty:
+                return
+
+            # Inspect every member, including further nested collections.
+            if isinstance(
+                part,
+                (
+                    GeometryCollection,
+                    MultiPolygon,
+                    MultiLineString,
+                    MultiPoint,
+                ),
+            ):
+                for child in part.geoms:
+                    collect(child)
+                return
+
+            meta["input_component_count"] += 1
+
+            if isinstance(part, Polygon):
+                polygon_parts.append(part)
+                meta["polygon_component_count"] += 1
+            else:
+                meta["nonpolygon_component_drop_count"] += 1
+
+        collect(geom)
+
+        if not polygon_parts:
             return None, meta
 
-        if isinstance(geom, Polygon):
-            meta["input_component_count"] = 1
-            meta["polygon_component_count"] = 1
-            return geom, meta
+        if len(polygon_parts) == 1:
+            return polygon_parts[0], meta
 
-        if isinstance(geom, MultiPolygon):
-            count = len(geom.geoms)
-            meta["input_component_count"] = count
-            meta["polygon_component_count"] = count
-            return geom, meta
+        # Union once, after collecting all polygon components.
+        merged = unary_union(polygon_parts)
 
-        if isinstance(geom, GeometryCollection):
-            polygon_parts: list[Polygon] = []
-            meta["input_component_count"] = len(geom.geoms)
+        if merged.is_empty or not isinstance(merged, (Polygon, MultiPolygon)):
+            raise SpatialGeometryError(
+                "Polygon extraction produced an unexpected "
+                "empty or non-polygonal result."
+            )
 
-            for part in geom.geoms:
-                if isinstance(part, Polygon):
-                    polygon_parts.append(part)
-                    meta["polygon_component_count"] += 1
-
-                elif isinstance(part, MultiPolygon):
-                    parts = list(part.geoms)
-                    polygon_parts.extend(parts)
-                    meta["polygon_component_count"] += len(parts)
-
-                else:
-                    meta["nonpolygon_component_drop_count"] += 1
-
-            if not polygon_parts:
-                return None, meta
-
-            merged = unary_union(polygon_parts)
-
-            if isinstance(merged, Polygon):
-                return merged, meta
-
-            if isinstance(merged, MultiPolygon):
-                return merged, meta
-
-            return None, meta
-
-        meta["input_component_count"] = 1
-        meta["nonpolygon_component_drop_count"] = 1
-
-        return None, meta
+        return merged, meta
