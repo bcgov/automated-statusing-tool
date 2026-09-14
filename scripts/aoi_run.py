@@ -13,12 +13,12 @@ ast_path_str = str(ast_path)
 if ast_path_str not in sys.path:
     sys.path.append(ast_path_str)
 
-from ast_engine.utils.logging_config import setup_logging
+from ast_engine.config.logging_config import setup_logging
 from ast_engine.core.data_adapters.base import ReadOptions
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
 from ast_engine.core.aoi.models import AOIRequest, AOIBuildRequest
 from ast_engine.core.aoi.aoi_builder import AOIBuilder
-from ast_engine.core.aoi.exceptions import AOIBuildError, root_cause
+from ast_engine.core.aoi.exceptions import AOIBuildError, AOIRequestError, root_cause
 
 PROJECTED_CRS = "EPSG:3005" 
 UNPROJECTED_CRS = "EPSG:4326"
@@ -64,6 +64,14 @@ def load_gpkg_example() -> gpd.GeoDataFrame:
     return FileSpatialAdapter().read(
         path="ast_engine/tests/data/Test_Shape_A/Test_Shape_A.gpkg",
         target_crs=PROJECTED_CRS,
+        read_options=opts,
+    )
+
+def load_unprojected_gpkg_example() -> gpd.GeoDataFrame:
+    opts = ReadOptions(keep_columns=["Name"])
+    return FileSpatialAdapter().read(
+        path="ast_engine/tests/data/Test_Shape_A/Test_Shape_A.gpkg",
+        target_crs=UNPROJECTED_CRS,
         read_options=opts,
     )
 
@@ -192,6 +200,7 @@ def load_raw_gdf(case_name: str) -> gpd.GeoDataFrame:
         "kml": load_kml_example,
         "multigeom_kml": load_multigeom_kml_example,
         "gpkg": load_gpkg_example,
+        "unprojected_gpkg": load_unprojected_gpkg_example,
         "overlap_groups": load_overlap_groups_example,
         "small_area": load_small_area_groups_example,
         "large_area": load_large_area_groups_example,
@@ -231,10 +240,30 @@ def request_by_name_overlap_allowed() -> AOIRequest:
         allow_overlaps=True,
     )
 
+def request_by_name_overlap_allowed_unprojected() -> AOIRequest:
+    return AOIRequest(
+        aoi_id="aoi_003",
+        name="Test AOI",
+        target_crs=UNPROJECTED_CRS,
+        dissolve_mode="by_fields",
+        dissolve_fields=("Name",),
+        allow_overlaps=True,
+    )
+
+def request_by_name_overlap_allowed() -> AOIRequest:
+    return AOIRequest(
+        aoi_id="aoi_004",
+        name="Test AOI",
+        target_crs=PROJECTED_CRS,
+        dissolve_mode="by_fields",
+        dissolve_fields=("Name",),
+        allow_overlaps=True,
+    )
+
 
 def request_by_group_overlap_allowed() -> AOIRequest:
     return AOIRequest(
-        aoi_id="aoi_003",
+        aoi_id="aoi_005",
         name="Test AOI",
         target_crs=PROJECTED_CRS,
         dissolve_mode="by_fields",
@@ -244,7 +273,7 @@ def request_by_group_overlap_allowed() -> AOIRequest:
 
 def request_by_group_overlap_not_allowed() -> AOIRequest:
     return AOIRequest(
-        aoi_id="aoi_004",
+        aoi_id="aoi_006",
         name="Test AOI",
         target_crs=PROJECTED_CRS,
         dissolve_mode="by_fields",
@@ -254,7 +283,7 @@ def request_by_group_overlap_not_allowed() -> AOIRequest:
 
 def request_preserve_features() -> AOIRequest:
     return AOIRequest(
-        aoi_id="aoi_005",
+        aoi_id="aoi_007",
         name="Test AOI",
         target_crs=PROJECTED_CRS,
         dissolve_mode="preserve_features",
@@ -266,6 +295,7 @@ def build_request(case_name: str) -> AOIRequest:
     cases = {
         "full_union": request_full_union,
         "by_name_overlap_allowed": request_by_name_overlap_allowed,
+        "by_name_overlap_allowed_unprojected": request_by_name_overlap_allowed_unprojected,
         "by_group_overlap_allowed": request_by_group_overlap_allowed,
         "by_group_overlap_not_allowed": request_by_group_overlap_not_allowed,
         "preserve_features": request_preserve_features,
@@ -281,27 +311,28 @@ def build_request(case_name: str) -> AOIRequest:
 # ------------------------------------------------------------
 
 def run_demo(data_case: str, request_case: str) -> None:
-    raw_gdf = load_raw_gdf(data_case)
-    request = build_request(request_case)
-
-    built = AOIBuildRequest(
-        spec=request,
-        raw_gdf=raw_gdf,
-    )
-
-    builder = AOIBuilder()
-
-    print("")
-    logger.info(
-        "=== DATA CASE: %s | REQUEST CASE: %s ===",
-        data_case,
-        request_case,
-    )
-    logger.info("Columns: %s", list(raw_gdf.columns))
-    logger.info("CRS: %s", raw_gdf.crs.name if raw_gdf.crs else None)
-    logger.info("Geom types: %s", raw_gdf.geometry.geom_type.tolist())
-
     try:
+        print("")
+        logger.info(
+            "=== DATA CASE: %s | REQUEST CASE: %s ===",
+            data_case,
+            request_case,
+        )
+        raw_gdf = load_raw_gdf(data_case)
+
+        logger.info("Columns: %s", list(raw_gdf.columns))
+        logger.info("CRS: %s", raw_gdf.crs.name if raw_gdf.crs else None)
+        logger.info("Geom types: %s", raw_gdf.geometry.geom_type.tolist())
+
+        request = build_request(request_case)
+
+        built = AOIBuildRequest(
+            spec=request,
+            raw_gdf=raw_gdf,
+        )
+
+        builder = AOIBuilder()
+
         aoi_result = builder.build_from_request(
             built,
         )
@@ -309,9 +340,9 @@ def run_demo(data_case: str, request_case: str) -> None:
         aoi = aoi_result.aoi
 
         if aoi_result.is_valid:
-            logger.info("STATUS: SUCCESS")
+            logger.info("VALID AOI: TRUE")
         else:
-            logger.warning("STATUS: FAILED")
+            logger.warning("VALID AOI: FALSE")
 
         if aoi_result.errors:
             logger.info("Errors:")
@@ -328,18 +359,20 @@ def run_demo(data_case: str, request_case: str) -> None:
         logger.info("Footprint Area (ha): %.4f", aoi.footprint_area_ha)
         logger.info("Bounds: %s", aoi.bounds)
         logger.info("Part Count: %s", len(aoi.parts))
+        logger.info("RUN STATUS: SUCCESS")
+
+    except AOIRequestError as exc:
+        logger.error(
+            "RUN STATUS: FAILED | reason=%s",
+            exc,
+        )
 
     except AOIBuildError as exc:
         root = root_cause(exc)
 
         logger.error(
-            "STATUS: FAILED | reason=%s",
+            "RUN STATUS: FAILED | reason=%s",
             root,
-        )
-
-        logger.debug(
-            "Failure root traceback",
-            exc_info=(type(root), root, root.__traceback__),
         )
 
 
@@ -419,6 +452,7 @@ if __name__ == "__main__":
         ("kmz", "by_name_overlap_allowed"),
         ("geojson", "by_name_overlap_allowed"),
         ("gpkg", "by_name_overlap_allowed"),
+        ("unprojected_gpkg", "by_name_overlap_allowed_unprojected"),
         ("kml", "by_name_overlap_allowed"),
         ("multigeom_kml", "by_name_overlap_allowed"),
         ("overlap_groups", "full_union"),

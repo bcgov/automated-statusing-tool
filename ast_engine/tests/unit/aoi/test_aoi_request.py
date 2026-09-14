@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError
-from typing import Any
 
 import pytest
 from pyproj import CRS
@@ -33,6 +32,8 @@ CUSTOM_METRIC_CRS = (
 # ============================================================
 
 def test_request_uses_expected_defaults():
+    """Test that the AOIRequest factory produces an object with the expected default values."""
+
     request = AOIRequest(
         aoi_id="test_aoi",
         name="Test AOI",
@@ -47,6 +48,8 @@ def test_request_uses_expected_defaults():
 
 
 def test_request_exposes_resolved_crs_properties():
+    """Test that the AOIRequest exposes properties for the resolved CRS and EPSG code."""
+
     request = make_aoi_request()
 
     assert isinstance(request.target_crs_obj, CRS)
@@ -67,6 +70,8 @@ def test_request_accepts_supported_dissolve_modes(
     dissolve_mode,
     dissolve_fields,
 ):
+    """Test that the AOIRequest accepts supported dissolve modes and fields."""
+
     request = make_aoi_request(
         dissolve_mode=dissolve_mode,
         dissolve_fields=dissolve_fields,
@@ -77,9 +82,12 @@ def test_request_accepts_supported_dissolve_modes(
 
 
 @pytest.mark.parametrize("allow_overlaps", [True, False])
+
 def test_request_accepts_boolean_overlap_policy(
     allow_overlaps,
 ):
+    """Test that the AOIRequest accepts a boolean value for the allow_overlaps parameter."""
+
     request = make_aoi_request(
         allow_overlaps=allow_overlaps,
     )
@@ -114,6 +122,8 @@ def test_request_normalizes_dissolve_mode(
     input_mode,
     expected,
 ):
+    """Test that the AOIRequest normalizes the dissolve_mode to lowercase and strips whitespace."""
+
     dissolve_fields = (
         ("REGION",)
         if expected == "by_fields"
@@ -129,6 +139,8 @@ def test_request_normalizes_dissolve_mode(
 
 
 def test_request_normalizes_dissolve_fields_to_tuple():
+    """Test that the AOIRequest normalizes the dissolve_fields to a tuple of stripped strings."""
+
     request = make_aoi_request(
         dissolve_mode="by_fields",
         dissolve_fields=[
@@ -147,6 +159,8 @@ def test_request_normalizes_dissolve_fields_to_tuple():
 
 
 def test_request_removes_blank_fields_for_non_field_policy():
+    """Test that the AOIRequest removes blank dissolve_fields for non-field policies like "full_union" and "preserve_features"."""
+
     request = make_aoi_request(
         dissolve_mode="full_union",
         dissolve_fields=(" ", ""),
@@ -189,6 +203,8 @@ def test_request_rejects_invalid_text_types(
     value,
     message,
 ):
+    """Test that the AOIRequest rejects non-string types for the aoi_id and name fields."""
+
     with pytest.raises(
         AOIRequestError,
         match=message,
@@ -226,6 +242,8 @@ def test_request_rejects_blank_required_text(
     value,
     message,
 ):
+    """Test that the AOIRequest rejects blank strings for the aoi_id and name fields."""
+
     with pytest.raises(
         AOIRequestError,
         match=message,
@@ -250,6 +268,8 @@ def test_request_rejects_blank_required_text(
 def test_request_rejects_unsupported_dissolve_mode(
     dissolve_mode,
 ):
+    """Test that the AOIRequest rejects unsupported dissolve_mode values."""
+
     with pytest.raises(
         AOIRequestError,
         match="Unsupported AOIRequest.dissolve_mode",
@@ -271,6 +291,8 @@ def test_request_rejects_unsupported_dissolve_mode(
 def test_request_rejects_non_string_dissolve_mode(
     dissolve_mode,
 ):
+    """Test that the AOIRequest rejects non-string types for the dissolve_mode field."""
+
     with pytest.raises(
         AOIRequestError,
         match="dissolve_mode must be a string",
@@ -292,6 +314,7 @@ def test_request_rejects_non_string_dissolve_mode(
 def test_by_fields_requires_nonempty_dissolve_fields(
     dissolve_fields,
 ):
+    """Test that the AOIRequest rejects empty dissolve_fields when dissolve_mode is 'by_fields'."""
     with pytest.raises(
         AOIRequestError,
         match="dissolve_fields must be provided",
@@ -312,6 +335,8 @@ def test_by_fields_requires_nonempty_dissolve_fields(
 def test_non_field_modes_reject_dissolve_fields(
     dissolve_mode,
 ):
+    """Test that the AOIRequest rejects dissolve_fields for non-field policies."""
+
     with pytest.raises(
         AOIRequestError,
         match="should only be provided",
@@ -334,6 +359,8 @@ def test_non_field_modes_reject_dissolve_fields(
 def test_request_rejects_invalid_dissolve_fields_container(
     dissolve_fields,
 ):
+    """Test that the AOIRequest rejects non-sequence types for the dissolve_fields parameter."""
+
     with pytest.raises(
         AOIRequestError,
         match="must be a sequence of strings",
@@ -355,6 +382,8 @@ def test_request_rejects_invalid_dissolve_fields_container(
 def test_request_rejects_non_string_dissolve_fields(
     dissolve_fields,
 ):
+    """Test that the AOIRequest rejects non-string values in the dissolve_fields sequence."""
+    
     with pytest.raises(
         AOIRequestError,
         match="must contain only strings",
@@ -369,16 +398,20 @@ def test_request_rejects_non_string_dissolve_fields(
 # CRS validation
 # ============================================================
 
-# def test_request_accepts_alternative_metric_projected_crs():
-#     request = make_aoi_request(
-#         target_crs="EPSG:26910",
-#     )
+def test_request_accepts_alternative_metric_projected_crs():
+    """Test that the AOIRequest accepts a valid alternative metric projected CRS."""
 
-#     assert request.is_projected is True
-#     assert request.target_epsg == 26910
+    request = make_aoi_request(
+        target_crs="EPSG:26910",
+    )
+
+    assert request.is_projected is True
+    assert request.target_epsg == 26910
 
 
 def test_request_rejects_invalid_crs():
+    """Test that the AOIRequest rejects an invalid CRS string."""
+
     with pytest.raises(
         AOIRequestError,
         match="Invalid AOIRequest.target_crs",
@@ -387,7 +420,6 @@ def test_request_rejects_invalid_crs():
             target_crs="not-a-real-crs",
         )
 
-    # Confirm the underlying pyproj failure is preserved.
     assert exc_info.value.__cause__ is not None
 
 
@@ -396,6 +428,8 @@ def test_request_rejects_geographic_crs():
         AOIRequestError,
         match="target_crs must be projected",
     ):
+        """Test that the AOIRequest rejects a geographic (unprojected) CRS."""
+
         make_aoi_request(
             target_crs="EPSG:4326",
         )
@@ -406,23 +440,30 @@ def test_request_rejects_non_string_crs():
         AOIRequestError,
         match="target_crs must be a string",
     ):
+        """Test that the AOIRequest rejects a non-string target_crs value."""
+
         make_aoi_request(
             target_crs=3005,
         )
 
 
-# def test_request_rejects_non_metric_projected_crs():
-#     # EPSG:2263 is projected but uses US survey feet.
-#     with pytest.raises(
-#         AOIRequestError,
-#         match="must use metres",
-#     ):
-#         make_aoi_request(
-#             target_crs="EPSG:2263",
-#         )
+def test_request_rejects_non_metric_projected_crs():
+    """Test that the AOIRequest rejects a projected CRS that does not use metres as its unit.
+       EPSG:2263 is projected but uses US survey feet.
+    """
+
+    with pytest.raises(
+        AOIRequestError,
+        match="must use metres",
+    ):
+        make_aoi_request(
+            target_crs="EPSG:2263",
+        )
 
 
 def test_custom_metric_crs_may_have_no_epsg_code():
+    """Test that the AOIRequest accepts a custom metric projected CRS that has no EPSG code."""
+
     request = make_aoi_request(
         target_crs=CUSTOM_METRIC_CRS,
     )
@@ -466,13 +507,17 @@ def test_request_rejects_non_boolean_overlap_policy(
 # ============================================================
 
 def test_request_is_immutable():
+    """Test that the AOIRequest is immutable and cannot be modified after creation."""
+
     request = make_aoi_request()
 
     with pytest.raises(FrozenInstanceError):
-        request.name = "Changed name"  # type: ignore[misc]
+        request.name = "Changed name"
 
 
 def test_normalized_dissolve_fields_are_immutable():
+    """Test that the normalized dissolve_fields tuple is immutable and cannot be modified after creation."""
+
     request = make_aoi_request(
         dissolve_mode="by_fields",
         dissolve_fields=["REGION"],
@@ -481,4 +526,4 @@ def test_normalized_dissolve_fields_are_immutable():
     assert request.dissolve_fields == ("REGION",)
 
     with pytest.raises(TypeError):
-        request.dissolve_fields[0] = "OTHER"  # type: ignore[index]
+        request.dissolve_fields[0] = "OTHER"

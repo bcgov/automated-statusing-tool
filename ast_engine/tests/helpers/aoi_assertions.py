@@ -1,5 +1,5 @@
 from __future__ import annotations
-from unittest import result
+
 from collections.abc import Collection
 
 from ast_engine.core.aoi.models import AOIBuildResult

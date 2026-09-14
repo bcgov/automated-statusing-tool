@@ -7,10 +7,6 @@ from ast_engine.core.data_adapters.base import (
     DatasetInfo,
 )
 
-def _gdf(geoms, **columns) -> gpd.GeoDataFrame:
-    """Wrap shapely polygons into a GeoDataFrame in BC Albers (EPSG:3005)."""
-    return gpd.GeoDataFrame(dict(columns), geometry=geoms, crs="EPSG:3005")
-
 
 class InMemorySpatialAdapter(BaseSpatialAdapter):
     """Return controlled data and record the operator's request."""

@@ -1,5 +1,3 @@
-# tests/helpers/aoi_geometry.py
-
 from __future__ import annotations
 
 """
@@ -22,6 +20,20 @@ from shapely.geometry import (
 
 PROJECTED_CRS = "EPSG:3005"
 WGS84_CRS = "EPSG:4326"
+
+
+def aoi_gdf(
+    geometries,
+    *,
+    crs=PROJECTED_CRS,
+    **columns,
+) -> gpd.GeoDataFrame:
+    """Create a GeoDataFrame with controlled geometry and attributes."""
+    return gpd.GeoDataFrame(
+        columns,
+        geometry=geometries,
+        crs=crs,
+    )
 
 
 def rect(
@@ -124,20 +136,8 @@ def line_point_collection() -> GeometryCollection:
     )
 
 
-def aoi_gdf(
-    geometries,
-    *,
-    crs=PROJECTED_CRS,
-    **columns,
-) -> gpd.GeoDataFrame:
-    return gpd.GeoDataFrame(
-        columns,
-        geometry=geometries,
-        crs=crs,
-    )
-
-
 def multipolygon_gdf() -> gpd.GeoDataFrame:
+    """Create a GeoDataFrame with a multipolygon geometry."""
     return aoi_gdf(
         [
             multipolygon(
@@ -150,6 +150,7 @@ def multipolygon_gdf() -> gpd.GeoDataFrame:
 
 
 def disjoint_polygon_rows_gdf() -> gpd.GeoDataFrame:
+    """Create a GeoDataFrame with two disjointed polygon rows."""
     return aoi_gdf(
         [
             rect(0, 0, 100, 100),
@@ -160,6 +161,7 @@ def disjoint_polygon_rows_gdf() -> gpd.GeoDataFrame:
 
 
 def missing_crs_gdf() -> gpd.GeoDataFrame:
+    """Create a GeoDataFrame with no CRS."""
     return aoi_gdf(
         [rect(0, 0, 100, 100)],
         crs=None,
@@ -168,6 +170,7 @@ def missing_crs_gdf() -> gpd.GeoDataFrame:
 
 
 def bowtie_gdf() -> gpd.GeoDataFrame:
+    """Create a GeoDataFrame with a self-intersecting polygon."""
     return aoi_gdf(
         [bowtie()],
         group_id=["A"],
@@ -175,26 +178,13 @@ def bowtie_gdf() -> gpd.GeoDataFrame:
 
 
 def overlapping_polygons_gdf() -> gpd.GeoDataFrame:
+    """Create a GeoDataFrame with two overlapping polygons."""
     return aoi_gdf(
         [
             rect(0, 0, 100, 100),
             rect(80, 80, 180, 180),
         ],
         group_id=["A", "A"],
-    )
-
-def mixed_geometry_kml_overlap_aoi() -> Polygon:
-    """
-    Create a raw AOI geometry that overlaps the mixed-geometry KML test file.
-
-    The KML coordinates are longitude/latitude, so this geometry should be used
-    with CRS EPSG:4326 if it is wrapped in a GeoDataFrame.
-    """
-    return rect(
-        -121.240,
-        51.325,
-        -121.165,
-        51.365,
     )
 
 
@@ -232,6 +222,21 @@ def squares_gdf(
         geometries,
         crs=crs,
         **columns,
+    )
+
+
+def mixed_geometry_kml_overlap_aoi() -> Polygon:
+    """
+    Create a raw AOI geometry that overlaps the mixed-geometry KML test file.
+
+    The KML coordinates are longitude/latitude, so this geometry should be used
+    with CRS EPSG:4326 if it is wrapped in a GeoDataFrame.
+    """
+    return rect(
+        -121.240,
+        51.325,
+        -121.165,
+        51.365,
     )
 
 
