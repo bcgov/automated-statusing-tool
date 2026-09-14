@@ -42,6 +42,8 @@ class AOIPartBuilder:
         Unexpected errors are allowed to bubble up to the builder as unexpected.
         """
         try:
+            # Run check in strict mode to ensure the normalized AOI is ready for part building.
+            # Will fail if the normalized AOI is missing a CRS, has null/empty geometry, or has non-polygon geometry.
             check_gdf(
                 gdf,
                 req_projected_crs=True,
@@ -114,12 +116,14 @@ class AOIPartBuilder:
         aoi_id: str,
     ) -> tuple[AOIPart, ...]:
         parts: list[AOIPart] = []
+        
+        geometry_column = exploded.geometry.name
 
         for row_index, row in exploded.iterrows():
             part_index = int(row_index) + 1
             part_id = f"{aoi_id}_part_{part_index:04d}"
 
-            geom = row.geometry
+            geom = row[geometry_column]
 
             self._check_part_geometry(
                 geom,
