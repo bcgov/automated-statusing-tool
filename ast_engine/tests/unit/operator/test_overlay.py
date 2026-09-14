@@ -1,25 +1,41 @@
-"""Overlay unit tests using generated geometry and controlled adapter responses.
+"""
+Unit tests for the overlay operator.
 
-Place this module at ast_engine/tests/unit/operator/test_overlay.py.
-It reuses the project's existing AOI, geometry, and adapter test helpers.
-No AOIBuilder, FileSpatialAdapter, shapefiles, or dataset paths are used.
+PURPOSE
+-------
+Verify intersection results using small, controlled geometries with known
+overlap areas, lengths, and point counts.
 
-The AOI helper supplies a 2,000 m by 1,500 m rectangle in EPSG:3005.
-Polygon intersections have areas of 20,000 and 10,000 square metres (3 ha
-in total). Line intersections have lengths of 200 and 100 metres. One
-interior point and one boundary point qualify; the outside point does not.
+Check result types, per-feature measurements, totals, ordering, and retained
+attributes for polygon, line, and point inputs.
 
-InMemorySpatialAdapter returns its configured rows unchanged. Tests that
-supply outside features exercise the real intersection() function's
-removal of empty or zero-measure intersections. The response stub does
-not simulate the requested spatial or attribute filters.
+COVERAGE
+--------
+- Calculate intersections with the AOI and exclude non-overlapping features.
+- Return the appropriate polygon, line, or point overlay result.
+- Calculate per-feature overlap measurements and aggregate totals.
+- Sort measured features from largest to smallest overlap.
+- Preserve feature IDs and requested properties after intersection and
+  sorting.
+- Handle missing feature IDs using the source index fallback.
+- Return an empty result when no features overlap.
+- Apply supported geometry-type overrides.
+- Reject AOIs that do not meet the operator's input requirements.
 
-The result-type override cases also check counts and measurements when
-overrides differ from the source geometry type.
-
-The null-ID (NaN/pd.NA) and keep-properties iterator cases expose defects
-in the supplied operator. They deliberately remain ordinary assertions,
-so those cases should fail until the production implementation is fixed.
+HOW TO EXTEND
+-------------
+1. Add a descriptively named test for each new behaviour or edge case.
+2. Use small geometries with independently calculable expected results.
+3. Create fresh AOI stubs, GeoDataFrames, and in-memory adapters for each
+   test; avoid depending on the production AOI builder.
+4. Keep specialised geometry close to the test that uses it. Move geometry
+   into shared helpers only when multiple tests need the same scenario.
+5. Check per-feature measurements and totals together, using pytest.approx()
+   for floating-point comparisons.
+6. Verify that IDs and properties remain associated with the correct
+   features after intersection and sorting.
+7. Keep file/database access and source-adapter integration tests separate
+   from these operator unit tests.
 """
 
 from __future__ import annotations
@@ -57,6 +73,7 @@ pytestmark = pytest.mark.unit
 # fresh geometries and a fresh GeoDataFrame; IDs are supplied explicitly.
 def _polygon_features(aoi) -> gpd.GeoDataFrame:
     """Partial, outside, inside: deliberately not sorted by overlap area."""
+
     minx, miny, maxx, _ = aoi.gdf.total_bounds
 
     # Full rectangle: 200 m wide by 100 m high, entirely inside the AOI.
@@ -77,6 +94,7 @@ def _polygon_features(aoi) -> gpd.GeoDataFrame:
 
 def _line_features(aoi) -> gpd.GeoDataFrame:
     """Crossing, outside, inside: overlaps are 100 m, 0 m, and 200 m."""
+
     minx, miny, maxx, _ = aoi.gdf.total_bounds
 
     inside = LineString(
@@ -99,6 +117,7 @@ def _line_features(aoi) -> gpd.GeoDataFrame:
 
 def _point_features(aoi) -> gpd.GeoDataFrame:
     """One outside point, one interior point, and one boundary point."""
+
     minx, miny, maxx, maxy = aoi.gdf.total_bounds
 
     inside = Point((minx + maxx) / 2, (miny + maxy) / 2)
@@ -115,6 +134,7 @@ def _point_features(aoi) -> gpd.GeoDataFrame:
 
 def test_polygon_overlap_exact_values():
     """Two qualifying polygons contribute 20,000 + 10,000 = 30,000 m2."""
+
     aoi = projected_operator_aoi()
 
     result = intersection(
@@ -135,6 +155,7 @@ def test_polygon_overlap_exact_values():
 
 def test_line_overlap_exact_values():
     """A 200 m interior line and 100 m of a crossing line total 300 m."""
+
     aoi = projected_operator_aoi()
 
     result = intersection(
@@ -157,6 +178,7 @@ def test_line_overlap_exact_values():
 
 def test_point_overlay_count():
     """Interior and boundary points qualify, with no length/area measure."""
+
     aoi = projected_operator_aoi()
 
     result = intersection(
@@ -177,6 +199,7 @@ def test_point_overlay_count():
 
 def test_sorted_descending_by_overlap():
     """Unsorted polygon input is returned in descending overlap-area order."""
+
     aoi = projected_operator_aoi()
 
     result = intersection(
@@ -194,6 +217,7 @@ def test_sorted_descending_by_overlap():
 
 def test_zero_overlap_removed():
     """The outside candidate is removed while positive overlaps remain."""
+
     aoi = projected_operator_aoi()
 
     result = intersection(
@@ -213,6 +237,7 @@ def test_zero_overlap_removed():
 
 def test_properties_preserved():
     """Names stay associated with the correct explicit IDs after sorting."""
+
     aoi = projected_operator_aoi()
 
     result = intersection(
@@ -232,6 +257,7 @@ def test_properties_preserved():
 
 def test_feature_id_fallback():
     """Fallback IDs retain source index labels through filtering and sorting."""
+
     aoi = projected_operator_aoi()
     source = _polygon_features(aoi).drop(columns=["Id"])
     source.index = [101, 202, 303]  # partial, outside, inside
@@ -244,7 +270,7 @@ def test_feature_id_fallback():
 
     assert result.feature_count == 2
     ids = [feature.feature_id for feature in result.features]
-    assert ids == ["303", "101"]  # inside, partial; these are not positions
+    assert ids == ["303", "101"]  # inside, partial
 
 
 @pytest.mark.parametrize(
@@ -257,6 +283,7 @@ def test_feature_id_fallback():
 )
 def test_null_feature_id_falls_back_to_index_label(null_id):
     """An existing ID column with a null value uses the row's index label."""
+
     # Object dtype preserves each specific null representation for this test.
     row = pd.Series({"Id": null_id}, dtype=object)
 
@@ -267,6 +294,7 @@ def test_null_feature_id_falls_back_to_index_label(null_id):
 
 def test_zero_feature_id_is_preserved():
     """Zero is a valid ID and must not trigger the null-ID fallback."""
+
     row = pd.Series({"Id": 0}, dtype=object)
 
     feature_id = _extract_feature_id(row, idx=73, feature_id_field="Id")
@@ -285,6 +313,7 @@ def test_keep_properties_accepts_reusable_and_one_shot_iterables(
     make_keep_properties,
 ):
     """Column selection must not consume the properties needed by results."""
+
     aoi = projected_operator_aoi()
     adapter = InMemorySpatialAdapter(_polygon_features(aoi))
 
@@ -305,6 +334,8 @@ def test_keep_properties_accepts_reusable_and_one_shot_iterables(
 
 
 def test_default_read_options_overlay():
+    """The default request carries the AOI, columns, and attribute filter."""
+
     options = _default_read_options(
         aoi=projected_operator_aoi(),
         feature_id_field="Id",
@@ -318,6 +349,7 @@ def test_default_read_options_overlay():
 
 def test_build_results():
     """Point results preserve names and supply distinct fallback IDs."""
+
     aoi = projected_operator_aoi()
     source = _point_features(aoi).drop(columns=["Id"])
 
@@ -340,6 +372,8 @@ def test_build_results():
 
 
 def test_non_projected_aoi_rejected():
+    """An AOI in a geographic CRS is rejected before any adapter read occurs."""
+
     adapter = InMemorySpatialAdapter()
 
     with pytest.raises(ValueError, match="projected CRS"):
@@ -355,6 +389,7 @@ def test_non_projected_aoi_rejected():
 
 def test_missing_aoi_crs_rejected_before_adapter_read():
     """An AOI with no CRS fails validation before requesting any data."""
+
     projected = projected_operator_aoi()
     aoi = AOIStub(
         gdf=aoi_gdf(list(projected.gdf.geometry), crs=None),
@@ -370,6 +405,7 @@ def test_missing_aoi_crs_rejected_before_adapter_read():
 
 def test_operator_pushes_intersects():
     """The default request carries the AOI, columns, where clause and source."""
+
     aoi = projected_operator_aoi()
     adapter = InMemorySpatialAdapter()
     where = "STATUS = 'ACTIVE'"
@@ -398,6 +434,7 @@ def test_operator_pushes_intersects():
 
 def test_explicit_read_options_are_forwarded_unchanged():
     """Caller-supplied options take precedence over the default request."""
+
     aoi = projected_operator_aoi()
     adapter = InMemorySpatialAdapter()
     options = ReadOptions(
@@ -436,6 +473,7 @@ def test_empty_dataset_returns_typed_zero_result(
     measure_attribute,
 ):
     """An empty adapter response honours the explicitly supplied dataset kind."""
+
     result = intersection(
         aoi=projected_operator_aoi(),
         adapter=InMemorySpatialAdapter(),
@@ -469,6 +507,7 @@ def test_all_outside_features_return_typed_zero_result(
     measure_attribute,
 ):
     """Nonempty input becomes an empty result after client-side filtering."""
+
     aoi = projected_operator_aoi()
     source = make_features(aoi)
     source = source.loc[source["Name"].str.lower() == "outside"].copy()
@@ -486,6 +525,7 @@ def test_all_outside_features_return_typed_zero_result(
 
 def test_polygon_sharing_only_aoi_edge_has_zero_overlap_area():
     """An edge intersection has length, but no polygon overlap area."""
+
     aoi = projected_operator_aoi()
     _, miny, maxx, _ = aoi.gdf.total_bounds
     source = aoi_gdf(
@@ -503,6 +543,7 @@ def test_polygon_sharing_only_aoi_edge_has_zero_overlap_area():
 
 def test_line_touching_aoi_at_endpoint_has_zero_overlap_length():
     """A point intersection does not contribute to a line's overlap length."""
+
     aoi = projected_operator_aoi()
     _, miny, maxx, _ = aoi.gdf.total_bounds
     source = aoi_gdf(
@@ -520,6 +561,7 @@ def test_line_touching_aoi_at_endpoint_has_zero_overlap_length():
 
 def test_line_along_aoi_boundary_contributes_its_overlap_length():
     """A 100 m line on the AOI edge still has 100 m of intersection."""
+
     aoi = projected_operator_aoi()
     _, miny, maxx, _ = aoi.gdf.total_bounds
     source = aoi_gdf(
@@ -549,6 +591,7 @@ def test_unknown_geom_type_falls_back_to_geometry_inference(
     expected_measure,
 ):
     """The documented 'unknown' registry value uses the returned geometry."""
+
     aoi = projected_operator_aoi()
 
     result = intersection(
@@ -564,6 +607,7 @@ def test_unknown_geom_type_falls_back_to_geometry_inference(
 
 def test_overlay_includes_both_aoi_parts_but_excludes_the_gap():
     """A spanning feature overlaps two 100 x 100 m AOI parts: 20,000 m2."""
+
     x, y = 1_000_000, 1_000_000
     aoi = AOIStub(
         gdf=aoi_gdf(
@@ -590,22 +634,29 @@ def test_overlay_includes_both_aoi_parts_but_excludes_the_gap():
 
 
 def test_pnt_geom_type():
+    """A point geometry is correctly inferred as a "point" kind."""
+
     source = aoi_gdf([Point(0, 0)])
     assert _infer_geom_kind(source) == "point"
 
 
 def test_line_geom_type():
+    """A line geometry is correctly inferred as a "line" kind."""
+
     source = aoi_gdf([LineString([(0, 0), (100, 0)])])
     assert _infer_geom_kind(source) == "line"
 
 
 def test_poly_geom_type():
+    """A polygon geometry is correctly inferred as a "polygon" kind."""
+
     source = aoi_gdf([rect(0, 0, 100, 100)])
     assert _infer_geom_kind(source) == "polygon"
 
 
 def test_empty_input():
-    # Preserve the original expectation for an empty frame without geometry.
+    """An empty GeoDataFrame is treated as a polygon kind by default."""
+
     assert _infer_geom_kind(gpd.GeoDataFrame()) == "polygon"
 
 
@@ -652,6 +703,7 @@ def test_geom_type_override_returns_correct_result_types(
     expected_measure,
 ):
     """Explicit kinds control the result class and the way overlap is measured."""
+    
     aoi = projected_operator_aoi()
 
     result = intersection(
