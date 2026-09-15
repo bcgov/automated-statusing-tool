@@ -30,7 +30,8 @@ testpaths = ["ast_engine/tests"]
 python_files = ["test_*.py"]
 python_functions = ["test_*"]
 markers = [
-  "unit: fast unit tests with no external dependencies"
+  "unit: fast unit tests with no external dependencies",
+  "integration: tests on real data; BCGW tests skip when credentials are not set"
 ]
 
 [dependency-groups]
