@@ -420,17 +420,22 @@ Important fields include:
 | `cleaned_feature_count` | Number of features remaining after geometry cleaning and polygon extraction. |
 | `output_feature_count` | Number of features after AOI policy application. |
 | `input_crs` / `output_crs` | CRS before and after normalization. |
+| `was_reprojected` | Whether the AOI was reprojected during normalization. |
 | `null_or_empty_removed_count` | Number of null or empty geometries removed. |
 | `repair_input_feature_count` | Number of features evaluated for geometry repair. |
 | `repaired_feature_count` | Number of invalid geometries repaired. |
+| `polygon_extract_input_feature_count` | Number of components examined for extraction. |
+| `polygon_extract_output_feature_count` | Number of polygonal objects extracted from components. |
 | `polygon_extract_drop_count` | Number of non-polygonal components dropped. |
 | `policy_name` | Applied dissolve policy. |
 | `dissolve_fields_used` | Fields used for `by_fields` dissolve mode. |
 | `allow_overlaps` | Whether overlaps were allowed by request policy. |
+| `policy_applied` | Whether the request policy was successfully applied to the output AOI. |
+| `policy_input_feature_count` | The number of polygonal geometries before policy applied. |
+| `policy_output_feature_count` | The number of polygonal geometries after policy applied. |
 | `overlaps_detected_before_policy` | Whether overlaps existed before dissolve policy. |
 | `overlaps_present_after_policy` | Whether overlaps remained after dissolve policy. |
 | `overlaps_resolved_by_policy` | Whether the policy resolved overlaps. |
-| `was_reprojected` | Whether the AOI was reprojected during normalization. |
 
 ---
 
