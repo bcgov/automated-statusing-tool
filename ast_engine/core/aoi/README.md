@@ -206,21 +206,22 @@ The final report is available at `result.normalization_report`.
 | `cleaned_feature_count` | Rows remaining after cleaning and polygon extraction. |
 | `output_feature_count` | Rows after dissolve policy. |
 | `input_crs` / `output_crs` | CRS before and after normalization. |
-| `was_reprojected` | Whether a CRS transformation was performed. |
-| `null_or_empty_removed_count` | Rows removed for null/empty geometry, including rows that become unusable after polygon extraction. |
-| `repair_input_feature_count` | Features examined for validity before repair/extraction. |
-| `repaired_feature_count` | Features that were invalid and passed through `make_valid`. |
-| `polygon_extract_input_feature_count` | Individual non-empty components examined after repair. |
-| `polygon_extract_output_feature_count` | Polygon components retained before union within the source feature. |
-| `polygon_extract_drop_count` | Non-polygon components discarded. |
-| `policy_name` / `dissolve_fields_used` | Dissolve configuration applied. |
-| `allow_overlaps` | Requested overlap policy. |
-| `policy_applied` | Whether policy application completed. |
-| `policy_input_feature_count` / `policy_output_feature_count` | Row counts before and after policy. |
-| `overlaps_detected_before_policy` | Whether overlap existed before policy. |
-| `overlaps_present_after_policy` | Whether overlap remained after policy. |
-| `overlaps_resolved_by_policy` | True when overlap existed before policy and none remained afterward. |
-| `notes` | Reprojection and geometry-column actions. |
+| `was_reprojected` | Whether the AOI was reprojected during normalization. |
+| `null_or_empty_removed_count` | Number of null or empty geometries removed. |
+| `repair_input_feature_count` | Number of features evaluated for geometry repair. |
+| `repaired_feature_count` | Number of invalid geometries repaired. |
+| `polygon_extract_input_feature_count` | Number of components examined for extraction. |
+| `polygon_extract_output_feature_count` | Number of polygonal objects extracted from components. |
+| `polygon_extract_drop_count` | Number of non-polygonal components dropped. |
+| `policy_name` | Applied dissolve policy. |
+| `dissolve_fields_used` | Fields used for `by_fields` dissolve mode. |
+| `allow_overlaps` | Whether overlaps were allowed by request policy. |
+| `policy_applied` | Whether the request policy was successfully applied to the output AOI. |
+| `policy_input_feature_count` | The number of polygonal geometries before policy applied. |
+| `policy_output_feature_count` | The number of polygonal geometries after policy applied. |
+| `overlaps_detected_before_policy` | Whether overlaps existed before dissolve policy. |
+| `overlaps_present_after_policy` | Whether overlaps remained after dissolve policy. |
+| `overlaps_resolved_by_policy` | Whether the policy resolved overlaps. |
 
 Despite their names, the `polygon_extract_*_feature_count` fields count components, not source rows. A nested collection can contain multiple retained or discarded components. Collection containers and empty components do not count.
 
