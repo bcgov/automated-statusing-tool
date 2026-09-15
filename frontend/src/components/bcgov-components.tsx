@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 //import { useAuth } from '../auth/AuthContext'
-import { Header, Footer, Button } from "@bcgov/design-system-react-components";
+import { Header, Footer, Button, Switch, CheckboxGroup, Tooltip, TooltipTrigger, TextArea, TextField } from "@bcgov/design-system-react-components";
 import { useMatch, Link } from "react-router-dom";
 const geobcLogo = new URL("../assets/geobc_logo.png", import.meta.url).href;
 //import HealthStatus from "./HealthStatus";
@@ -50,14 +50,4 @@ const PageFooter: React.FC = () => {
   );
 };
 
-const SubmitButton: React.FC = () => {
-  //const { user, login, logout, isAuthenticated, isLoadingAuth } = useAuth(); 
-  return (
-    <Button
-      variant="primary"
-    >Submit</Button>
-  );
-};
-
-
-export { PageHeader, PageFooter, SubmitButton };
+export { PageHeader, PageFooter };
