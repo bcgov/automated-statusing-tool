@@ -1,140 +1,28 @@
 # AOI Builder
 
-Internal workflow documentation for building a normalized `AreaOfInterest` from a raw `GeoDataFrame`.
+Build a normalized `AreaOfInterest` from a raw `GeoDataFrame` for downstream spatial analysis and reporting.
 
-This package takes raw AOI geometry, normalizes it into a canonical projected polygon dataset, builds singlepart AOI parts, derives AOI properties, runs the currently implemented validation checks, and returns an `AOIBuildResult`.
+The package validates request configuration, cleans and reprojects polygon geometry, applies dissolve and overlap policy, builds singlepart analysis units, calculates spatial properties, and returns an `AOIBuildResult` containing the AOI, validation findings, and normalization report.
 
-> **Internal status:** the normalization, part-building, inspection, and build-result flow are the current working implementation. The validation module exists and performs baseline checks, but the broader validation design is still in progress, especially configurable spatial-context validation such as provincial footprint checks, regional boundary checks, and configurable severity rules.
+**A completed build does not mean validation passed.** Fatal stage failures raise `AOIBuildError`. Completed builds return a result whose `has_errors` and `has_warnings` properties let the caller decide whether to continue.
 
----
+## Basic usage
 
-## Current Implementation Status
-
-| Area | Status | Notes |
-| --- | --- | --- |
-| Request model | Implemented | `AOIRequest` validates AOI id, name, target CRS, dissolve mode, dissolve fields, and overlap policy. |
-| Build request | Implemented | `AOIBuildRequest` combines an `AOIRequest` and raw `GeoDataFrame`. |
-| Normalization | Implemented | Cleans raw geometry, repairs invalid geometry, extracts polygonal geometry, conforms CRS, applies dissolve policy, and builds an `AOINormalizationReport`. |
-| Part building | Implemented | Explodes normalized AOI geometry into singlepart polygon `AOIPart` objects. |
-| Inspection | Implemented | Builds `AOIProperties` from the normalized AOI footprint and parts. |
-| Build result | Implemented | `AOIBuildResult` is success-only. Fatal build failures raise `AOIBuildError`. |
-| Baseline validation | Implemented | Performs object presence, normalization-report, overlap-policy, validity, area, part-count, sliver, and large-part checks. |
-| Spatial-context validation | In progress | Planned for provincial footprint, regional boundary, expected region/subunit, vertex complexity, holes/donuts, and configurable rule severity. |
-
----
-
-## Workflow Summary
-
-The AOI builder follows a staged workflow:
-
-1. Receive an `AOIBuildRequest` containing an `AOIRequest` and raw `GeoDataFrame`.
-2. Validate request-level configuration.
-3. Normalize the raw geometry into a canonical projected polygon AOI.
-4. Produce an `AOINormalizationReport` describing cleaning, repair, CRS, dissolve, and overlap-policy effects.
-5. Build one or more `AOIPart` objects from the normalized AOI.
-6. Inspect the normalized AOI and parts to produce `AOIProperties`.
-7. Run the currently implemented `AOIValidator` checks.
-8. Return an `AOIBuildResult` containing the built `AreaOfInterest`, validation result, and normalization report.
-
-```mermaid
-flowchart TD
-    A[Raw GeoDataFrame] --> B[AOIBuildRequest]
-    C[AOIRequest] --> B
-
-    B --> D[AOIBuilder.build_from_request]
-
-    D --> E[AOINormalizer]
-    E --> F[NormalizedAOI]
-    F --> G[AOINormalizationReport]
-
-    F --> H[AOIPartBuilder]
-    H --> I[AOIPart tuple]
-
-    F --> J[AOIInspector]
-    I --> J
-    J --> K[AOIProperties]
-
-    F --> L[AOIValidator]
-    G --> L
-    I --> L
-    K --> L
-    L --> M[AOIValidationResult]
-
-    F --> N[AreaOfInterest]
-    I --> N
-    K --> N
-
-    N --> O[AOIBuildResult]
-    M --> O
-    G --> O
-```
-
-
-Sequence Diagram:
-
-
-```mermaid
-sequenceDiagram
-    participant Caller
-    participant Builder as AOIBuilder
-    participant Normalizer as AOINormalizer
-    participant PartBuilder as AOIPartBuilder
-    participant Inspector as AOIInspector
-    participant Validator as AOIValidator
-
-    Caller->>Builder: build_from_request(AOIBuildRequest)
-
-    Builder->>Normalizer: normalize_aoi(raw_gdf, AOIRequest)
-    Normalizer-->>Builder: NormalizedAOI
-
-    Builder->>PartBuilder: build_parts(normalized.gdf)
-    PartBuilder-->>Builder: tuple[AOIPart, ...]
-
-    Builder->>Inspector: inspect(normalized.gdf, parts)
-    Inspector-->>Builder: AOIProperties
-
-    Builder->>Validator: validate(gdf, report, parts, properties)
-    Validator-->>Builder: AOIValidationResult
-
-    Builder->>Builder: construct AreaOfInterest
-    Builder-->>Caller: AOIBuildResult
-```
----
-
-## Design Principles
-
-The implementation separates spatial processing into small, testable stages:
-
-| Object / Module | Responsibility |
-| --- | --- |
-| `AOIRequest` | Describes what AOI should be built and which normalization policy should be applied. |
-| `AOIBuildRequest` | API input wrapper combining the request specification and raw input `GeoDataFrame`. |
-| `AOINormalizer` | Converts raw input into a projected, valid, polygonal, policy-conformed AOI dataset. |
-| `AOINormalizationReport` | Audit record describing what the normalizer did and what changed. |
-| `NormalizedAOI` | Internal result containing the normalized `GeoDataFrame` and normalization report. |
-| `AOIPartBuilder` | Builds singlepart polygon `AOIPart` objects from the normalized AOI. |
-| `AOIPart` | Single AOI analysis unit with one-row `GeoDataFrame` and derived part-level properties. |
-| `AOIInspector` | Computes read-only AOI-wide properties from the normalized AOI and parts. |
-| `AOIProperties` | Derived spatial properties such as CRS, area, bounds, feature count, part count, vertex count, and Z/M flags. |
-| `AOIValidator` | Reports validation issues for AOIs that can be built but may not meet processing policy. |
-| `ValidationIssue` | One validation finding with `severity`, `code`, and `message`. |
-| `AOIValidationResult` | Roll-up of validation issues with convenience properties for errors, warnings, and info messages. |
-| `AreaOfInterest` | Canonical built AOI domain object used by downstream processing. |
-| `AOIBuildResult` | Success-only result containing the AOI, validation result, and normalization report. |
-
-
----
-
-## Basic Usage
+The following example uses the package within `ast_engine` and explicitly stops processing when validation returns errors:
 
 ```python
+import logging
+
 import geopandas as gpd
 
-from aoi import AOIBuilder, AOIRequest
-from aoi.models import AOIBuildRequest
+from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.exceptions import AOIValidationError
+
+logger = logging.getLogger(__name__)
 
 raw_gdf = gpd.read_file("path/to/aoi.gpkg")
 
+# Request configuration is validated here, during construction.
 spec = AOIRequest(
     aoi_id="aoi_001",
     name="Example AOI",
@@ -144,478 +32,434 @@ spec = AOIRequest(
     allow_overlaps=False,
 )
 
-request = AOIBuildRequest(
-    spec=spec,
-    raw_gdf=raw_gdf,
-)
+request = AOIBuildRequest(spec=spec, raw_gdf=raw_gdf)
+result = AOIBuilder().build_from_request(request)
 
-builder = AOIBuilder()
-result = builder.build_from_request(request)
-
-aoi = result.aoi
+for issue in result.warnings:
+    logger.warning("%s: %s", issue.code, issue.message)
 
 if result.has_errors:
-    for issue in result.errors:
-        print(f"ERROR {issue.code}: {issue.message}")
+    messages = "; ".join(
+        f"{issue.code}: {issue.message}" for issue in result.errors
+    )
+    # Caller policy: do not pass this AOI to downstream analysis.
+    raise AOIValidationError(messages)
 
-if result.has_warnings:
-    for issue in result.warnings:
-        print(f"WARNING {issue.code}: {issue.message}")
+aoi = result.aoi
 
 print(aoi.aoi_id)
 print(aoi.footprint_area_ha)
 print(aoi.part_count)
 ```
 
----
+The caller raises `AOIValidationError` in this example. The current builder does not automatically raise it for returned validation findings. A review interface can instead retain the result and display its issues.
 
-## Exception Handling Strategy
+Invalid request configuration raises `AOIRequestError` during construction. Failures within build stages raise `AOIBuildError`. Handle those exceptions at the application's service or user-interface boundary.
 
-The AOI builder uses a staged exception-handling strategy so failures can be reported with meaningful context. The intent is to preserve three levels of information:
+## Current implementation status
 
-1. **Root cause** — the low-level spatial, CRS, geometry, or unexpected Python error.
-2. **Module context** — the AOI submodule where the failure occurred.
-3. **Build-stage context** — the stage of the AOI build workflow that failed.
+| Area | Current behavior |
+| --- | --- |
+| Request model | Validates IDs, name, target CRS, dissolve configuration, and overlap policy during construction. |
+| Build request | Combines the specification and raw GeoDataFrame; rejects `None` for either field. |
+| Normalization | Cleans geometry, extracts polygon components, standardizes geometry columns, conforms CRS, applies policy, and records its effects. |
+| Part building | Produces one valid polygon per `AOIPart`, preserving CRS and attributes retained by normalization. |
+| Inspection | Computes footprint, parts-area, CRS, count, and geometry-complexity metadata. |
+| Baseline validation | Reports cleanup findings, disallowed overlaps, invalid geometry, non-positive area, part-count mismatch, slivers, and large parts. |
+| Build result | Returns the AOI, validation result, and normalization report when all build stages complete. |
+| Spatial-context and complexity rules | Planned. The injected `SpatialValidator` is stored but not invoked; maximum-vertex and hole rules are not implemented. |
 
-This makes it easier for callers, logs, and internal users to understand not only *what* failed, but *where* it failed.
+Baseline validation covers the implemented rules only. A valid result does not establish compliance with future regional, provincial, or project-specific rules.
 
-### Exception hierarchy
+## Workflow and responsibilities
 
-All AOI-specific exceptions inherit from `AOIError`.
+`AOIRequest` validates its own configuration before it is placed in an `AOIBuildRequest`. The builder then runs four stages in order:
 
-Shared spatial/data exceptions describe the underlying data problem:
-
-| Exception | Purpose |
-|---|---|
-| `SpatialDataError` | Base exception for missing, malformed, or unusable spatial input data. |
-| `DataCRSError` | Raised when spatial data has a missing, invalid, or incompatible CRS. |
-| `SpatialGeometryError` | Raised when geometry is missing, empty, invalid, or unsupported. |
-
-Module-level exceptions describe which AOI component failed:
-
-| Exception | Raised by |
-|---|---|
-| `AOINormalizationError` | `AOINormalizer` |
-| `AOIPartBuildError` | `AOIPartBuilder` |
-| `AOIInspectionError` | `AOIInspector` |
-| `AOIValidationError` | `AOIValidator` |
-| `AOIBuildError` | `AOIBuilder` |
-
-### Module-level wrapping
-
-Each major AOI submodule is responsible for wrapping failures in its own module-level exception before reporting the error back to the builder.
-
-For example, the inspector should report inspection failures as `AOIInspectionError`, even when the underlying root cause is a spatial data or geometry problem.
-
-```python
-try:
-    ...
-except AOIInspectionError:
-    raise
-
-except AOIError as exc:
-    raise AOIInspectionError(
-        "Failed to inspect normalized AOI properties."
-    ) from exc
-
-except Exception as exc:
-    raise AOIInspectionError(
-        "Unexpected error while inspecting normalized AOI properties."
-    ) from exc
-
-```
-
-This preserves the original error using Python exception chaining while still making it clear that the failure occurred during inspection.
-
-Example exception chain:
-
-```text
-AOIBuildError
-    caused by AOIInspectionError
-        caused by SpatialGeometryError
-```
-
-### Builder-level wrapping
-
-`AOIBuilder` is responsible for orchestrating the workflow and adding build-stage context. Each stage is executed through `_run_stage(...)`, which receives:
-
-* the stage name;
-* the AOI ID used for logging and reporting;
-* the operation to run;
-* the keyword arguments passed to that operation.
-
-The builder wraps AOI-specific failures in `AOIBuildError`.
-
-```python
-properties = self._run_stage(
-    stage="inspection",
-    build_aoi_id=spec.aoi_id,
-    operation=self.inspector.inspect,
-    gdf=normalized.gdf,
-    parts=parts,
-)
-```
-
-If inspection fails, the builder raises an `AOIBuildError` with the stage set to `"inspection"` while preserving the original module-level exception.
-
-### Why this matters
-
-Failures include the AOI ID, build stage, module exception type, and root cause.
-
-Example log context:
-
-```text
-AOI build stage failed |
-aoi_id=my_aoi |
-stage=inspection |
-error_type=AOIInspectionError |
-root_error_type=SpatialGeometryError |
-reason=Failed to inspect normalized AOI properties. |
-root_reason=Normalized AOI footprint is empty after union.
-```
-
-### Design rule
-
-The package follows this rule:
-
-```text
-Shared spatial/data exceptions describe the root problem.
-Module-level exceptions describe where the problem occurred.
-AOIBuildError describes which build stage failed.
-```
-
-For example:
-
-```text
-SpatialGeometryError
-    ↓ wrapped by
-AOIInspectionError
-    ↓ wrapped by
-AOIBuildError(stage="inspection")
-```
-
-This allows callers to catch one top-level exception, `AOIBuildError`, while still being able to inspect the exception chain for detailed diagnostics.
-
----
-
-## Request Model
-
-`AOIRequest` is the caller-facing specification for the AOI build.
-
-```python
-AOIRequest(
-    aoi_id="aoi_001",
-    name="Example AOI",
-    target_crs="EPSG:3005",
-    dissolve_mode="full_union",
-    dissolve_fields=(),
-    allow_overlaps=False,
-)
-```
-
-```mermaid
-flowchart TD
-    A[AOIRequest] --> B{dissolve_mode}
-
-    B -- full_union --> C[Dissolve all input features into one AOI footprint]
-    B -- by_fields --> D{dissolve_fields provided?}
-    B -- preserve_features --> E[Keep normalized source features as separate AOI features]
-
-    D -- Yes --> F[Dissolve by configured fields]
-    D -- No --> G[Raise AOIRequestError]
-
-    C --> H[Apply overlap policy]
-    E --> H
-    F --> H
-
-    H --> I{allow_overlaps?}
-    I -- True --> J[Overlaps may remain]
-    I -- False --> K[Overlaps must be resolved or rejected]
-```
-
-### `dissolve_mode`
-
-| Mode | Meaning | Typical Use |
+| Stage | Operation | Output |
 | --- | --- | --- |
-| `full_union` | Dissolve all input AOI features into one footprint. | Default canonical AOI build. |
-| `by_fields` | Dissolve input features by configured `dissolve_fields`. | Grouped AOI units where attributes define meaningful AOI groups. |
-| `preserve_features` | Keep normalized source features as separate AOI features. | Source features are meaningful processing units. |
+| `normalization` | `AOINormalizer.normalize_aoi(gdf, request)` | `NormalizedAOI`, containing geometry and its audit report. |
+| `part_building` | `AOIPartBuilder.build_parts(aoi_id=..., gdf=...)` | Tuple of singlepart `AOIPart` objects. |
+| `inspection` | `AOIInspector.inspect(gdf, parts)` | `AOIProperties`. |
+| `validation` | `AOIValidator.validate(gdf=..., report=..., parts=..., properties=...)` | `AOIValidationResult`. |
 
-### `allow_overlaps`
-
-`allow_overlaps=False` means overlapping AOI polygons are not allowed after policy application. If overlaps remain after normalization policy is applied, the normalizer detects unresolved overlaps and raises a normalization/spatial error that is ultimately wrapped by AOIBuildError at the builder boundary.
-
----
-
-## Normalization
-
-`AOINormalizer` is responsible for converting raw spatial input into a normalized AOI.
-
-Current responsibilities:
-
-- validate that the input is a usable `GeoDataFrame`;
-- drop null or empty geometries;
-- repair invalid geometries with `make_valid`;
-- extract polygonal geometry from repaired geometries;
-- drop non-polygonal components;
-- conform the AOI to the target projected CRS;
-- apply the configured AOI dissolve policy;
-- detect overlaps before and after policy application;
-- build an `AOINormalizationReport` to be consumed by the AOI validation module.
-
+After validation returns, the builder constructs `AreaOfInterest` and `AOIBuildResult`. The diagram shows which outputs each stage consumes:
 
 ```mermaid
 flowchart TD
-    A[Raw GeoDataFrame] --> B[Check GeoDataFrame]
-    B --> C{CRS present?}
-
-    C -- No --> C1[Raise CRS/data error]
-    C -- Yes --> D[Drop null and empty geometries]
-
-    D --> E[Repair invalid geometries]
-    E --> F[Extract polygonal geometry]
-    F --> G{Polygon geometry remains?}
-
-    G -- No --> G1[Raise geometry error]
-    G -- Yes --> H{Target CRS required?}
-
-    H -- Already target/projected --> I[Keep CRS]
-    H -- Needs reprojection --> J[Reproject to target CRS]
-
-    I --> K[Apply dissolve policy]
-    J --> K
-
-    K --> L{Dissolve mode}
-    L -- full_union --> M[Dissolve all features]
-    L -- by_fields --> N[Dissolve by configured fields]
-    L -- preserve_features --> O[Keep normalized features]
-
-    M --> P[Check overlap policy]
-    N --> P
-    O --> P
-
-    P[Check overlaps after policy] --> Q{Do overlaps remain?}
-
-    Q -- No --> R[Continue normalization]
-    Q -- Yes --> S{Are overlaps allowed?}
-
-    S -- Yes --> R
-    S -- No --> T[Raise AOINormalizationError]
-
-    R --> U[Build normalization report]
-    U --> V[Return NormalizedAOI]
+    Request["AOIBuildRequest"] --> Normalize["Normalize geometry"]
+    Normalize --> Normalized["NormalizedAOI"]
+    Normalized --> Parts["Build AOIPart tuple"]
+    Normalized --> Inspect["Inspect AOI"]
+    Parts --> Inspect
+    Normalized --> Validate["Validate AOI"]
+    Parts --> Validate
+    Inspect --> Validate
+    Validate --> Result["Assemble AOIBuildResult"]
 ```
 
----
+`NormalizedAOI` supplies the cleaned geometry and normalization report; the report accompanies the geometry into validation and the final result.
 
-## Normalization Report
+The responsibilities remain separate:
 
-`AOINormalizationReport` records the effects of normalization.
+- **Normalization** transforms input geometry and enforces its output contract.
+- **Part building** creates individual polygon analysis units.
+- **Inspection** computes metadata without applying quality thresholds.
+- **Validation** evaluates the supplied geometry, report, parts, and properties against baseline rules.
+- **The caller** decides what returned findings mean for downstream processing.
 
-Important fields include:
+### Module map
+
+| File | Responsibility |
+| --- | --- |
+| `aoi_builder.py` | Orchestration, dependency injection, stage failures, and build summaries. |
+| `models.py` | Request, AOI, part, property, report, validation, and build-result dataclasses. |
+| `normalizer.py` | Geometry cleaning, CRS conformity, dissolve policy, and strict output checks. |
+| `normalization_reporter.py` | Mutable reporting state and final immutable normalization report. |
+| `parts_builder.py` | Singlepart geometry and AOIPart construction. |
+| `inspector.py` | AOI-wide spatial and complexity metadata. |
+| `validator.py` | Baseline validation findings and the future spatial-validator injection point. |
+| `utils.py` | Shared GeoDataFrame/CRS checks, overlap detection, and vertex/Z/M helpers. |
+| `exceptions.py` | AOI exception hierarchy, build-stage metadata, and `root_cause()`. |
+| `constants.py` | Default CRS (`EPSG:3005`) and geometry column (`geometry`). |
+| `__init__.py` | Public builder and model exports. |
+
+Custom normalizers, inspectors, validators, and part builders may be supplied to `AOIBuilder`. Defaults are created only for arguments that are `None`.
+
+## Request and input contracts
+
+### AOIRequest
+
+| Field | Default | Contract |
+| --- | --- | --- |
+| `aoi_id` | Required | Non-empty string after trimming. |
+| `name` | Required | Non-empty string after trimming. |
+| `target_crs` | `"EPSG:3005"` | String accepted by pyproj; must be projected and use metres. |
+| `dissolve_mode` | `"full_union"` | One of `full_union`, `by_fields`, or `preserve_features`; case and surrounding whitespace are normalized. |
+| `dissolve_fields` | `()` | Tuple or list of strings, normalized to a trimmed tuple with blank entries removed. Duplicates are rejected after normalization. |
+| `allow_overlaps` | `False` | Boolean; controls whether overlaps may remain after policy application. |
+
+`by_fields` requires at least one dissolve field. The other modes reject non-empty dissolve fields. Existence of the named columns is checked during normalization, when the input data is available.
+
+The request exposes `target_crs_obj`, `target_epsg`, and `is_projected`. An EPSG code is optional: a custom metric projected CRS can be valid even when `target_epsg` is `None`.
+
+The current metre check examines the first CRS axis's unit name. Direct calls to lower-level helpers are not a substitute for request validation: some helpers check projection without checking metre units.
+
+### AOIBuildRequest and raw data
+
+`AOIBuildRequest` holds `spec: AOIRequest` and `raw_gdf: GeoDataFrame`. It rejects missing values but does not comprehensively validate their runtime types. Use the declared types; the normalizer performs the GeoDataFrame checks.
+
+Raw input must be a non-empty GeoDataFrame with an active geometry column and a defined CRS. It may contain null, empty, invalid, geographic, multipart, or mixed geometry that the normalizer can clean.
+
+At least one usable polygon must remain after repair and extraction. Lines and points are discarded; they are not automatically buffered into polygon AOIs. Prepare buffers upstream if those features are intended to define an area.
+
+## Normalization and dissolve policies
+
+The normalizer works on a copy of the input and performs these steps:
+
+1. Check the input GeoDataFrame and source CRS.
+2. Remove secondary columns with a geometry dtype and standardize the active geometry column name to `geometry`.
+3. Remove null and empty geometry.
+4. Repair invalid geometry with `make_valid`.
+5. Recursively extract polygons from collections and multipart geometry; discard non-polygon components and rows with no usable polygon.
+6. Reproject to the target CRS if the source and target are not equivalent.
+7. Check that the cleaned geometry is projected, valid, non-empty, and polygonal.
+8. Apply the requested dissolve policy and check overlaps before and after it.
+9. Check the normalized output and finalize its report.
+
+Geometry-column changes are recorded in report notes. If a non-geometry column already named `geometry` prevents renaming the active column, normalization fails rather than overwriting that attribute.
+
+A source being projected is not enough to skip reprojection: its CRS must match the requested target.
+
+### Dissolve behavior and retained attributes
+
+| Mode | Geometry behavior | Output attributes |
+| --- | --- | --- |
+| `full_union` | Union all cleaned features into one normalized feature. Its geometry may be a Polygon or MultiPolygon. | Geometry only. |
+| `by_fields` | Dissolve within the configured groups. Null grouping values are retained through `dropna=False`. | Dissolve fields and geometry only; other attributes are removed. |
+| `preserve_features` | Keep cleaned source rows without dissolving across rows. Repair and extraction may still change each row's geometry. | Non-geometry attributes plus the standardized active geometry column. |
+
+The active geometry column cannot be used as a dissolve field. Grouped dissolution can resolve overlaps within groups while leaving overlaps between different groups.
+
+### Overlap policy
+
+An overlap means that two features intersect with positive area. Shared edges and corner touches do not count. Spatial-index candidates reduce unnecessary comparisons; the helper still calculates intersection area for candidate pairs.
+
+Normalization uses an area tolerance of zero. `AOIRequest` does not currently expose a tolerance option.
+
+| Policy setting and output | Behavior |
+| --- | --- |
+| `allow_overlaps=False`, no overlaps remain | Continue. |
+| `allow_overlaps=False`, overlaps remain | Fail normalization; the builder raises `AOIBuildError`. |
+| `allow_overlaps=True`, overlaps remain | Continue and record the overlap state in the report. |
+
+Allowing overlaps does not force a policy to preserve them: `full_union` still unions the geometry. Allowed overlaps alone do not generate a validation warning.
+
+## Normalization report
+
+`AOINormalizationReportBuilder` accumulates events through named methods and checks that required values are populated. It then constructs a frozen `AOINormalizationReport`.
+
+The final report is available at `result.normalization_report`.
 
 | Field | Meaning |
 | --- | --- |
-| `input_feature_count` | Number of raw input features. |
-| `cleaned_feature_count` | Number of features remaining after geometry cleaning and polygon extraction. |
-| `output_feature_count` | Number of features after AOI policy application. |
+| `input_feature_count` | Raw input rows. |
+| `cleaned_feature_count` | Rows remaining after cleaning and polygon extraction. |
+| `output_feature_count` | Rows after dissolve policy. |
 | `input_crs` / `output_crs` | CRS before and after normalization. |
-| `null_or_empty_removed_count` | Number of null or empty geometries removed. |
-| `repair_input_feature_count` | Number of features evaluated for geometry repair. |
-| `repaired_feature_count` | Number of invalid geometries repaired. |
-| `polygon_extract_drop_count` | Number of non-polygonal components dropped. |
-| `policy_name` | Applied dissolve policy. |
-| `dissolve_fields_used` | Fields used for `by_fields` dissolve mode. |
-| `allow_overlaps` | Whether overlaps were allowed by request policy. |
-| `overlaps_detected_before_policy` | Whether overlaps existed before dissolve policy. |
-| `overlaps_present_after_policy` | Whether overlaps remained after dissolve policy. |
-| `overlaps_resolved_by_policy` | Whether the policy resolved overlaps. |
-| `was_reprojected` | Whether the AOI was reprojected during normalization. |
+| `was_reprojected` | Whether a CRS transformation was performed. |
+| `null_or_empty_removed_count` | Rows removed for null/empty geometry, including rows that become unusable after polygon extraction. |
+| `repair_input_feature_count` | Features examined for validity before repair/extraction. |
+| `repaired_feature_count` | Features that were invalid and passed through `make_valid`. |
+| `polygon_extract_input_feature_count` | Individual non-empty components examined after repair. |
+| `polygon_extract_output_feature_count` | Polygon components retained before union within the source feature. |
+| `polygon_extract_drop_count` | Non-polygon components discarded. |
+| `policy_name` / `dissolve_fields_used` | Dissolve configuration applied. |
+| `allow_overlaps` | Requested overlap policy. |
+| `policy_applied` | Whether policy application completed. |
+| `policy_input_feature_count` / `policy_output_feature_count` | Row counts before and after policy. |
+| `overlaps_detected_before_policy` | Whether overlap existed before policy. |
+| `overlaps_present_after_policy` | Whether overlap remained after policy. |
+| `overlaps_resolved_by_policy` | True when overlap existed before policy and none remained afterward. |
+| `notes` | Reprojection and geometry-column actions. |
 
----
+Despite their names, the `polygon_extract_*_feature_count` fields count components, not source rows. A nested collection can contain multiple retained or discarded components. Collection containers and empty components do not count.
 
-## AOI Parts
+A discarded component and a removed source row can describe the same cleanup event at different levels. Do not add the component and row counts together to estimate unique affected features.
 
-`AOIPartBuilder` builds one `AOIPart` per singlepart polygon in the normalized AOI.
+## AOI parts and properties
 
-Each `AOIPart` stores:
+### Singlepart analysis units
 
-- `part_id`;
-- `parent_aoi_id`;
-- `part_index`;
-- geometry type;
-- one-row `GeoDataFrame`;
-- bounds;
-- area in hectares;
-- vertex count;
-- Z/M flags.
+Each `AOIPart` contains one valid Polygon in a one-row GeoDataFrame. The part builder preserves the normalized CRS and the attributes retained by the dissolve policy.
 
----
+Parts include `part_id`, `parent_aoi_id`, `part_index`, `geom_type`, `gdf`, `bounds`, `area_ha`, `vertex_count`, `has_z`, and `has_m`. The `geometry` and `crs` properties provide convenient access to the part's spatial data.
 
-## Inspection and AOI Properties
+Part indexes are one-based. IDs use zero padding, such as `aoi_001_part_0001`, and follow normalized/exploded output order. They are not persistent identifiers for matching the same geometry across reordered builds.
 
-`AOIInspector` computes stable, read-only properties for the normalized AOI.
+### Inspection snapshot
 
-`AOIProperties` contains derived spatial metadata for the built `AreaOfInterest`. These values are calculated after normalization and part-building, and are intended to help downstream tools understand the AOI footprint, geometry complexity, CRS, and suitability for processing.
+`AOIInspector` computes a frozen `AOIProperties` snapshot after part building.
 
-| Property                   | Description                                                                                       | Why it matters                                                                                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `crs_epsg`                 | EPSG code for the AOI coordinate reference system, when one can be resolved.                      | Confirms the AOI is using the expected projected CRS for spatial analysis, area calculation, and overlay processing.                                              |
-| `crs_string`               | String representation of the AOI coordinate reference system.                                     | Provides a readable CRS value for logging, reporting, debugging, and cases where an EPSG code may not be available.                                               |
-| `footprint_area_ha`        | Area, in hectares, of the AOI footprint after full AOI union of all features has been applied. | Represents the effective AOI area or landbase area of coverage by the application.                                  |
-| `parts_area_ha`            | Combined area, in hectares, of all AOI parts.                                                     | Provides the total area of analysis by the application. If overlaps are preserved, this value may be greater than the footprint area (landbase) due to duplicate coverage amongst parts.                           |
-| `parts_to_footprint_ratio` | Ratio of `parts_area_ha` to `footprint_area_ha`.                                                  | Identifies whether AOI parts align cleanly with the final footprint. A value near `1.0` usually indicates no meaningful duplication or overlap between parts. |
-| `bounds`                   | Bounding box for the AOI as `(minx, miny, maxx, maxy)`.                                           | Useful for quick spatial indexing, map zooming, extent checks, and coarse spatial filtering before more expensive geometry operations.                            |
-| `feature_count`            | Number of features in the normalized AOI GeoDataFrame.                                            | Indicates how many normalized records remain after cleaning, polygon extraction, and dissolve policy processing.                                         |
-| `part_count`               | Number of `AOIPart` objects created from the normalized AOI.                                      | Represents the number of singlepart AOI units available for downstream processing. Multipart or preserved-feature AOIs may produce more than one part.            |
-| `geometry_type`            | Geometry type of the normalized AOI, such as `Polygon` or `MultiPolygon`.                         | Helps confirm that the AOI contains polygonal geometry suitable for area-based spatial processing.                                                                |
-| `vertex_count`             | Sum total number of vertices across all AOI part geometries.                                                 | Provides a measure of geometry complexity. High vertex counts can affect overlay performance and may trigger validation warnings or processing limits.            |
-| `max_vertices_per_part`    | Highest vertex count found on any individual AOI part.                                            | Helps identify a single complex part that may cause processing issues, even when the total AOI vertex count is acceptable.                                        |
-| `has_z`                    | Indicates whether any AOI part geometry contains Z coordinates.                                        | Flags 3D coordinate values. Most AOI processing is expected to be 2D, so Z values may be ignored or handled explicitly by downstream tools.                       |
-| `has_m`                    | Indicates whether any AOI geometry contains M values.                                             | Flags measured geometry values. M values are not typically used in AOI overlay processing but may be important to detect for data-quality awareness.              |
+| Property | Meaning |
+| --- | --- |
+| `crs_epsg` | Optional EPSG code (`int` or `None`). Its presence alone does not validate the target CRS or spatial location. |
+| `crs_string` | CRS representation for reporting and consumers that do not require an EPSG code. |
+| `footprint_area_ha` | Unique area of the union of all normalized features, in hectares. |
+| `parts_area_ha` | Sum of all part areas, including duplicate coverage where parts overlap. |
+| `parts_to_footprint_ratio` | `parts_area_ha / footprint_area_ha`; expresses duplicated area coverage. |
+| `bounds` | `(minx, miny, maxx, maxy)` in target-CRS coordinates. |
+| `feature_count` | Number of normalized GeoDataFrame rows. |
+| `part_count` | Number of singlepart AOIPart objects. |
+| `geometry_type` | `Polygon`, `MultiPolygon`, or a mixed-type description when normalized rows contain both types. |
+| `vertex_count` | Sum of coordinates across all part rings, including holes and repeated closing coordinates. |
+| `max_vertices_per_part` | Largest vertex count in an individual part. |
+| `has_z` / `has_m` | Whether any part reports Z/M coordinates through the installed geometry library. |
 
+The inspector calculates unioned footprint area for every dissolve mode; this calculation does not replace the normalized features. A single multipart normalized feature can therefore have `feature_count=1` and several AOI parts.
 
----
+For example, two overlapping 1 ha parts with a unique footprint of 1.5 ha have `parts_area_ha=2.0` and a ratio of approximately `1.3333`. The ratio describes area duplication; it does not validate external boundaries or replace the overlap policy.
+
+Area conversion divides square metres by 10,000 and depends on the metric target-CRS contract. Z/M metadata does not imply three-dimensional area calculations or guaranteed preservation of those ordinates through every spatial operation. A missing Z/M attribute is reported as false by the helper.
+
+### Mutability
+
+`AOIRequest`, `AOIProperties`, `AOIPart`, `AOINormalizationReport`, `ValidationIssue`, `AOIValidationResult`, and `AOIBuildResult` are frozen dataclasses. `AOIBuildRequest` is also frozen. `AreaOfInterest` and the contained GeoDataFrames remain mutable.
+
+Freezing a dataclass prevents reassignment of its fields; it does not freeze a contained GeoDataFrame. Changing geometry can make stored areas, counts, bounds, or validation findings stale. Treat built AOI geometry as a snapshot, or rebuild/recompute its metadata after changes.
 
 ## Validation
 
-`AOIValidator` is intentionally separate from normalization and inspection.
+The validator consumes normalized geometry, its report, parts, and inspected properties. It expects these inputs to be present. It does not currently produce `NO_GDF`, `NO_PROPERTIES`, `NO_PARTS`, or `NO_NORMALIZATION_REPORT` findings.
 
-The current validator reports issues for AOIs that were successfully built. It does not currently accept spatial validation context layers.
+The normal builder workflow establishes usable inputs through earlier stages. Direct callers must provide those inputs themselves.
 
-### Currently implemented checks
+### Implemented findings
 
-| Check | Example Code | Current Severity |
+| Check | Code | Severity |
 | --- | --- | --- |
-| Missing or empty AOI `GeoDataFrame` | `NO_GDF` | error |
-| Missing properties | `NO_PROPERTIES` | error |
-| Missing parts | `NO_PARTS` | error |
-| Missing normalization report | `NO_NORMALIZATION_REPORT` | error |
-| Overlaps remain after policy when overlaps are not allowed | `OVERLAPS_PRESENT` | error |
-| Null, empty, or non-polygonal features removed during normalization | `NULL_OR_NON_POLYGONS_REMOVED` | warning |
-| Invalid geometry remains | `INVALID_GEOMETRY` | error |
-| AOI has zero or negative area | `ZERO_AREA` | error |
-| Inspector part count does not match built parts | `PART_COUNT_MISMATCH` | error |
-| Part is below sliver threshold | `ZERO_AREA_OR_SLIVER_PART` | error |
-| Part exceeds large-area threshold | `LARGE_PART` | error |
+| Report indicates disallowed overlaps remain | `OVERLAPS_PRESENT` | Error |
+| Null, empty, or non-polygon geometry was removed | `NULL_OR_NON_POLYGONS_REMOVED` | Warning |
+| Invalid geometry remains | `INVALID_GEOMETRY` | Error |
+| Footprint or summed parts area is zero or negative | `ZERO_AREA` | Error |
+| Recorded part count differs from the supplied parts | `PART_COUNT_MISMATCH` | Error |
+| Part area is **at or below 0.1 ha** | `ZERO_AREA_OR_SLIVER_PART` | Error |
+| Part area is **at or above 10,000 ha** | `LARGE_PART` | Error |
 
-### Validation work in progress
+Threshold checks report issues; they do not delete slivers or split large parts. The threshold values and severities are currently module constants.
 
-The validation layer is the least stable part of the AOI builder design. The current intent is to expand it without changing the responsibilities of the normalizer, part builder, or inspector.
+The overlap rule is defensive: with the standard normalizer, disallowed overlaps already fail the normalization stage. Invalid geometry and some area checks also defend assumptions established by earlier stages.
 
-Planned validation work includes:
+`ValidationIssue` normalizes severity to lowercase, codes to uppercase, and surrounding message whitespace. Unsupported severity or blank code/message values raise `ValueError` during issue construction.
 
-- maximum vertex count per part;
-- geometry complexity checks, including holes/donuts;
-- AOI overlap with a provincial or project footprint;
-- AOI partially outside expected processing bounds;
-- AOI crossing sub-unit or management-unit boundaries (region, zone, district, etc.);
-- AOI outside an expected sub-unit layer;
-- configurable severity by validation rule;
-- optional spatial validation context supplied by the caller or application layer.
+### Validation result
 
-Until this is implemented, downstream callers should treat `AOIValidationResult` as a baseline quality report, not as the final policy gate for all spatial processing rules.
+`AOIValidationResult` stores issues and derives its status from them:
 
+| Property | Meaning |
+| --- | --- |
+| `is_valid` | No error-severity issues exist. Warnings and informational issues do not make it false. |
+| `has_errors` | At least one error exists. |
+| `has_warnings` | At least one warning exists. |
+| `errors` / `warnings` / `infos` | Issues filtered by severity. |
 
-```mermaid
-flowchart LR
-    A[Current AOIValidator] --> B[Baseline validation]
+`AOIBuildResult` exposes the same convenience properties and retains the full validation result at `result.validation`.
 
-    B --> B1[Object presence]
-    B --> B2[Normalization report checks]
-    B --> B3[Overlap policy checks]
-    B --> B4[Geometry validity]
-    B --> B5[Area and sliver checks]
-    B --> B6[Large part checks]
+### Planned validation
 
-    A --> C[Planned spatial-context validation]
+These rules are not implemented:
 
-    C --> C1[Provincial/project footprint]
-    C --> C2[Regional boundary crossing]
-    C --> C3[Expected sub-unit checks]
-    C --> C4[Vertex complexity]
-    C --> C5[Hole/donut checks]
-    C --> C6[Configurable severity]
-```
+- provincial or project-footprint checks;
+- expected-region, district, zone, or management-unit checks;
+- boundary crossing and AOI extent policy;
+- maximum-vertex and hole/donut checks;
+- configurable severity and threshold values;
+- use of caller-supplied spatial validation context.
 
----
+`MAX_VERTICES = 10_000` is declared but not enforced. Vertex properties are currently informational metadata.
 
-## Build Result and Error Boundary
+`AOIValidator(spatial_validator=...)` stores the supplied object without invoking it. The current source imports `SpatialValidator` from `ast_engine.core.validation.spatial_validation` at runtime, so that module must be available to import this package. The injection point does not yet provide spatial-context validation.
 
-`AOIBuildResult` currently represents a successful build. If the AOI cannot be built, `AOIBuilder` raises `AOIBuildError`.
+## Build result and error boundary
 
-This means there are two categories of failure:
+`AOIBuildResult` contains `aoi`, `validation`, and `normalization_report`. It represents completion of all build stages, not an assertion that validation passed.
 
-| Category | Behavior | Examples |
-| --- | --- | --- |
-| Fatal build failure | Raises `AOIBuildError` | Missing CRS, invalid target CRS, empty input, no polygonal geometry after cleaning, part-building failure. |
-| Validation issue | Returned in `AOIValidationResult` | Remaining overlaps, sliver parts, large parts, normalization warnings. |
-
-Caller pattern:
-
-```python
-try:
-    result = builder.build_from_request(request)
-except AOIBuildError as exc:
-    # AOI could not be built.
-    raise
-
-if result.has_errors:
-    # AOI was built, but validation found policy or quality errors. Did not meet specification.
-    pass
-
-if result.has_warnings:
-    # AOI was built and may be usable after review. Could cause performance issue downstream.
-    pass
-```
+| Outcome | Behavior |
+| --- | --- |
+| Invalid request configuration, including invalid/non-metric target CRS | `AOIRequestError` during request construction. |
+| Missing `spec` or `raw_gdf` in a build request | `AOIRequestError` during build-request construction. |
+| Stage cannot complete, such as missing input CRS, no usable polygons, or disallowed remaining overlaps | `AOIBuildError`; no result is returned. |
+| Validation execution raises an exception | `AOIBuildError` with stage `validation`; no result is returned. |
+| Stages complete with validation errors | Result has `has_errors=True` and `is_valid=False`. |
+| Stages complete with warnings but no errors | Result has `has_warnings=True` and `is_valid=True`. |
+| Stages complete without validation errors | Result has `is_valid=True`; the caller applies any remaining processing rules. |
 
 ```mermaid
 flowchart TD
-    A[Caller requests AOI build] --> B[AOIBuilder.build_from_request]
-
-    B --> C{Fatal build failure?}
-
-    C -- Yes --> D[Raise AOIBuildError]
-    D --> E[No AOIBuildResult returned]
-
-    C -- No --> F[Build AreaOfInterest]
-    F --> G[Run AOIValidator]
-    G --> H[Create AOIBuildResult]
-
-    H --> I{Validation issues?}
-
-    I -- Errors --> J[AOIBuildResult.has_errors = True]
-    I -- Warnings only --> K[AOIBuildResult.has_warnings = True]
-    I -- No issues --> L[AOIBuildResult.is_valid = True]
-
-    J --> M[Caller decides whether to stop]
-    K --> M
-    L --> N[Safe to continue downstream]
+    Request["Construct request"] --> Accepted{"Request accepted?"}
+    Accepted -- No --> RequestError["AOIRequestError"]
+    Accepted -- Yes --> Build["Run build stages"]
+    Build --> Complete{"Stages completed?"}
+    Complete -- No --> BuildError["AOIBuildError"]
+    Complete -- Yes --> Result["AOIBuildResult"]
+    Result --> Errors{"has_errors?"}
+    Errors -- Yes --> Review["Caller stops or reviews"]
+    Errors -- No --> Policy["Caller applies remaining policy"]
 ```
 
----
+The stage wrapper covers the four operations listed in the workflow table. It is not a catch-all around malformed untyped calls: initial request access and final object assembly occur outside `_run_stage()`.
 
-## Logging Boundary
+## Exception handling
 
-Logging should remain concentrated at useful stage boundaries.
+AOI domain exceptions share the `AOIError` base class:
 
-| Layer | Logging Responsibility |
+| Exception | Role |
 | --- | --- |
-| `AOINormalizer` | Geometry cleaning counts, CRS conformity, policy applied, overlap state. |
-| `AOIPartBuilder` | Part count, total part area, total vertices, Z/M flags. |
-| `AOIInspector` | Footprint area, parts area, ratio, bounds, vertex counts. |
-| `AOIValidator` | Number and type of validation issues. |
-| `AOIBuilder` | Build start, successful completion, validation summary, wrapped fatal build errors. |
+| `AOIRequestError` | Invalid request configuration. |
+| `SpatialDataError` | Missing, malformed, or unusable spatial input. |
+| `DataCRSError` | A `SpatialDataError` for CRS problems. |
+| `SpatialGeometryError` | A `SpatialDataError` for geometry problems. |
+| `AOINormalizationError` | Expected normalization failures. |
+| `AOIPartBuildError` | Expected part-building failures. |
+| `AOIInspectionError` | Expected inspection failures. |
+| `AOIValidationError` | Available to callers enforcing validation policy; the current validator does not raise it for findings. |
+| `AOIBuildError` | Build-stage failure, with optional `stage` and `aoi_id` metadata. |
 
-Lower-level modules raise clear domain exceptions; the builder should wrap expected AOI exceptions as `AOIBuildError` for callers.
+Normalization, part building, and inspection wrap their expected data/domain failures and preserve their causes using `raise ... from exc`. They allow unexpected exceptions to reach the builder. The validator currently returns findings without its own stage-specific exception wrapping.
 
----
+`AOIBuilder._run_stage()` wraps expected AOI errors and unexpected exceptions in `AOIBuildError`. An existing `AOIBuildError` is re-raised unchanged.
 
-## Internal Notes / Next Steps
+For a missing source CRS, a typical chain is:
 
-These items will be resolved as the module stabilizes:
+| Level | Exception | Information |
+| --- | --- | --- |
+| Builder | `AOIBuildError` | AOI ID and `stage="normalization"`. |
+| Module | `AOINormalizationError` | Normalization context. |
+| Root cause | `DataCRSError` | Input CRS is missing. |
 
-1. Finalize the validation-context design.
-2. Add unit tests for each stage using low-level geometry fixtures.
-3. Add integration tests for spatial-context validation once regional/provincial validation layers are introduced.
-4. Update README.md with any changes made, particularly the validation process.
+Use `exc.__cause__` for the immediate wrapped exception and `root_cause(exc)` for the deepest explicit cause. The helper follows `__cause__`; it does not traverse implicit `__context__` links.
+
+```python
+from ast_engine.core.aoi.exceptions import AOIBuildError, root_cause
+
+try:
+    result = builder.build_from_request(request)
+except AOIBuildError as exc:
+    cause = root_cause(exc)
+    # The application can present this context to the user or record it.
+    failure_details = {
+        "aoi_id": exc.aoi_id,
+        "stage": exc.stage,
+        "cause_type": type(cause).__name__,
+        "reason": str(cause),
+    }
+    raise
+```
+
+This fragment assumes `builder` and a correctly constructed `request` already exist. Request-construction failures are handled separately as `AOIRequestError`.
+
+## Logging
+
+Modules obtain loggers with `logging.getLogger(__name__)`. The application configures handlers, formatting, and levels.
+
+| Component | Actual logging behavior |
+| --- | --- |
+| Normalization reporter | Debug summaries of cleanup, CRS, policy counts, and overlap state. |
+| Part builder | Debug summary of part count, area, vertices, and Z/M flags. |
+| Inspector | Debug summary of spatial properties and complexity. |
+| Validator | Returns issues; currently does not emit a validation summary itself. |
+| Builder | Info messages for build start/completion and passed or warning-only validation summaries; warning-level summary when validation contains errors. |
+| Builder stage wrapper | Error log for expected AOI failures, root traceback at debug level; exception log with traceback for unexpected failures. |
+
+The builder's validation summary reports counts. Callers can present or log individual issue codes/messages as needed. Avoid logging the same traceback again at every layer.
+
+## Testing
+
+The AOI suite uses generated geometry and in-memory GeoDataFrames to test behavior with known areas, bounds, overlap, and multipart structure. Shared geometry helpers are tested separately so changes to test data do not silently change the scenarios exercised by the AOI tests.
+
+| Test module | Behaviors exercised |
+| --- | --- |
+| `test_aoi_request.py` | Defaults; string and field normalization; invalid input types; supported policies; metric projected CRS requirements; custom CRS without EPSG; immutable request fields. |
+| `test_aoi_normalizer.py` | Null/empty removal; invalid-polygon repair; nested collection extraction and counts; secondary geometry removal; active-column standardization; reprojection; all dissolve policies; null groups; overlaps; source preservation. |
+| `test_aoi_normalization_reporter.py` | Accumulated counts and notes; required reporting steps; overlap-resolution state; CRS metadata; immutable completed reports; isolation between runs. |
+| `test_aoi_parts_builder.py` | Singlepart output; ordered padded IDs; row-index independence; attributes and dtypes; CRS; holes and vertices; Z and conditional M preservation; source/sibling isolation; invalid inputs. |
+| `test_aoi_inspector.py` | Unioned footprint versus summed part areas; area ratios; feature/part counts; bounds; custom CRS; vertex and Z/M aggregation; unchanged inputs; stage exceptions. |
+| `test_aoi_builder_orchestration.py` | Correct stage order and arguments; result assembly; returned validation findings; exception chains and stage metadata; stopping later stages after failure; default and explicitly supplied dependencies. |
+| `test_aoi_builder.py` | AOI stages together for union, multipart splitting, large-part findings, missing CRS, and disallowed overlaps. |
+| `test_aoi_geometry.py` | Geometry-factory shapes, dimensions, negative scenarios, attributes, and fresh independent GeoDataFrames. |
+
+The component tests exercise individual AOI responsibilities. Orchestration tests use mocked dependencies to check the builder independently of spatial calculations. Workflow tests run the real stages together on generated input. All supplied modules currently carry the `unit` marker.
+
+### Running the suite
+
+Run from the repository root using the project environment. The `ast_engine` package and its shared test helpers must be importable.
+
+```bash
+uv run pytest ast_engine/tests/unit/aoi --collect-only -q
+uv run pytest ast_engine/tests/unit/aoi -q -ra
+```
+
+The first command shows which tests are collected; the second runs them and reports non-passing outcomes, including skip reasons.
+
+The tests require the shared modules under `ast_engine.tests.helpers`, including `aoi_geometry`, `aoi_requests`, and `aoi_assertions`. Running only a copied AOI test folder without these helpers does not provide the complete test environment.
+
+## Migration from the prototype
+
+| Previous use | Current use |
+| --- | --- |
+| `builder.from_gdf(spec, raw_gdf)` | `builder.build_from_request(AOIBuildRequest(spec=spec, raw_gdf=raw_gdf))` |
+| Returned `AreaOfInterest` | `result.aoi` |
+| `raise_errors=True/False` | Caller checks `result.has_errors` and applies its stop/continue policy. |
+| `aoi.validation` | `result.validation` |
+| `aoi.normalization_report` | `result.normalization_report` |
+| `overlay_area_ha` | `parts_area_ha` |
+| `AOIValidationResult(is_valid=..., issues=...)` | `AOIValidationResult(issues=...)` |
+| Positional `build_parts(aoi_id, gdf)` | Keyword-only `build_parts(aoi_id=..., gdf=...)` |
+| Unpadded part IDs | Zero-padded IDs based on output order. |
+
+Also review consumers of grouped attributes, null groups, geometry-column names, and EPSG codes. Update direct AOI/part/property construction in tests for the expanded model fields. The old `AOIGeometryError` and `AOIGeometryTypeError` classes have been replaced by the shared spatial geometry exception hierarchy.
+
+## Internal next steps
+
+1. Finalize spatial-context validation and its interface before invoking the injected validator.
+2. Decide whether `SpatialValidator` should remain a runtime import while it is used only for annotations and storage.
+4. Verify downstream callers stop or continue according to their intended policy, including at the exact sliver/large-area thresholds.
