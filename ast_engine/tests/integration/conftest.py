@@ -27,8 +27,7 @@ from pathlib import Path
 import geopandas as gpd
 import pytest
 
-from ast_engine.core.aoi.aoi_builder import AOIBuilder
-from ast_engine.core.aoi.models import AOIRequest, AreaOfInterest, AOIBuildRequest
+from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
 from ast_engine.core.data_adapters.oracle import OracleAdapter, OracleConnection
 
 
@@ -56,9 +55,7 @@ def aoi(aoi_gdf) -> AreaOfInterest:
         name="Integration AOI",
         target_crs="EPSG:3005",
     )
-    build_request = AOIBuildRequest(spec=request, raw_gdf=aoi_gdf)
-    built_aoi = AOIBuilder().build_from_request(build_request)
-    return built_aoi.aoi
+    return AOIBuilder().from_gdf(request, aoi_gdf)
 
 
 @pytest.fixture(scope="session")
