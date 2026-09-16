@@ -145,8 +145,13 @@ def main() -> None:
                         stage="reading the dataset",
                         reason=utils.short_reason(e),
                     ))
-        utils.log_skipped(skipped, len(datasets))
-        registry = utils.RegistryBuilder(base_datasets_list, skipped=skipped).build()
+                    utils.log_skipped(skipped, len(datasets))
+                    registry = utils.RegistryBuilder(base_datasets_list, skipped=skipped).build()
+                    logger.warning(f"Warning: skipping {dataset.name} due to a read error: {e}")
+                    continue
+        registry = utils.RegistryBuilder(base_datasets_list).build()
+        # registry = models.Registry(version="0.1", datasets=base_datasets_list)
+        print(f"Dumping registry to {yaml_out}")
         utils.dump_yaml(registry, Path(yaml_out))
         logger.info(
             "Wrote %s: %d datasets, %d skipped", yaml_out, len(base_datasets_list), len(skipped)
