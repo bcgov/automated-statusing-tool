@@ -3,9 +3,35 @@ import json
 import logging
 
 import redis
+from rq import Queue
 from fastapi import Depends, FastAPI, HTTPException, status
-from ast_api.models import CreateJobs, JobDatabase, JobQue
+from ast_api.models import CreateJob, JobQueItem, JobPayload
+from ast_api.database import create_table, create_job
 from ast_engine.config.logging_config import setup_logging
+from ast_api.utils import _get_all_jobs
+from contextlib import asynccontextmanager
+
+
+
+'''
+This is the main entry point for the FastAPI backend connection to the AST engine. It sets up logging, 
+initializes a Redis client, and defines API endpoints for managing jobs in the queue. 
+
+The endpoints allow users to create new jobs, retrieve job details, and list all jobs in the queue. 
+The job data is stored in Redis, and the API uses Pydantic models for data validation and serialization.
+
+Payload = references the json FROM the api 
+
+Redis endpoints 
+(Post Que Item) Payload -> Que
+(Get Que Item) Que -> Return
+
+Database endpoints 
+(Post Job) Payload -> Database
+(Get Job) Database -> Return
+
+'''
+
 
 setup_logging()
 logger = logging.getLogger("ast_api.main")
@@ -15,83 +41,74 @@ from ast_engine.config.logging_config import setup_logging
 setup_logging()
 logger = logging.getLogger("ast_api")
 
+
+#set up Redis client e
 redis_client=redis.Redis(host='localhost', port=6379, decode_responses=True)
 
 
-#need to change this? 
-def get_db(): 
-    yield redis_client
-
 app = FastAPI()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Creating database tables...")
+    create_table()
+    yield
 
-# Helper function to avoid code duplication
-def _get_all_jobs(db: redis.Redis) -> list[dict]:
-    raw_jobs = db.lrange("jobs_queue", 0, -1)
-    return [json.loads(j) for j in raw_jobs]
+app = FastAPI(lifespan=lifespan)
 
-"""Post a new item to the queue. This will create a new job in the Redis queue and return the job details."""
-@app.post(
-    "/api/queue",
-    response_model=JobQue,
-    status_code=status.HTTP_201_CREATED,
+
+'''Post a new item to the queue AND database. This will create a new job in the Redis queue and sql liteand return the job details.'''
+@app.post("/api/payload_dump", status_code=status.HTTP_201_CREATED)
+def create_job_in_queue_and_db(
+    request: JobPayload,
+    queue: redis.Redis = Depends(lambda: redis_client),
+):
+    job_id = f"job_{len(_get_all_jobs(queue)) + 1}"
+
+    job_data = request.job.model_dump()
+    job_item = request.item.model_dump()
+
+    job_data["job_id"] = job_id
+    job_item["job_id"] = job_id
+
+    create_job(CreateJob(**job_data))
+
+    queue.rpush(
+        "jobs_queue",
+        json.dumps(job_item)
+    )
+
+    return {
+        "job": job_data,
+        "item": job_item
+    }
+
+@app.get(
+    "/api/jobs",
+    response_model=list[JobQueItem],
+    status_code=status.HTTP_200_OK,
 )
+def get_all_jobs(queue: redis.Redis = Depends(lambda: redis_client)):
+    jobs = _get_all_jobs(queue)
+    return [JobQueItem(**job) for job in jobs]
 
-@app.post(
-    "api/jobs", 
-    response_model=JobDatabase,
+@app.get(
+    "/api/jobs/{job_id}",
+    response_model=JobQueItem,
+    status_code=status.HTTP_200_OK,
 )
-def create_que_item(job: CreateJobs, db: redis.Redis = Depends(get_db)):
-    logger.info("Creating job for AOI %s in region %s", job.area_of_interest, job.region.value)
-    jobs = _get_all_jobs(db)
+def get_job_by_id(job_id: str, queue: redis.Redis = Depends(lambda: redis_client)):
+    jobs = _get_all_jobs(queue)
+    job = next((job for job in jobs if job["job_id"] == job_id), None)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    return JobQueItem(**job)
 
-    try:
-        existing_ids = [
-            int(j["job_id"]) for j in jobs if isinstance(j, dict) and "job_id" in j and str(j["job_id"]).isdigit()
-        ]
-        new_id = max(existing_ids, default=0) + 1
-
-        new_job = {
-            "job_id": str(new_id),
-            "region": job.region.value,
-            "area_of_interest": job.area_of_interest,
-            "crown_file_number": job.crown_file_number,
-            "disposition_number": job.disposition_number,
-            "parcel_number": job.parcel_number,
-            "output_directory": job.output_directory,
-            "status": "Pending",
-        }
-
-        # Persist directly into the Redis queue
-        db.rpush("jobs_queue", json.dumps(new_job))
-        logger.info("Job created successfully: %s", new_job["job_id"])
-        return JobDatabase.model_validate(new_job)
-    except Exception:
-        logger.exception("Failed to create job")
-        raise
-
-
-@app.get("/api/jobs", response_model=list[JobDatabase])
-def get_jobs(db: redis.Redis = Depends(get_db)):
-    logger.info("Listing all jobs")
-    return [JobDatabase.model_validate(job) for job in _get_all_jobs(db)]
-
-
-@app.get("/api/jobs/{job_id}", response_model=JobDatabase)
-def get_job(job_id: str, db: redis.Redis = Depends(get_db)):
-    logger.info("Looking up job %s", job_id)
-    jobs = _get_all_jobs(db)
-
-    for job in jobs:
-        if str(job.get("job_id")) == str(job_id):
-            logger.info("Job %s found", job_id)
-            return JobDatabase.model_validate(job)
-    logger.warning("Job %s not found", job_id)
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
-
-
-
-@app.get("/api/que", response_model=JobQue)
-def get_payload(job_id: str, db: redis.Redis = Depends(get_db)):
-    logger.info("Looking up payload %s", job_id)
-    # fill this out 
+@app.get("/api/debug/queue")
+def get_queue(
+    queue: redis.Redis = Depends(lambda: redis_client)
+):
+    return [
+        json.loads(item)
+        for item in queue.lrange("jobs_queue", 0, -1)
+    ]

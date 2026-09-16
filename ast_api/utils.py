@@ -1,8 +1,8 @@
-#I think that this will be where all 
-# connections to Redis and SQL Lite/ Postgress will go! 
 
-# i.e. 
+import json
+import redis
 
-# make connection to Redis/database
-# 
-# implement this in routers or somewhere else! 
+
+def _get_all_jobs(db: redis.Redis) -> list[dict]:
+    raw_jobs = db.lrange("jobs_queue", 0, -1)
+    return [json.loads(j) for j in raw_jobs]
