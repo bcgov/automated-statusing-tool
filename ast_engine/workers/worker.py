@@ -60,7 +60,7 @@ def publish_results(job: AstJob, ast_results: AstResults):
     for dataset_group in ast_results.results:
         for result in dataset_group.results:
             if result.spatial_link:
-                operator_output = OperatorArtifact(registry="blablabla",operator=result.operator_type,dataset_name=dataset_group.dataset_name,path=result.spatial_link)
+                operator_output = OperatorArtifact(registry=result.registry,operator=result.operator_type,dataset_name=dataset_group.dataset_name,path=result.spatial_link)
                 operator_outputs.append(operator_output)
     
     completed_at = datetime.now(UTC).isoformat()

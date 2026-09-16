@@ -27,6 +27,7 @@ class OperatorType(str, Enum):
 class BaseOperatorResult(BaseModel):
     # Do not instantiate directly; use operator‑specific subclasses.
     analysis_timestamp: datetime = Field(default_factory=partial(datetime.now,tz=UTC))
+    registry: str | None = None
     operator_type: OperatorType
     features: List[FeatureRecord] = Field(default_factory=list)
     # path to the saved spatial output; set by the orchestrator, not the operator

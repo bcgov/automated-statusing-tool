@@ -350,6 +350,7 @@ def _run_operator(task: AnalysisTask, aoi: AreaOfInterest, adapter: BaseSpatialA
     common = dict(
         aoi=aoi,
         adapter=adapter,
+        registry=task.source_registry,
         feature_id_field=task.feature_id_field,
         keep_properties=task.keep_properties or None,
         where=task.where,
