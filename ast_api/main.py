@@ -23,7 +23,7 @@ logger = logging.getLogger("ast_api")
 redis_client=redis.Redis(host='localhost', port=6379, decode_responses=True)
 
 
-
+#need to change this? 
 def get_db(): 
     yield redis_client
 
@@ -65,6 +65,8 @@ def jobs_list(request: Request, db: redis.Redis = Depends(get_db)):
 @app.post("/jobs", include_in_schema=False)
 def submit_job(
     request: Request,
+    user: str = Form(...),
+    date: str = Form(...),
     region: str = Form(...),
     area_of_interest: str = Form(...),
     crown_file_number: str = Form(...),
@@ -79,6 +81,8 @@ def submit_job(
     db: redis.Redis = Depends(get_db),
 ):
     payload = CreateJobs(
+        user=user,
+        date=date,
         region=Regions(region),
         area_of_interest=area_of_interest,
         crown_file_number=crown_file_number,

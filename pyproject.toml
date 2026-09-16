@@ -20,6 +20,8 @@ dependencies = [
     "boto3>=1.43.36",
     "redis>=8.1.0",
     "fastapi>=0.141.1",
+    "redis>=8.1.0",
+    "dataclasses>=0.8",
 ]
 
 [build-system]
