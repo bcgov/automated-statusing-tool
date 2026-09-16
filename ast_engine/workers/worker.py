@@ -1,21 +1,26 @@
+import os
 import logging
 from pathlib import Path
 import geopandas as gpd
 from datetime import datetime, UTC
-from io import StringIO
 from uuid import UUID
 from enum import StrEnum
-from typing import Optional, Any
+from typing import Optional, Any, Iterable
 from pydantic import BaseModel
 
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
 from ast_engine.core.execution import run_analysis, build_tasks
 from ast_engine.core.results import AstResults
+from ast_engine.core.data_adapters.oracle import OracleConnection
+from ast_engine.utils.diagnostics import DiagnosticTracker
 from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, JobStorageContext
 from ast_engine.storage.models import OperatorArtifact
 from ast_engine.config.settings import Settings
+from ast_engine.config.logging_config import setup_logging
 
+
+setup_logging()
 logger = logging.getLogger(__name__)
 settings = Settings()
 
@@ -29,7 +34,7 @@ class JobStatus(StrEnum):
 #Payload structure TODO: ensure aoi crs is same as api and frontend
 class AstJob(BaseModel):
     job_id: UUID
-    registries: list[str, Any]
+    registries: Iterable[tuple[str, Any]]
     created_at: Optional[str] = None
     user: str
     aoi_id: str
@@ -45,7 +50,7 @@ def publish_results(job: AstJob, ast_results: AstResults):
     job.status = JobStatus.PUBLISHING
 
     # hey -- AstResults is a Pydantic model, so we can serialize it to JSON directly
-    output_dir = Path(settings.temp_dir) / job.job_id
+    output_dir = Path(settings.temp_dir) / str(job.job_id)
     output_dir.mkdir(parents=True, exist_ok=True)
     raw_results_file = output_dir / "raw_results.json"
     raw_results_file.write_text(ast_results.model_dump_json())
@@ -93,27 +98,36 @@ def run_worker(job: AstJob, publish: bool = False):
     job.status = JobStatus.PROCESSING
     
     try:
+        # Create database connection
+        # TODO: update this when connection details are within settings
+        conn = OracleConnection(username=os.getenv("BCGW_USER"),password=os.getenv("BCGW_PASSWORD"),hostname="bcgw.bcgov:1521/idwprod1.bcgov")
         # Form the AOI
         # TODO: Is from features what we want to use here?Coordinate with API
-        gdf = gpd.read_file(StringIO(job.aoi))
+        gdf = gpd.GeoDataFrame.from_features(job.aoi["features"])
+
+        logging.info("Setting AOI area of interest to EPSG:4326")
+        gdf.crs ="EPSG:4326"
+        logger.debug("AOI GeoDataFrame has crs %s", str(gdf.crs))
         
         request = AOIRequest(aoi_id=job.aoi_id, name=job.aoi_name, target_crs= settings.system_crs)
         aoi = AOIBuilder().from_gdf(request, gdf)
 
-        # TODO: Are registries a list provided by the api. 
-        # Perhaps they should be appended to a base config registry
         tasks = build_tasks(job.registries)
-        
+        tracker = DiagnosticTracker()
         # engage engine
         ast_results = run_analysis(
             aoi=aoi,
             tasks=tasks,
             job_id=job.job_id,
+            oracle_connection= conn,
+            tracker=tracker,
+            settings=None
         )
+        # TODO: what to do with tracker info?
 
         # option pubilsh results
         if publish is True:
-            publish_results(ast_results=ast_results)
+            publish_results(job=job, ast_results=ast_results)
         job.status = JobStatus.COMPLETED
 
         return job
