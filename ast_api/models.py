@@ -16,18 +16,25 @@ class Regions(str, Enum):
     SouthCoast = "South Coast"
     WestCoast = "West Coast"
 
+class JobStatus(str, Enum):
+    QUEUED = "Queued"
+    PROCESSING = "Processing"
+    PUBLISHING = "Publishing"
+    COMPLETED = "Completed"
+    FAILED = "Failed"
 
 
-class CreateJob(BaseModel):
-    job_id: str
-    status: Literal["Pending", "Running", "Completed", "Failed"] = "Pending"
+class JobBase(BaseModel):
     user: str
     date: str
+
+class JobSubmission(JobBase):
     region: Regions
     area_of_interest: str
     crown_file_number: str
     disposition_number: str
     parcel_number: str
+
     output_directory: str
     retain_existing_outputs: bool = False
     suppress_tab_3: bool = False
@@ -35,19 +42,38 @@ class CreateJob(BaseModel):
     open_output_directory_on_completion: bool = False
     enable_portable_spreadsheet: bool = False
 
-class JobQueItem (BaseModel):
-    job_id: str
     registries: list[str]
-    created_at: Optional[str] = None
-    user: str
     aoi_id: str
     aoi_name: str
     aoi: dict
 
-class JobPayload(BaseModel): 
+class CreateJob(JobBase):
+    status: Optional [JobStatus]
+
+    region: Regions
+    area_of_interest: str
+    crown_file_number: str
+    disposition_number: str
+    parcel_number: str
+
+    output_directory: str
+    retain_existing_outputs: bool = False
+    suppress_tab_3: bool = False
+    suppress_map_creation: bool = False
+    open_output_directory_on_completion: bool = False
+    enable_portable_spreadsheet: bool = False
+
+
+class JobQueueItem(JobBase):
+    registries: list[str]
+    created_at: str | None = None
+
+    aoi_id: str
+    aoi_name: str
+    aoi: dict
+
+class JobPayload(BaseModel):
     job: CreateJob
-    item: JobQueItem
-
-
+    item: JobQueueItem
 
 
