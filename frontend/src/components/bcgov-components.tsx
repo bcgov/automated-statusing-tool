@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 //import { useAuth } from '../auth/AuthContext'
-import { Header, Footer, Button, Switch, CheckboxGroup, Tooltip, TooltipTrigger, TextArea, TextField } from "@bcgov/design-system-react-components";
+import { Header, Footer } from "@bcgov/design-system-react-components";
 import { useMatch, Link } from "react-router-dom";
-const geobcLogo = new URL("../assets/geobc_logo.png", import.meta.url).href;
+
+import geobcLogo from "../assets/geobc_logo.png";
 //import HealthStatus from "./HealthStatus";
 //import { useHealth } from "./HealthContext";
 
@@ -22,7 +23,7 @@ const HeaderLink: React.FC<HeaderLinkProps> = ({url, title, displayText}) => {
 };
 */}
 
-const PageHeader: React.FC = () => {
+const PageHeader = () => {
   return (
     <div className="bcgov-header">
       <Header 
@@ -36,7 +37,7 @@ const PageHeader: React.FC = () => {
   );
 };
 
-const PageFooter: React.FC = () => {
+const PageFooter = () => {
   const isMapPage = useMatch("/map/*");
 
   if (isMapPage) {
