@@ -1,8 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 import sqlite3
-from ast_api.config import settings
-from .models import CreateJobs
+from ast_api.models import CreateJob
+
+
 
 def create_connection():
     connection = sqlite3.connect("jobs.db")
@@ -14,7 +15,7 @@ def create_table():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS jobs (
-            job_id TEXT PRIMARY KEY,
+            job_id INTEGER PRIMARY KEY AUTOINCREMENT,
             user TEXT NOT NULL,
             date TEXT NOT NULL,
 
@@ -35,25 +36,46 @@ def create_table():
 
             status TEXT NOT NULL
                 CHECK (status IN ('Pending', 'Running', 'Completed', 'Failed'))
+        )
         """
     )
     connection.commit()
     connection.close()
 
-def create_job(status):
-    connection = sqlite3.connect("jobs.db")
+def create_job(job: CreateJob):
+    connection = create_connection()
     cursor = connection.cursor()
-    cursor.execute("INSERT INTO jobs (status) VALUES (?)", (status,))
+
+    data = job.model_dump()
+
+    columns = ", ".join(data.keys())
+    placeholders = ", ".join(["?"] * len(data))
+
+    cursor.execute(
+        f"INSERT INTO jobs ({columns}) VALUES ({placeholders})",
+        tuple(data.values())
+    )
+
     connection.commit()
     connection.close()
 
 def get_jobs():
-    connection = sqlite3.connect("jobs.db")
+    connection = create_connection()
     cursor = connection.cursor()
-    cursor.execute("SELECT id, status FROM jobs")
+
+    cursor.execute("""
+        SELECT
+            job_id,
+            user,
+            date,
+            region,
+            status
+        FROM jobs
+    """)
+
     jobs = cursor.fetchall()
-    connection.close
+
+    connection.close()
 
     return jobs
 
-#create_table()
