@@ -1,27 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-
+import sqlite3
 from ast_api.config import settings
-
-engine = create_async_engine(settings.database_url)
-
-AsyncSessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
-
-class Base(DeclarativeBase):
-    pass
-
-
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        yield session
-
-        import sqlite3
-
-from models import JobCreate
+from .models import CreateJobs
 
 def create_connection():
     connection = sqlite3.connect("jobs.db")
@@ -33,9 +14,27 @@ def create_table():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        status TEXT NOT NULL
-        )
+            job_id TEXT PRIMARY KEY,
+            user TEXT NOT NULL,
+            date TEXT NOT NULL,
+
+            region TEXT NOT NULL,
+
+            area_of_interest TEXT,
+            crown_file_number TEXT,
+            disposition_number TEXT,
+            parcel_number TEXT,
+
+            output_directory TEXT NOT NULL,
+
+            retain_existing_outputs INTEGER NOT NULL DEFAULT 0,
+            suppress_tab_3 INTEGER NOT NULL DEFAULT 0,
+            suppress_map_creation INTEGER NOT NULL DEFAULT 0,
+            open_output_directory_on_completion INTEGER NOT NULL DEFAULT 0,
+            enable_portable_spreadsheet INTEGER NOT NULL DEFAULT 0,
+
+            status TEXT NOT NULL
+                CHECK (status IN ('Pending', 'Running', 'Completed', 'Failed'))
         """
     )
     connection.commit()

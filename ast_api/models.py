@@ -6,22 +6,6 @@ from typing import Literal
 from dataclasses import dataclass
 from typing import Optional
 
-## inputs to AST are: 
-# Region 
-# Area of Interest 
-# Crown File Number:>
-# Disposition Number
-# Parcel Number 
-# Output Directory.
-
-
-# Check boxes ??
-# Retain Existing Outputs (Restart Analysis)
-# Supress Tab 3 (Constraints)
-# Supress Map Creation (Tab 3)
-# Open Output Directory on Completion? 
-# Enable Portable Spreadsheet? 
-
 class Regions(str, Enum): 
     Cariboo = "Cariboo"
     KootenayBoundary = "Kootenay Boundary"
@@ -32,25 +16,25 @@ class Regions(str, Enum):
     SouthCoast = "South Coast"
     WestCoast = "West Coast"
 
-
-class CreateJobs(BaseModel):
-    '''
-    This Model is used to normalize the inputs from the user that gets sent to the back end
-    Will also include things for metadata purposes 
-    '''
-    user: str
-    date: str
-    region: Regions
-    area_of_interest: str
-    crown_file_number: str
-    disposition_number: str
-    parcel_number: str
-    output_directory: str
-    retain_existing_outputs: bool = False
-    suppress_tab_3: bool = False
-    suppress_map_creation: bool = False
-    open_output_directory_on_completion: bool = False
-    enable_portable_spreadsheet: bool = False
+#maybe this will be used one day? Not for now
+# class CreateJobs(BaseModel):
+#     '''
+#     This Model is used to normalize the inputs from the user that gets sent to the back end
+#     Will also include things for metadata purposes 
+#     '''
+#     user: str
+#     date: str
+#     region: Regions
+#     area_of_interest: str
+#     crown_file_number: str
+#     disposition_number: str
+#     parcel_number: str
+#     output_directory: str
+#     retain_existing_outputs: bool = False
+#     suppress_tab_3: bool = False
+#     suppress_map_creation: bool = False
+#     open_output_directory_on_completion: bool = False
+#     enable_portable_spreadsheet: bool = False
 
 class JobDatabase(BaseModel):
     '''
@@ -76,12 +60,6 @@ class JobDatabase(BaseModel):
 
 class JobQue (BaseModel):
     job_id: str
-
-
-#Payload structure
-@dataclass
-class ast_job_payload:
-    job_id: str
     registries: list[str]
     created_at: Optional[str] = None
     user: str
@@ -89,3 +67,4 @@ class ast_job_payload:
     aoi_name: str
     aoi: dict
     
+
