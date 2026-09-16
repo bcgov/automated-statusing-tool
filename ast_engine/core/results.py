@@ -5,6 +5,7 @@ serializing execution outputs into a predictable, schema-conformant form.
 '''
 from datetime import datetime, UTC
 from enum import Enum
+from uuid import UUID
 from functools import partial
 from typing import List, Union, Literal, Annotated, Dict
 from pydantic import BaseModel, Field, computed_field, ConfigDict
@@ -111,7 +112,7 @@ class DatasetResultGroup(BaseModel):
     results: List[AnalysisResult]
 
 class AstResults(BaseModel):
-    job_id: str
+    job_id: UUID
     aoi_id: str
     results: List[DatasetResultGroup]
     execution_time: float | None = None
