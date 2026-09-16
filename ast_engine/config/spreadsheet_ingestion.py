@@ -76,8 +76,12 @@ def main() -> None:
             if xlsx.endswith(".xlsx")
         }
         if len(spreadsheet_io) == 0:
-            sys.exit(f"No .xlsx files found in {args.input}")
+            raise FileNotFoundError(f"No .xlsx files found in {args.input}")
     elif args.file is not None:
+        if not os.path.isfile(args.file):
+            raise FileNotFoundError(f"File not found: {args.file}")
+        if not args.file.endswith(".xlsx"):
+            raise ValueError(f"File is not an .xlsx spreadsheet: {args.file}")
         spreadsheet_io = {
             args.file: f"{output_dir}/{Path(args.file).stem}.yaml"
         }
@@ -87,6 +91,7 @@ def main() -> None:
             "ast_engine/tests/registry/Test_Registry.xlsx":"ast_engine/tests/registry/Test_Registry.yaml",
             "ast_engine/tests/registry/Test_Registry_2.xlsx":"ast_engine/tests/registry/Test_Registry_2.yaml",
         }
+    print(f"Spreadsheet I/O mapping: {spreadsheet_io}")
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
@@ -140,8 +145,13 @@ def main() -> None:
                         stage="reading the dataset",
                         reason=utils.short_reason(e),
                     ))
-        utils.log_skipped(skipped, len(datasets))
-        registry = utils.RegistryBuilder(base_datasets_list, skipped=skipped).build()
+                    utils.log_skipped(skipped, len(datasets))
+                    registry = utils.RegistryBuilder(base_datasets_list, skipped=skipped).build()
+                    logger.warning(f"Warning: skipping {dataset.name} due to a read error: {e}")
+                    continue
+        registry = utils.RegistryBuilder(base_datasets_list).build()
+        # registry = models.Registry(version="0.1", datasets=base_datasets_list)
+        print(f"Dumping registry to {yaml_out}")
         utils.dump_yaml(registry, Path(yaml_out))
         logger.info(
             "Wrote %s: %d datasets, %d skipped", yaml_out, len(base_datasets_list), len(skipped)
