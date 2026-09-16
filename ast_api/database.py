@@ -1,5 +1,3 @@
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase
 import sqlite3
 from ast_api.models import CreateJob
 
@@ -46,7 +44,7 @@ def create_job(job: CreateJob):
     connection = create_connection()
     cursor = connection.cursor()
 
-    data = job.model_dump()
+    data = job.model_dump(exclude={"job_id"})
 
     columns = ", ".join(data.keys())
     placeholders = ", ".join(["?"] * len(data))
@@ -55,9 +53,10 @@ def create_job(job: CreateJob):
         f"INSERT INTO jobs ({columns}) VALUES ({placeholders})",
         tuple(data.values())
     )
-
     connection.commit()
+    job_id = cursor.lastrowid
     connection.close()
+    return job_id
 
 def get_jobs():
     connection = create_connection()

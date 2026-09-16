@@ -5,8 +5,8 @@ import logging
 import redis
 from rq import Queue
 from fastapi import Depends, FastAPI, HTTPException, status
-from ast_api.models import CreateJob, JobQueItem, JobPayload
-from ast_api.database import create_table, create_job
+from ast_api.models import CreateJob, JobQueueItem, JobPayload
+from ast_api.database import create_table, create_job, get_jobs
 from ast_engine.config.logging_config import setup_logging
 from ast_api.utils import _get_all_jobs
 from contextlib import asynccontextmanager
@@ -23,8 +23,8 @@ The job data is stored in Redis, and the API uses Pydantic models for data valid
 Payload = references the json FROM the api 
 
 Redis endpoints 
-(Post Que Item) Payload -> Que
-(Get Que Item) Que -> Return
+(Post Queue Item) Payload -> Queue
+(Get Queue Item) Queue -> Return
 
 Database endpoints 
 (Post Job) Payload -> Database
@@ -72,29 +72,34 @@ def create_job_in_queue_and_db(
     job_item["job_id"] = job_id
 
     create_job(CreateJob(**job_data))
-
-    queue.rpush(
-        "jobs_queue",
-        json.dumps(job_item)
-    )
+    queue.rpush("jobs_queue", json.dumps(job_item))
 
     return {
         "job": job_data,
-        "item": job_item
+        "item": job_item,
     }
+
+
+
+
+#this is for sql lite db 
+@app.get("/jobs")
+def read_jobs():
+    return get_jobs()
+#this is for debugging rq
 
 @app.get(
     "/api/jobs",
-    response_model=list[JobQueItem],
+    response_model=list[JobQueueItem],
     status_code=status.HTTP_200_OK,
 )
 def get_all_jobs(queue: redis.Redis = Depends(lambda: redis_client)):
     jobs = _get_all_jobs(queue)
-    return [JobQueItem(**job) for job in jobs]
+    return [JobQueueItem(**job) for job in jobs]
 
 @app.get(
     "/api/jobs/{job_id}",
-    response_model=JobQueItem,
+    response_model=JobQueueItem,
     status_code=status.HTTP_200_OK,
 )
 def get_job_by_id(job_id: str, queue: redis.Redis = Depends(lambda: redis_client)):
@@ -102,7 +107,7 @@ def get_job_by_id(job_id: str, queue: redis.Redis = Depends(lambda: redis_client
     job = next((job for job in jobs if job["job_id"] == job_id), None)
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
-    return JobQueItem(**job)
+    return JobQueueItem(**job)
 
 @app.get("/api/debug/queue")
 def get_queue(
@@ -112,3 +117,17 @@ def get_queue(
         json.loads(item)
         for item in queue.lrange("jobs_queue", 0, -1)
     ]
+
+
+#different debug
+@app.get("/api/debug/queue")
+def debug_queue(
+    queue: redis.Redis = Depends(lambda: redis_client)
+):
+    return {
+        "count": queue.llen("jobs_queue"),
+        "items": [
+            json.loads(item)
+            for item in queue.lrange("jobs_queue", 0, -1)
+        ]
+    }
