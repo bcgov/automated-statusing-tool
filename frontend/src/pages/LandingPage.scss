@@ -1,6 +1,5 @@
 .landing-page {
     font-family: "BC Sans";
-
     background-image: url("../assets/bc_background.png");
     background-size: cover;
     background-position: center;
@@ -9,47 +8,13 @@
     display: flex;
     justify-content: center;
     align-items: flex-start;
-
-    min-height: calc(100vh - 200px);
+    gap: 20px;
 }
 
-.form-container {
-    margin: 25px auto;
-    padding: 30px;
-
-    border: 1px solid #000;
-    border-radius: 15px;
-
-    box-shadow: 3px 4px 6px rgba(0, 0, 0, 0.1);
-
-    background-color: rgba(250, 250, 250, 1);
-
-    width: 400px;
-    box-sizing: border-box;
-}
-
-.source-container {
-    margin: 10px 0;
-    border: 1px solid #000;
-    border-radius: 4px;
-    padding: 10px;
-}
-
-.full-width-field .bcds-react-aria-TextField {
-  width: 100%;
-}
-
-.switch-container {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
-  margin-top: 10px;
-}
-
-.button-container {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 20px;
+.map-container {
+    border: 2px solid #003366;
+    box-shadow: 15px 10px 10px rgba(0, 0, 0, 0.2);
+    width: 600px;
+    height: 500px;
+    margin-top: 25px;
 }
