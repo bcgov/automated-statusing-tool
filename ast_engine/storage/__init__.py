@@ -1,23 +1,37 @@
 # ast/ast_engine/storage/__init__.py
 
-import os
+import logging
 from pathlib import Path
 
 from .models import StorageConfig, JobStorageContext
 from .s3_writer import S3ResultsStorageWriter
 from .local_writer import LocalResultsStorageWriter
 from .writer import ResultsStorageWriter
-from ast_engine.config import settings
+from ast_engine.config.settings import Settings
+from ast_engine.config.logging_config import setup_logging
+
+setup_logging()
+logger = logging.getLogger(__name__)
+settings = Settings()
 
 def create_results_writer(context: JobStorageContext) -> ResultsStorageWriter:
-    backend = settings.STORAGE_TYPE
+    backend = settings.storage_type
 
     config = StorageConfig(
-        bucket=settings.RESULTS_BUCKET,
-        environment=settings.RESULTS_ENV,
-        prefix=settings.RESULTS_PREFIX,
-        endpoint_url=settings.RESULTS_S3_ENDPOINT_URL,
-        local_root=Path(settings.RESULTS_LOCAL_ROOT).resolve(),
+        bucket=settings.results_s3_bucket,
+        access_id=settings.results_s3_access_id,
+        access_key=settings.results_s3_key,
+        environment=settings.environment,
+        prefix=settings.results_prefix,
+        endpoint_url=settings.results_s3_endpoint_url,
+        local_root=Path(settings.results_local_root).resolve(),
+        use_ssl = settings.s3_use_ssl,
+    )
+    logger.info(
+        "S3 endpoint=%s access_key=%s bucket=%s",
+        settings.results_s3_endpoint_url,
+        settings.results_s3_access_id,
+        settings.results_s3_bucket,
     )
 
     if backend == "S3":

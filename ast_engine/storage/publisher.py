@@ -118,7 +118,7 @@ class ResultsPublisher:
 
                 upload_artifact(
                     name=artifact_name,
-                    path=item.path,
+                    path=Path(item.path),
                     relative_key=relative_key,
                     content_type="application/geopackage+sqlite3",
                     checksum=True,
@@ -187,7 +187,7 @@ class ResultsPublisher:
 
         manifest = JobManifest(
             schema_version=1,
-            job_id=job_id,
+            job_id=job_id, #uuid
             user=user,
             created_at=created_at,
             completed_at=completed_at,
@@ -201,11 +201,13 @@ class ResultsPublisher:
         )
 
         return self.writer.put_text(
-            manifest.to_yaml(),
-            "manifest.yaml",
-            content_type="application/yaml",
+            manifest.model_dump_json(
+                indent=2,
+                exclude_none=True),
+            "manifest.json",
+            content_type="application/json",
             metadata={
-                "job_id": job_id,
+                "job_id": str(job_id),
                 "artifact_name": "manifest",
             },
         )
