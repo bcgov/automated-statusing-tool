@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     # storage of results
     deployment: Literal["DEV","TEST","PROD"] = "DEV"
     storage_type: Literal["S3","local"] = "local"
-    results_local_root: str = 'burn-severity/local'
+    results_local_root: str = 'ast/local'
     results_s3_endpoint_url: str = "http://local-s3:9000"
     results_s3_access_id: str
     results_s3_key: SecretStr | None = None
