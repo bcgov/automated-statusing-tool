@@ -32,6 +32,9 @@ def test_within_distance_keeps_closest_first()
 def test_nearest_k_limits_count()
 def test_nearest_max_distance_cap()
 
+Note: the operators return an OperatorOutcome - the analysis result plus the
+features it was built from - so these tests read `.result` off the call.
+
 """
 
 import pytest
@@ -90,7 +93,7 @@ def test_3_within_distance():
         feature_id_field="id",
         keep_properties=["name"],
         path = THREEM,
-    )
+    ).result
     #This is rounded because test data has some trailing decimals 
     assert round((test.measure_value), 2) == 3.0
 
@@ -104,7 +107,7 @@ def test_10_within_distance():
         feature_id_field="id",
         keep_properties=["name"],
         path = TENM,
-    )
+    ).result
     #This is rounded because test data has some trailing decimals 
     assert round((test.measure_value), 2) == 10.0
 
@@ -118,7 +121,7 @@ def test_2000_within_distance():
         feature_id_field="id",
         keep_properties=["name"],
         path = TWOKM,
-    )
+    ).result
     #This is rounded because test data has some trailing decimals 
     assert round((test.measure_value), 2) == 1999.25
 
@@ -133,7 +136,7 @@ def test_nearest_k():
         k=2,
         max_distance_m = 12,
         path = MULTIPOINT,
-    )
+    ).result
 
     assert test.feature_count == 2
 
@@ -160,7 +163,7 @@ def test_build_results_within_distance():
         feature_id_field="FID",
         keep_properties=["Colour"],
         path = MULTIPOINT,
-    )
+    ).result
     # extract_properties: the Colour column comes through (3 m point then 10 m point)
     assert [f.properties.get("Colour") for f in test.features] == ["Green", "Blue"]
     # extract_feature_id: no real "FID" column, so IDs fall back to distinct row numbers
@@ -176,7 +179,7 @@ def test_build_results_nearest():
         feature_id_field="FID",
         keep_properties=["Colour"],
         path = MULTIPOINT,
-    )
+    ).result
     # extract_properties: the Colour column comes through (3 m point then 10 m point)
     assert [f.properties.get("Colour") for f in test.features] == ["Green", "Blue"]
     # extract_feature_id: no real "FID" column, so IDs fall back to distinct row numbers
@@ -193,7 +196,7 @@ def test_far_point_excluded():
     """A point further than the search distance is dropped; empty result reports 0."""
     test = within_distance(
         aoi=_valid_aoi(), adapter=FileSpatialAdapter(), distance_m=5, path=TENM,
-    )
+    ).result
     assert test.feature_count == 0
     assert test.measure_value == 0.0
 
@@ -202,14 +205,14 @@ def test_within_distance_keeps_closest_first():
     """All three points in one layer: distance 12 keeps the 3 m + 10 m points, closest first."""
     test = within_distance(
         aoi=_valid_aoi(), adapter=FileSpatialAdapter(), distance_m=12, path=MULTIPOINT,
-    )
+    ).result
     assert test.feature_count == 2
     assert [round(f.measure, 2) for f in test.features] == [3.0, 10.0]
 
 
 def test_nearest_k_limits_count():
     """k=1 returns only the single closest point."""
-    test = nearest(aoi=_valid_aoi(), adapter=FileSpatialAdapter(), k=1, path=MULTIPOINT)
+    test = nearest(aoi=_valid_aoi(), adapter=FileSpatialAdapter(), k=1, path=MULTIPOINT).result
     assert test.feature_count == 1
     assert round(test.measure_value, 2) == 3.0
 
@@ -218,7 +221,7 @@ def test_nearest_max_distance_cap():
     """Ask for the 2 nearest but cap at 5 m - only the 3 m point qualifies."""
     test = nearest(
         aoi=_valid_aoi(), adapter=FileSpatialAdapter(), k=2, max_distance_m=5, path=MULTIPOINT,
-    )
+    ).result
     assert test.feature_count == 1
     assert round(test.measure_value, 2) == 3.0
 

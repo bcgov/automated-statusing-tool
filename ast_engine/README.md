@@ -109,8 +109,10 @@ ast_engine/
 | `core/`           | Runtime processing modules such as AOI handling, overlays, data adapters, and result generation |
 | `data_inventory/` | Prepared or managed data inventory / registry content used by runtime workflows                 |
 | `schemas/`        | Schema definitions and contracts for inputs, outputs, and registry records                      |
+| `storage/`        | Storage provides utilities for creating a job manifest and writing job artifacts to local or S3
 | `tests/`          | Unit and integration tests for the engine package                                               |
 | `utils/`          | Shared utilities such as logging, path helpers, and common validation helpers                   |
+| `workers/`        | Workers move a job request through the engine, collects results and publishes to storage |
 | `model_config.py` | Runtime settings and configuration access                                                       |
 | `README.md`       | Engine-level developer documentation                                                            |
 
