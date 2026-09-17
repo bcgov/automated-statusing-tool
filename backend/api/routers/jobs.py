@@ -13,9 +13,9 @@ router = APIRouter()
 @router.get("/", response_model=list[JobResponse], tags=["jobs"])
 async def get_jobs(db: Annotated[Session, Depends(get_db)]):
     result = db.execute(select(models.Job))
-    users = result.scalars().all()
-    if users:
-        return users
+    jobs = result.scalars().all()
+    if jobs:
+        return jobs
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No jobs found")
 
 @router.post("/", response_model=JobResponse, tags=["jobs"])
