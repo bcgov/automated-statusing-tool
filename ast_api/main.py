@@ -1,4 +1,5 @@
 #main to run the fastapi backend connection to the ast_engine
+import os
 import json
 import logging
 
@@ -7,11 +8,16 @@ from rq import Queue
 from fastapi import Depends, FastAPI, HTTPException, status
 from ast_api.models import CreateJob, JobQueueItem, JobPayload
 from ast_api.database import create_table, create_job, get_jobs
-from ast_engine.config.logging_config import setup_logging
+# from ast_engine.config.logging_config import setup_logging
 from ast_api.utils import _get_all_jobs
 from contextlib import asynccontextmanager
 
-
+from shared_models.jobs import AstJob
+from shared_models.status import JobStatus
+from datetime import datetime, UTC
+from uuid import uuid4
+import logging
+logger = logging.getLogger(__name__)
 
 '''
 This is the main entry point for the FastAPI backend connection to the AST engine. It sets up logging, 
@@ -33,14 +39,17 @@ Database endpoints
 '''
 
 
-setup_logging()
-logger = logging.getLogger("ast_api.main")
-import logging
-from ast_engine.config.logging_config import setup_logging
+# setup_logging()
+# logger = logging.getLogger("ast_api.main")
+# import logging
+# from ast_engine.config.logging_config import setup_logging
 
-setup_logging()
-logger = logging.getLogger("ast_api")
-
+# setup_logging()
+# logger = logging.getLogger("ast_api")
+REDIS_JOB_QUEUE = os.getenv('JOB_QUEUE','ast_job_queue')
+REDIS_HOST = 'localhost'
+REDIS_PORT = 6379
+REDIS_DATABASE = 0
 
 #set up Redis client e
 redis_client=redis.Redis(host='localhost', port=6379, decode_responses=True)
@@ -55,6 +64,25 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(lifespan=lifespan)
+
+# post job
+@app.post("/jobs")
+def submit_job(job:AstJob):
+    # generated values
+    job.job_id = uuid4()
+    job.created_at = datetime.now(UTC).isoformat()
+    job.status = JobStatus.QUEUED
+
+    # push to queue
+    redis_client.rpush(REDIS_JOB_QUEUE, job.model_dump_json())
+
+    # populate sqlite
+
+    return {
+        "job_id": str(job.job_id),
+        "status": job.status
+    }
+
 
 
 '''Post a new item to the queue AND database. This will create a new job in the Redis queue and sql liteand return the job details.'''
