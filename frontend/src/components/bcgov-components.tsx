@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 //import { useAuth } from '../auth/AuthContext'
-import { Header, Footer } from "@bcgov/design-system-react-components";
+import { Header, Footer, AlertBanner } from "@bcgov/design-system-react-components";
 import { useMatch, Link } from "react-router-dom";
 
 import geobcLogo from "../assets/geobc_logo.png";
@@ -51,4 +51,19 @@ const PageFooter = () => {
   );
 };
 
-export { PageHeader, PageFooter };
+const AlertBannerComponent = () => {
+ const alertmessage = "This site is currently in development.";  
+
+ return (
+    <AlertBanner
+      variant="info"
+      isIconHidden={false}
+      isCloseable={false}
+      layout="fixed"
+    >
+      {alertmessage}<a href='https://github.com/bcgov/automated-statusing-tool' target='_blank' rel='noopener noreferrer' style={{ color: 'white', textDecoration: 'underline' }}>Learn more</a>
+    </AlertBanner>
+  );
+}
+
+export { PageHeader, PageFooter, AlertBannerComponent };

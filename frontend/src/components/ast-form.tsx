@@ -233,7 +233,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
             </div>
 
             <div className="button-container">
-              <Button variant="primary" type="submit" onClick={() => navigate("/results", { state: { formData: inputs } })}>Submit</Button>
+              <Button variant="primary" type="submit">Submit</Button>
               <Button variant="secondary" type="submit" onClick={handleClearAll}>Clear Form</Button>
             </div>
         </div>
