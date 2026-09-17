@@ -68,7 +68,7 @@ function buildDemoPolygonLayer(): VectorLayer<VectorSource> {
 // render, which breaks the [center, zoom] effect below (it would
 // see a "changed" center every time OLMap re-renders and animate
 // the view back to this default, even when nothing actually moved).
-const DEFAULT_CENTER: [number, number] = [-123.3656, 48.4284];
+const DEFAULT_CENTER: [number, number] = [-123.3656, 51.4284];
 const DEFAULT_ZOOM = 6;
 
 const OLMap: React.FC<OLMapProps> = ({
