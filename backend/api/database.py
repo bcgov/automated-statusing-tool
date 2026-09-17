@@ -1,39 +1,18 @@
-import sqlite3
+from sqlalchemy import create_engine
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-from models import JobCreate
+SQLALCHEMY_DATABASE_URL = "sqlite:///sample.db"
 
-def create_connection():
-    connection = sqlite3.connect("jobs.db")
-    return connection
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+)
 
-def create_table():
-    connection = create_connection()
-    cursor = connection.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        status TEXT NOT NULL
-        )
-        """
-    )
-    connection.commit()
-    connection.close()
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-def create_job(status):
-    connection = sqlite3.connect("jobs.db")
-    cursor = connection.cursor()
-    cursor.execute("INSERT INTO jobs (status) VALUES (?)", (status,))
-    connection.commit()
-    connection.close()
+class Base(DeclarativeBase):
+    pass
 
-def get_jobs():
-    connection = sqlite3.connect("jobs.db")
-    cursor = connection.cursor()
-    cursor.execute("SELECT id, status FROM jobs")
-    jobs = cursor.fetchall()
-    connection.close
-
-    return jobs
-
-#create_table()
+def get_db():
+    with SessionLocal() as db:
+        yield db

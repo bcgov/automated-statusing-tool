@@ -20,7 +20,7 @@
 #Continue
 .continue/
 
-
+*.db
 
 # ast_engine
 
