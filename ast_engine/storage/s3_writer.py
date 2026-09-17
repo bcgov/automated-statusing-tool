@@ -1,14 +1,15 @@
 # ast/ast_engine/storage/s3_writer.py
 
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import Mapping, Optional, Any
 
 import boto3
 
 from .key_builder import ResultsKeyBuilder
 from .models import StorageConfig, JobStorageContext
 from .writer import ResultsStorageWriter
-
+import logging
+logger = logging.getLogger(__name__)
 
 class S3ResultsStorageWriter(ResultsStorageWriter):
     def __init__(self, config: StorageConfig, context: JobStorageContext):
@@ -19,9 +20,8 @@ class S3ResultsStorageWriter(ResultsStorageWriter):
         self.client = boto3.client(
             "s3",
             aws_access_key_id=config.access_id,
-            aws_secret_access_key=config.access_key,
+            aws_secret_access_key=config.access_key.get_secret_value(),
             endpoint_url=config.endpoint_url,
-            config=config.config,
             use_ssl=config.use_ssl,
         )
 
@@ -30,7 +30,7 @@ class S3ResultsStorageWriter(ResultsStorageWriter):
         local_path: Path,
         relative_key: str,
         content_type: Optional[str] = None,
-        metadata: Optional[Mapping[str, str]] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
     ) -> str:
         object_key = self.keys.key(relative_key)
 
@@ -40,7 +40,7 @@ class S3ResultsStorageWriter(ResultsStorageWriter):
             extra_args["ContentType"] = content_type
 
         if metadata:
-            extra_args["Metadata"] = dict(metadata)
+            extra_args["Metadata"] = self._normalize_metadata(metadata)
 
         self.client.upload_file(
             Filename=str(local_path),
@@ -56,7 +56,7 @@ class S3ResultsStorageWriter(ResultsStorageWriter):
         text: str,
         relative_key: str,
         content_type: str = "text/plain",
-        metadata: Optional[Mapping[str, str]] = None,
+        metadata: Optional[Mapping[str, Any]] = None,
     ) -> str:
         object_key = self.keys.key(relative_key)
 
@@ -68,8 +68,20 @@ class S3ResultsStorageWriter(ResultsStorageWriter):
         }
 
         if metadata:
-            put_args["Metadata"] = dict(metadata)
+            put_args["Metadata"] = self._normalize_metadata(metadata)
 
         self.client.put_object(**put_args)
 
         return f"s3://{self.config.bucket}/{object_key}"
+    @staticmethod
+    def _normalize_metadata(
+        metadata: Optional[Mapping[str, object]],
+    ) -> dict[str, str]:
+        if not metadata:
+            return {}
+
+        return {
+            str(k): str(v)
+            for k, v in metadata.items()
+            if v is not None
+        }

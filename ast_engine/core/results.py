@@ -5,6 +5,7 @@ serializing execution outputs into a predictable, schema-conformant form.
 '''
 from datetime import datetime, UTC
 from enum import Enum
+from uuid import UUID
 from functools import partial
 from typing import List, Union, Literal, Annotated, Dict
 from pydantic import BaseModel, Field, computed_field, ConfigDict
@@ -26,6 +27,7 @@ class OperatorType(str, Enum):
 class BaseOperatorResult(BaseModel):
     # Do not instantiate directly; use operator‑specific subclasses.
     analysis_timestamp: datetime = Field(default_factory=partial(datetime.now,tz=UTC))
+    registry: str | None = None
     operator_type: OperatorType
     features: List[FeatureRecord] = Field(default_factory=list)
     # path to the saved spatial output; set by the orchestrator, not the operator
@@ -111,6 +113,7 @@ class DatasetResultGroup(BaseModel):
     results: List[AnalysisResult]
 
 class AstResults(BaseModel):
-    job_id: str
+    job_id: UUID
     aoi_id: str
     results: List[DatasetResultGroup]
+    execution_time: float | None = None

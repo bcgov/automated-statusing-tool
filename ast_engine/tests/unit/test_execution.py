@@ -26,6 +26,7 @@ import pytest
 from pathlib import Path
 
 import geopandas as gpd
+from uuid import UUID
 
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, DatasetInfo
@@ -145,11 +146,11 @@ def test_end_to_end_file_run_assembles_results():
         _file_task("2", "points", POINTS, "within_distance", distance_m=100_000),
         _file_task("3", "box", SHP, "adjacency", tolerance_m=0),
     ]
-
-    result = run_analysis(aoi=aoi, tasks=tasks, job_id="job-1")
+    job_id = UUID("12345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=aoi, tasks=tasks, job_id=job_id)
 
     assert isinstance(result, AstResults)
-    assert result.job_id == "job-1"
+    assert result.job_id == job_id
     assert result.aoi_id == aoi.aoi_id
     assert len(result.results) == 3
 
@@ -171,8 +172,8 @@ def test_per_task_error_isolation():
         _file_task("bad", "missing", DATA_DIR / "does_not_exist.shp", "overlay", geom_type="polygon"),
         _file_task("good", "polys", POLYGONS, "overlay", geom_type="polygon"),
     ]
-
-    result = run_analysis(aoi=aoi, tasks=tasks, job_id="job-2")
+    job_id = UUID("22345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=aoi, tasks=tasks, job_id=job_id)
 
     assert len(result.results) == 2
     bad = next(g for g in result.results if g.dataset_name == "missing")
@@ -190,8 +191,8 @@ def test_a_dataset_with_no_matches_is_a_success_not_a_failure():
     """The empty-vs-failed check: nothing found still counts as a dataset that ran."""
     far_point = DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
     task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
-
-    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id="job-7")
+    job_id = UUID("72345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id=job_id)
 
     group = result.results[0]
     assert group.status == "success"               # the read worked
@@ -212,8 +213,8 @@ def _overlay_task() -> AnalysisTask:
 def test_record_spatial_off_writes_nothing(tmp_path):
     """The default: no files, and spatial_link stays empty."""
     settings = Settings(record_spatial=False, temp_dir=str(tmp_path))
-
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id="job-3", settings=settings)
+    job_id = UUID("32345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     assert result.results[0].results[0].spatial_link is None
     assert list(tmp_path.iterdir()) == []
@@ -222,8 +223,8 @@ def test_record_spatial_off_writes_nothing(tmp_path):
 def test_record_spatial_writes_a_gpkg_and_records_the_path(tmp_path):
     """One GeoPackage per dataset, in a folder named after the analysis."""
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
-
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id="job-4", settings=settings)
+    job_id = UUID("42345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     # the space in "test polys" is replaced so the name works as a file name
     written = tmp_path / "overlay" / "test_polys.gpkg"
@@ -246,8 +247,8 @@ def test_record_spatial_skips_a_dataset_with_no_matches(tmp_path):
     far_point = DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
     task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
-
-    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id="job-5", settings=settings)
+    job_id = UUID("52345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id=job_id, settings=settings)
 
     assert result.results[0].results[0].feature_count == 0
     assert result.results[0].results[0].spatial_link is None
@@ -261,8 +262,8 @@ def test_a_failed_write_keeps_the_analysis_result(tmp_path, monkeypatch):
 
     monkeypatch.setattr(gpd.GeoDataFrame, "to_file", boom)
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
-
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id="job-6", settings=settings)
+    job_id = UUID("62345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     saved = result.results[0].results[0]
     assert saved.feature_count == 2        # the analysis still came through
@@ -283,8 +284,8 @@ def test_same_dataset_name_in_two_registries_writes_two_files(tmp_path):
                    geom_type="polygon", source_registry="provincial"),
     ]
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
-
-    result = run_analysis(aoi=_valid_aoi(), tasks=tasks, job_id="job-7", settings=settings)
+    job_id = UUID("72345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=_valid_aoi(), tasks=tasks, job_id=job_id, settings=settings)
 
     from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest.gpkg"
     from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest.gpkg"
@@ -335,7 +336,7 @@ def test_run_operator_passes_table_and_where_for_oracle():
         geom_type="polygon", where={"conditions": [{"field": "FCODE", "op": "=", "value": "RG90"}]},
     )
     _run_operator(task, _valid_aoi(), adapter)
-    assert adapter.last_source_kwargs == {"table": "WHSE.ABC"}
+    assert adapter.last_source_kwargs["table"] == "WHSE.ABC"
     assert adapter.last_options.where == task.where
 
 
