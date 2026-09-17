@@ -8,7 +8,7 @@ from .s3_writer import S3ResultsStorageWriter
 from .local_writer import LocalResultsStorageWriter
 from .writer import ResultsStorageWriter
 from ast_engine.config.settings import Settings
-from ast_engine.config.logging_config import setup_logging
+
 
 
 

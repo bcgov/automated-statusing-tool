@@ -17,10 +17,7 @@ from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, JobStorageContext
 from ast_engine.storage.models import OperatorArtifact
 from ast_engine.config.settings import Settings
-from ast_engine.config.logging_config import setup_logging
 
-
-setup_logging()
 logger = logging.getLogger(__name__)
 settings = Settings()
 
