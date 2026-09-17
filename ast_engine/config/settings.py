@@ -29,10 +29,10 @@ class Settings(BaseSettings):
     deployment: Literal["DEV","TEST","PROD"] = "DEV"
     storage_type: Literal["S3","local"] = "local"
     results_local_root: str = 'ast/local'
-    results_s3_endpoint_url: str = "http://local-s3:9000"
-    results_s3_access_id: str
+    results_s3_endpoint_url: str | None = None
+    results_s3_access_id: str | None = None
     results_s3_key: SecretStr | None = None
-    results_s3_bucket: str
+    results_s3_bucket: str | None = None
     results_prefix: str = "ast-results"
 
     # redis
