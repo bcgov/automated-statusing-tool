@@ -10,11 +10,13 @@ from .writer import ResultsStorageWriter
 from ast_engine.config.settings import Settings
 from ast_engine.config.logging_config import setup_logging
 
-setup_logging()
-logger = logging.getLogger(__name__)
-settings = Settings()
+
+
+
 
 def create_results_writer(context: JobStorageContext) -> ResultsStorageWriter:
+    settings = Settings()
+    logger = logging.getLogger(__name__)    
     backend = settings.storage_type
 
     config = StorageConfig(
