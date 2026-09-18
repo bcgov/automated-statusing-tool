@@ -19,6 +19,7 @@ dependencies = [
     "sqlglot>=30.11.0",
     "boto3>=1.43.36",
     "redis>=8.1.0",
+    "duckdb>=1.5.5",
 ]
 
 [build-system]
