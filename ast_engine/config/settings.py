@@ -13,8 +13,15 @@ class Settings(BaseSettings):
     # System validation flags
     validate_oracle_connection: bool = True
     validate_required_paths: list[str] = []  # Paths to check exist
+
+    # Database Connection Settings
+    oracle_host: str | None = None
+    oracle_database: str | None = None
+    oracle_port: int | None = 1521
+    oracle_user: str | None = None
+    oracle_password: SecretStr | None = None
     
-    #S3 Connections
+    # S3 Connections
     s3_max_retries: int = 5
     s3_retry_mode: Literal["standard"] = "standard"
     s3_use_ssl: bool = True
