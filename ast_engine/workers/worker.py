@@ -96,8 +96,10 @@ def run_worker(job: AstJob, publish: bool = False):
     
     try:
         # Create database connection
-        # TODO: update this when connection details are within settings
-        conn = OracleConnection(username=os.getenv("BCGW_USER"),password=os.getenv("BCGW_PASSWORD"),hostname="bcgw.bcgov:1521/idwprod1.bcgov")
+        conn = OracleConnection(username=settings.oracle_user,
+                                password=settings.oracle_password.get_secret_value(),
+                                hostname=f'{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}'
+                                )
         # Form the AOI
         # TODO: Is from features what we want to use here?Coordinate with API
         gdf = gpd.GeoDataFrame.from_features(job.aoi["features"])
