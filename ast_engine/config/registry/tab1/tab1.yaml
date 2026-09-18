@@ -544,7 +544,7 @@ datasets:
   where: null
   operator:
     type: adjacency
-    distance_m: 5
+    tolerance_m: 5
   unique_id: OBJECTID
   id: b29055b2-2ef8-49ac-a41d-fc6ed1b97320
   columns:
