@@ -1,5 +1,5 @@
 import sqlite3
-from ast_api.models import CreateJob
+from shared_models.models import CreateJob
 
 
 

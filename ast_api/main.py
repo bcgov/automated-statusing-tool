@@ -5,7 +5,7 @@ import logging
 import redis
 from rq import Queue
 from fastapi import Depends, FastAPI, HTTPException, status
-from ast_api.models import CreateJob, JobQueueItem, JobPayload
+from shared_models.models import CreateJob, JobQueueItem, JobPayload
 from ast_api.database import create_table, create_job, get_jobs
 from ast_api.config.logging_config import setup_logging
 from ast_api.utils import _get_all_jobs
