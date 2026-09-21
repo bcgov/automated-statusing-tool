@@ -7,7 +7,7 @@ from rq import Queue
 from fastapi import Depends, FastAPI, HTTPException, status
 from ast_api.models import CreateJob, JobQueueItem, JobPayload
 from ast_api.database import create_table, create_job, get_jobs
-from ast_engine.config.logging_config import setup_logging
+from ast_api.config.logging_config import setup_logging
 from ast_api.utils import _get_all_jobs
 from contextlib import asynccontextmanager
 
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-'''Post a new item to the queue AND database. This will create a new job in the Redis queue and sql liteand return the job details.'''
+'''Post a new item to the queue AND database. This will create a new job in the Redis queue and sql lite and return the job details.'''
 @app.post("/api/payload_dump", status_code=status.HTTP_201_CREATED)
 def create_job_in_queue_and_db(
     request: JobPayload,
