@@ -36,6 +36,7 @@ from ..results import (
     LineOverlayResult,
     PointOverlayResult,
     PolyOverlayResult,
+    OperatorOutcome,
 )
 
 _MEASURE_COL = "_overlay_measure"
@@ -53,7 +54,7 @@ def intersection(
     where: Any = None,
     read_options: ReadOptions | None = None,
     **source_kwargs,
-) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
+) -> OperatorOutcome:
     """Return one overlay result for the dataset, features sorted by overlap descending.
 
     geom_type, when given (from the dataset registry), selects the result type and
@@ -80,7 +81,8 @@ def intersection(
     # the geometries the adapter actually returned.
     kind = geom_type if geom_type in ("point", "line", "polygon") else _infer_geom_kind(gdf)
     if gdf.empty:
-        return _empty_result(kind)
+        # Nothing read is still a successful run: no features, no geometry to save.
+        return OperatorOutcome(status="success", result=_empty_result(kind), dataframe=gdf)
 
     aoi_geom = aoi.gdf.geometry.union_all()
     gdf = gdf.copy()
@@ -116,7 +118,7 @@ def _build_result(
     kind: GeomKind,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
-) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:
+) -> OperatorOutcome:
     """Turn the filtered/sorted rows into one typed overlay result.
 
     Polygons/lines carry a per-feature `measure` (their own overlap) and a
@@ -136,11 +138,40 @@ def _build_result(
 
     if kind == "polygon":
         total = float(gdf[_MEASURE_COL].sum()) if not gdf.empty else 0.0
-        return PolyOverlayResult(features=features, total_area=total)
-    if kind == "line":
+        overlay_result = PolyOverlayResult(features=features, total_area=total)
+    elif kind == "line":
         total = float(gdf[_MEASURE_COL].sum()) if not gdf.empty else 0.0
-        return LineOverlayResult(features=features, total_length=total)
-    return PointOverlayResult(features=features)
+        overlay_result = LineOverlayResult(features=features, total_length=total)
+    else:
+        overlay_result = PointOverlayResult(features=features)
+
+    # A failure raises out of the operator, so reaching here always means success.
+    # dataframe carries the matched features as they were read (no clipping) so the
+    # orchestrator can save them; it is dropped once written.
+    return OperatorOutcome(
+        status="success",
+        result=overlay_result,
+        dataframe=_report_measure_column(gdf, kind),
+    )
+
+
+def _report_measure_column(gdf: gpd.GeoDataFrame, kind: GeomKind) -> gpd.GeoDataFrame:
+    """Give the working overlap column a name for the saved GeoPackage, or drop it.
+
+    _MEASURE_COL is this operator's own scratch column. It used to disappear with
+    the frame, but the frame is now saved to disk, so the column ends up in the
+    GeoPackage - it needs a name that says what the number is. 
+    Renamed here rather than by the orchestrator, so the column 
+    name stays private to the operator that created it.
+
+    Points are dropped instead of renamed: their measure is only a 1/0 "inside the
+    AOI" flag used to filter, and every saved point is inside by definition.
+    """
+    if kind == "polygon":
+        return gdf.rename(columns={_MEASURE_COL: "overlap_area_m2"})
+    if kind == "line":
+        return gdf.rename(columns={_MEASURE_COL: "overlap_length_m"})
+    return gdf.drop(columns=[_MEASURE_COL])
 
 
 def _empty_result(kind: GeomKind) -> PointOverlayResult | LineOverlayResult | PolyOverlayResult:

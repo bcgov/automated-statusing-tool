@@ -1,7 +1,7 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
+from uuid import UUID
 from ast_engine.storage.checksums import sha256_file, write_sha256_sidecar
 from ast_engine.storage.key_builder import ResultsKeyBuilder
 from ast_engine.storage.local_writer import LocalResultsStorageWriter
@@ -22,8 +22,9 @@ def storage_config(tmp_path: Path) -> StorageConfig:
 
 @pytest.fixture
 def storage_context() -> JobStorageContext:
+    job_id = UUID("12345678-1234-5678-1234-567812345678")
     return JobStorageContext(
-        job_id="job-12345",
+        job_id=job_id,
         created_date="2026-03-31",
     )
 
@@ -62,7 +63,12 @@ def test_write_sha256_sidecar(tmp_path: Path):
 def test_key_builder_paths(storage_config: StorageConfig, storage_context: JobStorageContext):
     builder = ResultsKeyBuilder(storage_config, storage_context)
 
-    expected_prefix = "ast-results/env=dev/date=2026-03-31/job_id=job-12345"
+    expected_prefix = (
+        "ast-results/"
+        "env=dev/"
+        "date=2026-03-31/"
+        "job_id=12345678-1234-5678-1234-567812345678"
+    )
     assert builder.job_prefix == expected_prefix
     
     # Test stripping leading slashes
@@ -115,12 +121,15 @@ def test_local_writer_put_file_and_text(
 # 4. Job Manifest Tests
 # ============================================================================
 @pytest.mark.unit
-def test_job_manifest_to_dict_and_yaml():
+def test_job_manifest_dump():
+    job_id = UUID("12345678-1234-5678-1234-567812345678")
     manifest = JobManifest(
         schema_version=1,
-        job_id="job-123",
+        job_id=job_id,
+        user="jboy",
         created_at="2026-03-31T10:00:00Z",
         completed_at="2026-03-31T10:05:00Z",
+        execution_time=2400,
         status="SUCCESS",
         engine_name="ast-engine",
         engine_version="1.0.0",
@@ -134,16 +143,11 @@ def test_job_manifest_to_dict_and_yaml():
         }
     )
 
-    d = manifest.to_dict()
+    d = manifest.model_dump(mode="json")
     assert d["schema_version"] == 1
-    assert d["job_id"] == "job-123"
-    assert d["engine"]["name"] == "ast-engine"
+    assert d["job_id"] == str(job_id)
+    assert d["engine_name"] == "ast-engine"
     assert d["artifacts"]["raw_results"]["sha256"] == "abc123hash"
-
-    yaml_out = manifest.to_yaml()
-    assert "schema_version: 1" in yaml_out
-    assert "job_id: job-123" in yaml_out
-    assert "sha256: abc123hash" in yaml_out
 
 
 # ============================================================================
@@ -162,11 +166,13 @@ def test_publisher_publishes_required_and_optional_artifacts(tmp_path: Path):
 
     job_log = tmp_path / "job.log"
     job_log.write_text("info log", encoding="utf-8")
-
+    job_id = UUID("12345678-1234-5678-1234-567812345678")
     manifest_uri = publisher.publish_job_results(
-        job_id="job-123",
+        job_id=job_id,
+        user="jboy",
         created_at="2026-03-31T10:00:00Z",
         completed_at="2026-03-31T10:01:00Z",
+        execution_time=2400,
         status="COMPLETED",
         engine_version="0.1.0",
         raw_results_json=raw_results,
