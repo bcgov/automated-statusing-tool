@@ -18,6 +18,14 @@ def aoi_to_wkb_srid(aoi: gpd.GeoDataFrame) -> tuple[bytes, int]:
     """Extract WKB bytes and EPSG SRID from the AOI geometry.
 
     The adapter passes these as `:wkb_aoi` and `:srid` bind variables.
+
+    An AOI can hold more than one row - the AOI policy only collapses it to a
+    single row under `full_union`; `by_fields` and `preserve_features` both keep
+    several. All rows are merged into one geometry here, because every SDO
+    template binds a single `:wkb_aoi` window. Taking one row instead would drop
+    the rest from the query and silently under-read the table. Oracle accepts the
+    resulting MultiPolygon in SDO_GEOMETRY, so no template changes are needed.
+
     3D geometries are flattened to 2D (Oracle SDO_GEOMETRY constructed
     from WKB expects matching dimensions; AST overlays operate in 2D).
     """
@@ -30,7 +38,7 @@ def aoi_to_wkb_srid(aoi: gpd.GeoDataFrame) -> tuple[bytes, int]:
             f"AOI CRS {aoi.crs!r} has no EPSG code; cannot bind to SDO_GEOMETRY"
         )
 
-    geom = aoi.geometry.iloc[0]
+    geom = aoi.geometry.union_all()
     if geom.has_z:
         wkb_bytes = wkb.dumps(geom, output_dimension=2)
     else:
