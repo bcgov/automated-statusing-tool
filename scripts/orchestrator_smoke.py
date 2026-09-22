@@ -50,6 +50,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
+from uuid import UUID, uuid4
 
 import geopandas as gpd
 import pandas as pd
@@ -90,7 +91,12 @@ def parse_args() -> argparse.Namespace:
                         help="Tantalis DISPOSITION_TRANSACTION_SID, e.g. 163346.")
     parser.add_argument("--parcel-id", default=None, metavar="PARCEL_ID",
                         help="Tantalis INTRID_SID, e.g. 820668.")
-    parser.add_argument("--job-id", default="smoke-job", help="Job id recorded on the results.")
+    # A UUID, not a free-text label - it is the job's identity through the results,
+    # the manifest and the published folder name. argparse parses it here so a bad
+    # value is rejected in the first second, not after a run that took minutes.
+    parser.add_argument("--job-id", type=UUID, default=None, metavar="UUID",
+                        help="Job id recorded on the results, as a UUID. "
+                             "Defaults to a new random one.")
     parser.add_argument(
         "--out", default="orchestrator_results.xlsx", metavar="XLSX",
         help="Where to write the results spreadsheet (summary + features sheets).",
@@ -121,6 +127,9 @@ def parse_args() -> argparse.Namespace:
         parser.error("--tenure-file, --disposition-id and --parcel-id must be given together.")
     if all(tantalis) and args.aoi:
         parser.error("Give either --aoi or the three Tantalis values, not both.")
+
+    if args.job_id is None:
+        args.job_id = uuid4()
     return args
 
 
