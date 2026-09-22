@@ -2,9 +2,9 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // import useState hook from React
 import { useState } from 'react'
-import { PageHeader, PageFooter } from "./components/bcgov-components.tsx";
-import LandingPage from "./pages/LandingPage.jsx";
-import "./index.css";
+import { PageHeader, PageFooter, AlertBannerComponent } from "./components/bcgov-components";
+import LandingPage from "./pages/LandingPage";
+import "./index.scss";
 
 
 // createrRoot takes an HTML element
@@ -17,6 +17,7 @@ const appElement = document.getElementById("app");
 if (appElement) {
   ReactDOM.createRoot(appElement).render(
     <Router>
+      <AlertBannerComponent />
       <PageHeader />
         <Routes>
           <Route path="/" element={<LandingPage />} />

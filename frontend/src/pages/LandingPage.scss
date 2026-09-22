@@ -4,54 +4,17 @@
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
+
     display: flex;
-    justify-content: center; /* horizontal centering */
-    align-items:flex-start;
-    min-height: calc(100vh - 200px);
+    justify-content: center;
+    align-items: flex-start;
+    gap: 20px;
 }
 
-.landing-page > form {
-    padding:10px;
-}
-
-.form-container {
-    margin:25px auto;
-    padding:30px;
-    border:1px solid #000;
-    border-radius: 15px;
-    box-shadow: 3px 4px 6px rgba(0, 0, 0, 0.1);
-    background-color: rgba(250,250,250,0.8);
-    width: 400px;
-    box-sizing: border-box;
-}
-
-input,
-select {
-    background-color:var(--bg);
-    margin: 5px;
-}
-
-
-.styled-checkbox {
-    width: 20px;
-    height: 20px;
-    border: 1px solid #555;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-form > p {
-    margin: 10px 0;
-}
-
-.btn-primary {
-    display: block;
-    margin: 4px auto;
-    border: none;
-    padding: 10px 20px;
-    text-align: center;
-    font-size: 16px;
-    cursor: pointer;
-    border-radius: 4px;
-    width:fit-content;
+.map-container {
+    border: 2px solid #003366;
+    box-shadow: 15px 10px 10px rgba(0, 0, 0, 0.2);
+    width: 600px;
+    height: 500px;
+    margin-top: 25px;
 }

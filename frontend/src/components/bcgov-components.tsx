@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from "react";
 //import { useAuth } from '../auth/AuthContext'
-import { Header, Footer, Button } from "@bcgov/design-system-react-components";
+import { Header, Footer, AlertBanner } from "@bcgov/design-system-react-components";
 import { useMatch, Link } from "react-router-dom";
-const geobcLogo = new URL("../assets/geobc_logo.png", import.meta.url).href;
+
+import geobcLogo from "../assets/geobc_logo.png";
 //import HealthStatus from "./HealthStatus";
 //import { useHealth } from "./HealthContext";
 
@@ -22,7 +23,7 @@ const HeaderLink: React.FC<HeaderLinkProps> = ({url, title, displayText}) => {
 };
 */}
 
-const PageHeader: React.FC = () => {
+const PageHeader = () => {
   return (
     <div className="bcgov-header">
       <Header 
@@ -36,7 +37,7 @@ const PageHeader: React.FC = () => {
   );
 };
 
-const PageFooter: React.FC = () => {
+const PageFooter = () => {
   const isMapPage = useMatch("/map/*");
 
   if (isMapPage) {
@@ -50,14 +51,19 @@ const PageFooter: React.FC = () => {
   );
 };
 
-const SubmitButton: React.FC = () => {
-  //const { user, login, logout, isAuthenticated, isLoadingAuth } = useAuth(); 
-  return (
-    <Button
-      variant="primary"
-    >Submit</Button>
+const AlertBannerComponent = () => {
+ const alertmessage = "This site is currently in development.";  
+
+ return (
+    <AlertBanner
+      variant="info"
+      isIconHidden={false}
+      isCloseable={false}
+      layout="fixed"
+    >
+      {alertmessage}<a href='https://github.com/bcgov/automated-statusing-tool' target='_blank' rel='noopener noreferrer' style={{ color: 'white', textDecoration: 'underline' }}>Learn more</a>
+    </AlertBanner>
   );
-};
+}
 
-
-export { PageHeader, PageFooter, SubmitButton };
+export { PageHeader, PageFooter, AlertBannerComponent };
