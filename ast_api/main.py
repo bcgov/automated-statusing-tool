@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 import redis
 from fastapi import Depends, FastAPI, HTTPException, status
 
-from ast_api.database import create_job, create_table, get_jobs
+from .database import create_job, create_table, get_jobs
 from shared_models.models import CreateJob, JobQueueItem, JobStatus
 
 logger = logging.getLogger("ast_api.main")
