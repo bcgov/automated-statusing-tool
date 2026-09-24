@@ -59,10 +59,11 @@ const PaintbrushIcon = () => (
   </svg>
 );
 
-const getPreviewAppearance = (hue: number, opacity: number) => {
-  const alpha = Math.min(1, Math.max(0.1, opacity / 100));
+const getPreviewAppearance = (hue: number, transparency: number) => {
+  // updated fix: 0% transparency means the parcel is fully opaque, and 100% transparency means it is effectively invisible.
+  const alpha = Math.min(1, Math.max(0, 1 - transparency / 100));
   return {
-    fill: `hsla(${hue}, 70%, 50%, ${Math.min(alpha * 0.8, 0.9)})`,
+    fill: `hsla(${hue}, 70%, 50%, ${alpha})`,
     stroke: `hsla(${hue}, 65%, 30%, 1)`,
     width: 2.5,
   };
@@ -539,7 +540,7 @@ const OLMap: React.FC<OLMapProps> = ({
                     <span>Transparency: {previewOpacity}%</span>
                     <input
                       type="range"
-                      min="10"
+                      min="0"
                       max="100"
                       value={previewOpacity}
                       onChange={(event) => setPreviewOpacity(Number(event.target.value))}
