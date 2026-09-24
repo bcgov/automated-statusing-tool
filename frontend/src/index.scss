@@ -1,126 +1,662 @@
 @import "@bcgov/bc-sans/css/BC_Sans.css";
 
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --bc-blue: #003366;
+  --bc-blue-hover: #002b55;
+  --bc-gold: #fcba19;
+  --text: #1f2937;
+  --background: #edf3f8;
+  --map-background: #dfe9f2;
+  --white: #ffffff;
 
-  --sans: 'BC Sans', sans-serif;
-  --heading: 'BC Sans', sans-serif;
-  --mono: ui-monospace, 'BC Sans', monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  /*color-scheme: light dark;*/
-  color: var(--text-h);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  font-family: "BC Sans", Arial, sans-serif;
+  font-size: 16px;
 }
 
-@media (prefers-color-scheme: light) {
-  /*:root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }*/
+html,
+body,
+#app,
+#root {
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  margin: 0;
+  overflow: hidden;
+  background: var(--background);
+  color: var(--text);
+  font-family: "BC Sans", Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
+* {
   box-sizing: border-box;
 }
 
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+button,
+input,
+select,
+textarea,
+label {
+  font: inherit;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+button,
+select {
+  touch-action: manipulation;
 }
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+
+#app,
+#root {
+  display: flex;
+  flex-direction: column;
 }
-p {
+
+#root {
+  max-width: none;
+  min-width: 0;
+  min-height: 100vh;
+  height: 100vh;
+  border: 0;
+  text-align: initial;
+}
+
+#root > * {
+  min-width: 0;
+}
+
+#root > .landing-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+html,
+body,
+#app,
+#root,
+.form-container,
+.form-container *,
+.landing-page,
+.landing-page * {
+  font-family: "BC Sans", Arial, sans-serif !important;
+  font-size: 12px !important;
+}
+
+.bcgov-header {
+  width: 100%;
+  display: flex;
+  justify-content: flex-start;
+  min-height: 56px;
+}
+
+.bcgov-header .bcds-header--container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: auto;
+  max-width: none;
   margin: 0;
+  padding: 0 0 0 12px;
+  min-height: 56px;
 }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
+.bcgov-header .bcds-header--title {
+  margin-left: 0;
+  text-align: left;
+  font-size: 1.4rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.bcgov-header img {
+  height: 24px !important;
+  width: auto;
+}
+
+.bcgov-page-footer {
+  width: 100%;
+  background: var(--bc-blue);
+  color: var(--white);
+  border-top: 2px solid var(--bc-gold);
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.bcgov-footer-tab {
+  position: fixed;
+  right: 18px;
+  bottom: 0;
+  z-index: 1000;
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  background: rgba(0, 51, 102, 0.92);
+  color: var(--white);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.bcgov-footer-tab:hover {
+  background: rgba(0, 51, 102, 1);
+}
+
+.bcgov-footer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 48px;
+  padding: 8px 16px;
+}
+
+.bcgov-footer-controls-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bcgov-footer-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--white);
+  white-space: nowrap;
+}
+
+.bcgov-footer-select {
+  min-width: 160px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 4px;
-  color: var(--text-h);
+  background: transparent;
+  color: var(--white);
+  font-weight: 600;
+  appearance: none;
+  cursor: pointer;
 }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
+.bcgov-footer-select option {
+  color: #1f2937;
+}
+
+.bcgov-footer-toggle {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--white);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bcgov-footer-toggle:hover,
+.bcgov-footer-collapse:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bcgov-footer-arrow {
+  margin-left: 6px;
+}
+
+.bcgov-footer-collapse {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--white);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bcgov-footer-collapse .bcgov-footer-arrow {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.bcgov-footer-content {
+  padding: 12px 16px 20px;
+  color: var(--white);
+  background: rgba(0, 51, 102, 0.96);
+}
+
+#root > .landing-page,
+.landing-page {
+  display: grid;
+  grid-template-columns: minmax(320px, 33.333vw) minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.map-shell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--background);
+}
+
+.map-frame {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--map-background);
+}
+
+.map-container {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.map-container .ol-viewport {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.map-controls {
+  position: absolute;
+  z-index: 100;
+  display: flex;
+  align-items: flex-start;
+}
+
+.map-controls--right {
+  top: 16px;
+  left: 16px;
+  right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map-zoom-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-zoom-panel button,
+.map-tool-toggle,
+.basemap-panel__header button {
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: rgba(255, 255, 255, 0.96);
+  color: #1f2937;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.map-zoom-panel button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.map-tool-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: width 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* updated week of sept 21: map toolbar buttons stay compact until hovered or opened, but the expanded width is large enough to fit the full label text without clipping. */
+.map-tool-toggle__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  color: #111827;
+  line-height: 1;
+}
+
+.map-tool-toggle__icon svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.map-tool-toggle__icon--map,
+.map-tool-toggle__icon--paint {
+  font-size: 17px;
+}
+
+.map-tool-toggle__label {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 0.2s ease, opacity 0.2s ease;
+}
+
+.map-tool-toggle:hover,
+.map-tool-toggle:focus-visible,
+.map-tool-toggle[aria-expanded="true"] {
+  width: 180px;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
+.map-tool-toggle:hover .map-tool-toggle__label,
+.map-tool-toggle:focus-visible .map-tool-toggle__label,
+.map-tool-toggle[aria-expanded="true"] .map-tool-toggle__label {
+  max-width: 150px;
+  opacity: 1;
+}
+
+.map-basemap-toggle:hover,
+.map-basemap-toggle:focus-visible,
+.map-basemap-toggle[aria-expanded="true"],
+.map-shape-symbology-toggle:hover,
+.map-shape-symbology-toggle:focus-visible,
+.map-shape-symbology-toggle[aria-expanded="true"] {
+  width: 180px;
+}
+
+.map-zoom-panel button:hover,
+.map-tool-toggle:hover,
+.basemap-panel__header button:hover {
+  background: #eef6ff;
+}
+
+.map-zoom-panel button:focus-visible,
+.map-basemap-toggle:focus-visible,
+.basemap-panel__header button:focus-visible,
+.map-footer-select:focus-visible,
+.map-footer-toggle:focus-visible {
+  outline: 3px solid var(--bc-gold);
+  outline-offset: 2px;
+}
+
+.map-basemap-wrap,
+.map-shape-symbology-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.map-shape-symbology-toggle {
+  width: 44px;
+}
+
+// updated week of sept 21: add a small optional style control so the preview parcel can be recolored and faded while the user reviews it.
+.map-preview-style-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 150px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  color: #1f2937;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.map-preview-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.map-preview-control input[type="range"] {
+  width: 100%;
+  cursor: pointer;
+  border-radius: 999px;
+}
+
+.map-preview-hue-slider {
+  appearance: none;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    #ff3b30,
+    #ff9f1c,
+    #f7d154,
+    #2ecc71,
+    #1e90ff,
+    #7b61ff,
+    #ff4fc7,
+    #ff3b30
+  );
+  outline: none;
+}
+
+.map-preview-hue-slider::-webkit-slider-thumb,
+.map-preview-transparency-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+}
+
+.map-preview-transparency-slider {
+  appearance: none;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    rgba(15, 23, 42, 0.12),
+    rgba(15, 23, 42, 0.9)
+  );
+  outline: none;
+}
+
+/* updated week of sept 21: keep the basemap toggle at the same compact size as the zoom buttons until the user interacts, then let it expand to show the label. */
+.map-basemap-toggle {
+  width: 44px;
+  min-width: 44px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.basemap-panel {
+  width: 240px;
+  margin-top: 8px;
+  padding: 10px 12px 8px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  color: #1f2937;
+}
+
+.basemap-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.basemap-panel__header button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 4px;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.basemap-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 2px;
+  color: #1f2937;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.basemap-option:hover {
+  background: rgba(0, 51, 102, 0.04);
+}
+
+.burn-severity-scale {
+  position: absolute !important;
+  left: 16px !important;
+  bottom: 16px !important;
+  top: auto !important;
+  right: auto !important;
+  z-index: 500 !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-radius: 4px;
   padding: 4px 8px;
-  background: var(--code-bg);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.burn-severity-scale .ol-scale-line-inner {
+  border: 2px solid #2d2d2d;
+  border-top: none;
+  color: #2d2d2d;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
 
-.banner {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.map-footer-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bc-blue);
+  border-top: 2px solid var(--bc-gold);
+  color: var(--white);
+}
+
+.map-footer-label {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.map-footer-select {
+  min-width: 150px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  background: var(--white);
+  color: #1f2937;
+}
+
+.map-footer-disclaimer {
+  flex: 1;
+  min-width: 0;
+  padding: 0 12px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--white);
+}
+
+.map-footer-disclaimer p {
+  margin: 0;
+  color: var(--white);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.map-footer-toggle {
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--white);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.map-footer-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.map-footer-toggle-icon {
+  margin-left: 6px;
+}
+
+@media (max-width: 900px) {
+  .map-footer-ribbon {
+    flex-wrap: wrap;
+  }
+
+  .map-footer-disclaimer {
     width: 100%;
-    height: 300px;
-    background-image: url(../assets/landing_page_banner.png);
-    background-size: cover;
-    background-position: 100% 20%;
-    background-repeat: no-repeat;
+    flex-basis: 100%;
+    padding-top: 8px;
+    border-left: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .map-controls--right {
+    top: 10px;
+    left: 10px;
+  }
+
+  .burn-severity-scale {
+    left: 10px !important;
+    bottom: 10px !important;
+  }
 }

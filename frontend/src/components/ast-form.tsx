@@ -8,14 +8,22 @@ interface MapSelection {
   clickedAt: number;
 }
 
-interface ASTFormProps {
-  mapSelection?: MapSelection | null;
+interface TantalisPreviewRequest {
+  fileNumber: string;
+  dispositionId: string;
+  parcelId: string;
 }
 
-// variable containing HTML to display in the 'root' node
-const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
+interface ASTFormProps {
+  mapSelection?: MapSelection | null;
+  onViewTantalis?: (request: TantalisPreviewRequest) => void;
+}
+
+// updated week of sept 21: keep the form state and TANTALIS preview action together so the parcel can be reviewed from the map.
+const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
   const navigate = useNavigate();
 
+  // Keep the form's field values in one object so the component can update and reset them consistently.
   const initialInputs = {
     name: "" as string,
     email: "" as string,
@@ -32,6 +40,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
   const [inputs, setInputs] = useState(initialInputs);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // updated week of sept 21: keep the selected local upload in state so the user can review or remove it without losing other form entries.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputs({
       ...inputs,
@@ -39,6 +48,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
     });
   };
 
+  // updated week of sept 21: clear the uploaded file cleanly when the user removes it so the rest of the form remains unchanged.
   const handleRemoveFile = () => {
     setInputs(values => ({...values, uploadFile: null}));
     if (fileInputRef.current) {
@@ -46,6 +56,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
     }
   };
 
+  // updated week of sept 21: reset the form back to a clean state without leaving a stale file input behind.
   const handleClearAll = () => {
     setInputs(initialInputs);
 
@@ -54,6 +65,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
     }
   };
 
+  // updated week of sept 21: when a parcel is selected from the map, fill the parcel ID field so the user can confirm the match.
   useEffect(() => {
     if (mapSelection) {
       setInputs((values) => ({
@@ -62,6 +74,24 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
       }));
     }
   }, [mapSelection]);
+
+  // Push the TANTALIS identifiers up to the page so the map can query and highlight the matching shape.
+  const handleViewTantalisInMap = () => {
+    // updated week of sept 21: send the typed TANTALIS identifiers upward so the map can query and display the matching land parcel.
+    const fileNumber = inputs.fileNumber.trim();
+    const dispositionId = inputs.dispositionId.trim();
+    const parcelId = inputs.parcelId.trim();
+
+    if (!fileNumber || !dispositionId || !parcelId) {
+      return;
+    }
+
+    onViewTantalis?.({
+      fileNumber,
+      dispositionId,
+      parcelId,
+    });
+  };
 
   return (
         <div className="form-container">
@@ -119,6 +149,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
           />
 
           <div className="source-container">
+            {/* Let the user choose between a direct TANTALIS lookup and an uploaded file, with the matching fields shown below. */}
             <RadioGroup
               label="Source"
               orientation="horizontal"
@@ -144,6 +175,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
             <div className={`source-details ${inputs.source === "1" ? "expanded" : ""}`}>
               <div className="source-details-inner tantalis-inputs">
                 <hr/>
+                {/* These fields collect the identifiers needed to preview a TANTALIS parcel in the map. */}
                 <TextField 
                   label="File Number" 
                   name="fileNumber" 
@@ -177,26 +209,41 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
                     }))
                   } 
                 />
+
+                <div className="tantalis-preview-row">
+                  <button
+                    type="button"
+                    className="tantalis-preview-link"
+                    onClick={handleViewTantalisInMap}
+                  >
+                    View shape on map
+                  </button>
+                </div>
               </div>
             </div>
 
             <div className={`source-details ${inputs.source === "2" ? "expanded" : ""}`}>
               <div className="source-details-inner upload-inputs">
                 <hr/>
+                {/* updated week of sept 21: allow the user to select an external file without adding the map preview behavior to the upload path. */}
                 <p>Select File:</p>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                />
+                <div className="upload-input-row">
+                  <input
+                    type="file"
+                    accept=".geojson,.json,.kml,.shp"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
+
+                  {inputs.uploadFile && (
+                    <span className="upload-file-name">{inputs.uploadFile.name}</span>
+                  )}
+                </div>
 
                 {inputs.uploadFile && (
-                  <div>
-                    <p>Selected: {inputs.uploadFile.name}</p>
-                    <button type="button" onClick={handleRemoveFile}>
-                      Remove file
-                    </button>
-                  </div>
+                  <button type="button" onClick={handleRemoveFile}>
+                    Remove file
+                  </button>
                 )}
               </div>
             </div>

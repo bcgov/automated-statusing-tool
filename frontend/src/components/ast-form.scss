@@ -35,6 +35,21 @@
   font-size: 14px;
 }
 
+// updated week of sept 21: keep the chosen upload name beside the file picker instead of below it.
+.upload-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.upload-file-name {
+  font-size: 12px;
+  color: #003366;
+  font-weight: 600;
+  word-break: break-word;
+}
+
 .full-width-field .bcds-react-aria-TextField {
   width: 100%;
 }
@@ -45,6 +60,36 @@
   justify-content: center;
   gap: 5px;
   margin-top: 10px;
+}
+
+.tantalis-preview-row {
+  // updated week of sept 21: center the TANTALIS preview action within the remaining form area so it reads like a secondary link rather than a primary action.
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.tantalis-preview-link {
+  // updated week of sept 21: style the preview action like a hyperlink so it sits visually with the form content instead of looking like a submit button.
+  border: none;
+  background: transparent;
+  color: #0053a4;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  line-height: 1.4;
+  transition: color 0.2s ease, opacity 0.2s ease;
+
+  &:hover,
+  &:focus-visible {
+    color: #003366;
+    opacity: 0.9;
+  }
 }
 
 .button-container {
