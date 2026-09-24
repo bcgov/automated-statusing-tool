@@ -97,6 +97,13 @@ class DuckDBAdapter(BaseSpatialAdapter):
             raise DataReadError(f"Failed to read metadata from {source}: {exc}") from exc
             
         available_cols = schema_df["column_name"].tolist()
+
+        # if row bounding box index exists, enable
+        row_bbox_index = ['xmax','xmin','ymin','ymax']
+        if set(row_bbox_index).issubset(set(available_cols)):
+            use_bbox_index = True
+        else:
+            use_bbox_index = False
         
         # Attribute filter compilation & clear (consume-and-clear to prevent base class post-filtering)
         where_model = read_options.where
@@ -135,7 +142,20 @@ class DuckDBAdapter(BaseSpatialAdapter):
         if sf and sf.aoi is not None and not sf.aoi.empty:
             aoi_wkt = sf.aoi.geometry.unary_union.wkt
             pred = sf.predicate.lower()
-
+            # use bbox index
+            if use_bbox_index:
+                logger.debug('Using DuckDBAdaper row_bbox_index')
+                minx, miny, maxx, maxy = sf.aoi.total_bounds
+                
+                # if a search distance is provided go bigger
+                # could use aoi.buffer but this is probably faster
+                if pred == "within_distance" and sf.distance is not None:
+                    minx -= sf.distance
+                    miny -= sf.distance
+                    maxx += sf.distance
+                    maxy += sf.distance
+                query += " AND xmin <= ? AND xmax >= ? AND ymin <= ? AND ymax >= ?"
+                params.extend(row_bbox_index)
             if pred == "intersects":
                 query += f" AND ST_Intersects({geom_col}, ST_GeomFromText(?))"
                 params.append(aoi_wkt)
@@ -152,6 +172,7 @@ class DuckDBAdapter(BaseSpatialAdapter):
 
         logger.info(f"Executing DuckDB S3 query on {source}")
         try:
+            logger.debug(f'Query: {query}, Params: {params}')
             df = conn.execute(query, params).fetchdf()
         except duckdb.Error as exc:
             raise DataReadError(f"Failed to read Parquet from {source}: {exc}") from exc
