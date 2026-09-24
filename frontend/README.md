@@ -1,16 +1,33 @@
-# React + Vite
+# Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+This directory contains the frontend application for the Automated Statusing Tool (AST).
 
-Currently, two official plugins are available:
+The frontend is organized to keep reusable UI components, application features, pages, data access, and supporting utilities separate.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Architecture
 
-## React Compiler
+The intended dependency direction is:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```text
+pages
+  ↓
+features
+  ↓
+components
+  ↓
+hooks / services / utils
+```
 
-## Expanding the Oxlint configuration
+The exact dependency will vary by feature, but lower-level reusable components should not depend on AST-specific features or pages.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Guiding principles
+
+- Keep components focused on a clear responsibility.
+- Prefer reusable components over duplicated UI.
+- Keep API/data-access code separate from presentation.
+- Keep state as local as practical.
+- Use BC Government Design System components where appropriate.
+- Avoid premature abstraction; extract components when there is a clear responsibility or reuse case.
+- Prefer simple, understandable code over clever abstractions.
+
+See `docs/` for project-wide frontend conventions and architecture guidance.
