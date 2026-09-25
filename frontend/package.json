@@ -12,6 +12,7 @@
   "dependencies": {
     "@bcgov/bc-sans": "^2.1.2",
     "@bcgov/design-system-react-components": "^0.8.1",
+    "ol": "^10.10.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.3"
@@ -22,6 +23,7 @@
     "@vitejs/plugin-react": "^6.1.0",
     "oxlint": "^1.79.0",
     "sass-embedded": "^1.104.0",
+    "typescript": "^7.0.2",
     "vite": "^8.2.2"
   }
 }

@@ -18,6 +18,9 @@ ast_engine/config/drive_map.conf
 #Continue
 .continue/
 
+# Node dependencies
+node_modules/
+
 #Continue
 .continue/
 
