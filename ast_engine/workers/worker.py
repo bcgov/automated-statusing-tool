@@ -55,9 +55,10 @@ def publish_results(job: AstJob, ast_results: AstResults):
     # catalog the operator artifacts
     operator_outputs = []
     for dataset_group in ast_results.results:
-        for result in dataset_group.results:
+        for part in dataset_group.parts:
+            result = part.result
             if result.spatial_link:
-                operator_output = OperatorArtifact(registry=result.registry,operator=result.operator_type,dataset_name=dataset_group.dataset_name,path=result.spatial_link)
+                operator_output = OperatorArtifact(registry=result.registry,operator=result.operator_type.value,dataset_name=dataset_group.dataset_name,path=result.spatial_link,part_id=part.aoi_part_id)
                 operator_outputs.append(operator_output)
     
     completed_at = datetime.now(UTC).isoformat()
