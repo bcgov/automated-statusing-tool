@@ -6,9 +6,13 @@ Proximity analysis Operator. Two analyses covered in this operator:
   nearest        : find the top K closest features (regardless of distance,
                    with an optional distance cap).
 
-Both return one ProximityResult holding the matched features, sorted nearest
+Both return ProximityResults holding the matched features, sorted nearest
 first. Each feature's `measure` is its distance to the AOI in metres; the
 result's headline measure_value is the nearest (smallest) distance.
+
+Both return one result per AOI part (one row of the AOI - a multipart row stays
+one part). within_distance reads the dataset once for the whole AOI; nearest
+searches it once per part (see nearest for why).
 
 Notes:
 - The AOI CRS must be projected (metres). Distances are always reported in
@@ -24,6 +28,7 @@ Notes:
 
 from __future__ import annotations
 
+import copy
 from typing import Any, Iterable
 
 import geopandas as gpd
@@ -31,7 +36,12 @@ import pandas as pd
 
 from ast_engine.core.aoi import AreaOfInterest
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
-from ast_engine.core.results import FeatureRecord, ProximityResult, OperatorOutcome
+from ast_engine.core.results import (
+    FeatureRecord,
+    ProximityResult,
+    OperatorOutcome,
+    part_result,
+)
 
 
 _DISTANCE_COL = "_proximity_distance_m"
@@ -48,7 +58,8 @@ def within_distance(
     read_options: ReadOptions | None = None,
     **source_kwargs,
 ) -> OperatorOutcome:
-    """Return one ProximityResult holding every feature within distance_m, nearest first.
+    """Return one ProximityResult per AOI part holding every feature within
+    distance_m of that part, nearest first.
 
     The default ReadOptions pushes a SpatialFilter(predicate='within_distance',
     distance=distance_m) down to the adapter; the exact distance is then checked
@@ -60,6 +71,10 @@ def within_distance(
     if distance_m < 0:
         raise ValueError("distance_m must be non-negative")
     _require_projected(aoi)
+
+    # convert keep_properties to reusable tuple so properties can be read more than once.
+    if keep_properties is not None:
+        keep_properties = tuple(keep_properties)
 
     # Ask the adapter for the candidate features (within_distance pushed down).
     gdf = adapter.read(
@@ -73,17 +88,31 @@ def within_distance(
         **source_kwargs,
     )
     if gdf.empty:
-        # Nothing read is still a successful run: no features, no geometry to save.
-        return OperatorOutcome(status="success", result=ProximityResult(features=[]), dataframe=gdf)
+        # Nothing read is still a successful run: an empty result for each part,
+        # no geometry to save.
+        return OperatorOutcome(
+            status="success",
+            parts=[part_result(aoi, position, ProximityResult(features=[])) for position in range(len(aoi.gdf))],
+        )
 
-    aoi_geom = aoi.gdf.geometry.union_all()
-    gdf = gdf.copy()
-    gdf[_DISTANCE_COL] = gdf.geometry.distance(aoi_geom)
-    gdf = gdf[gdf[_DISTANCE_COL] <= distance_m]
-    gdf = gdf.sort_values(_DISTANCE_COL)
+    # One read for the whole AOI, then each part (one row of the AOI) is measured
+    # on its own. A feature within distance of two parts is reported in both.
+    parts = []
+    dataframes = {}
+    for position, part_geom in enumerate(aoi.gdf.geometry):
+        matched = gdf.copy()
+        matched[_DISTANCE_COL] = matched.geometry.distance(part_geom)
+        matched = matched[matched[_DISTANCE_COL] <= distance_m]
+        matched = matched.sort_values(_DISTANCE_COL)
 
-    # Hand the sorted rows to _build_results to turn them into the proper ProximityResult records
-    return _build_results(gdf, feature_id_field, keep_properties)
+        # Hand the sorted rows to _build_results to turn them into the proper ProximityResult records
+        result, dataframe = _build_results(matched, feature_id_field, keep_properties)
+        entry = part_result(aoi, position, result)
+        parts.append(entry)
+        dataframes[entry.aoi_part_id] = dataframe
+
+    # A failure raises out of the operator, so reaching here always means success.
+    return OperatorOutcome(status="success", parts=parts, dataframes=dataframes)
 
 
 def nearest(
@@ -98,7 +127,14 @@ def nearest(
     read_options: ReadOptions | None = None,
     **source_kwargs,
 ) -> OperatorOutcome:
-    """Return one ProximityResult holding up to k closest features, nearest first.
+    """Return one ProximityResult per AOI part holding up to k features closest
+    to that part, nearest first.
+
+    Unlike the other analyses, nearest searches the dataset once PER AOI PART. A
+    single search against the whole AOI returns the k features nearest to the AOI
+    as a whole (Oracle SDO_NN), which can miss the nearest feature to a part that
+    sits away from the others. Only a few datasets use nearest, so the extra
+    searches cost little - and an AOI with one row is still one search.
 
     If max_distance_m is given, candidates beyond that distance are dropped
     (mirrors the legacy 25 km cap on archaeology sites).
@@ -106,8 +142,9 @@ def nearest(
     The default ReadOptions pushes a SpatialFilter(predicate='nearest', k=k) down
     to the adapter (Oracle SDO_NN); file adapters read the dataset and the top-k is
     taken client-side. where, when given (the dataset's registry definition query),
-    is pushed down as an attribute filter. Pass your own read_options to override.
-    Dataset identity travels in source_kwargs.
+    is pushed down as an attribute filter. Pass your own read_options to override;
+    it is then used for every part's search. Dataset identity travels in
+    source_kwargs.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -115,29 +152,47 @@ def nearest(
         raise ValueError("max_distance_m must be non-negative")
     _require_projected(aoi)
 
-    # adapter read (nearest pushed down); file adapters read all and we take top-k below.
-    gdf = adapter.read(
-        read_options=read_options or _default_read_options(
-            SpatialFilter(aoi=aoi.gdf, predicate="nearest", k=k),
-            feature_id_field,
-            keep_properties,
-            where,
-        ),
-        target_crs=str(aoi.gdf.crs),
-        **source_kwargs,
-    )
-    if gdf.empty:
-        # Nothing read is still a successful run: no features, no geometry to save.
-        return OperatorOutcome(status="success", result=ProximityResult(features=[]), dataframe=gdf)
+    # convert keep_properties to reusable tuple so properties can be read more than once.
+    if keep_properties is not None:
+        keep_properties = tuple(keep_properties)
 
-    aoi_geom = aoi.gdf.geometry.union_all()
-    gdf = gdf.copy()
-    gdf[_DISTANCE_COL] = gdf.geometry.distance(aoi_geom)
-    if max_distance_m is not None:
-        gdf = gdf[gdf[_DISTANCE_COL] <= max_distance_m]
-    gdf = gdf.sort_values(_DISTANCE_COL).head(k)
+    parts = []
+    dataframes = {}
+    for position, part_geom in enumerate(aoi.gdf.geometry):
+        # This part on its own (a one-row frame) is what the search runs against.
+        part_aoi = aoi.gdf.iloc[[position]]
+        if read_options is None:
+            options = _default_read_options(
+                SpatialFilter(aoi=part_aoi, predicate="nearest", k=k),
+                feature_id_field,
+                keep_properties,
+                where,
+            )
+        else:
+            # A copy for each search: the Oracle adapter clears the attribute filter
+            # on the options it is given once it has used it.
+            options = copy.copy(read_options)
 
-    return _build_results(gdf, feature_id_field, keep_properties)
+        # adapter read (nearest pushed down); file adapters read all and we take top-k below.
+        gdf = adapter.read(read_options=options, target_crs=str(aoi.gdf.crs), **source_kwargs)
+
+        if gdf.empty:
+            # Nothing read is still a successful run: no features, no geometry to save.
+            result, dataframe = ProximityResult(features=[]), gdf
+        else:
+            gdf = gdf.copy()
+            gdf[_DISTANCE_COL] = gdf.geometry.distance(part_geom)
+            if max_distance_m is not None:
+                gdf = gdf[gdf[_DISTANCE_COL] <= max_distance_m]
+            gdf = gdf.sort_values(_DISTANCE_COL).head(k)
+            result, dataframe = _build_results(gdf, feature_id_field, keep_properties)
+
+        entry = part_result(aoi, position, result)
+        parts.append(entry)
+        dataframes[entry.aoi_part_id] = dataframe
+
+    # A failure raises out of the operator, so reaching here always means success.
+    return OperatorOutcome(status="success", parts=parts, dataframes=dataframes)
 
 
 def _default_read_options(
@@ -177,13 +232,14 @@ def _build_results(
     gdf: gpd.GeoDataFrame,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
-) -> OperatorOutcome:
-    """Turn the filtered/sorted GeoDataFrame into a single ProximityResult.
+) -> tuple[ProximityResult, gpd.GeoDataFrame]:
+    """Turn the filtered/sorted GeoDataFrame into a single ProximityResult, plus
+    the matched features to save.
 
         Each matched feature becomes one FeatureRecord whose `measure` is its
-        distance to the AOI in metres (rows arrive sorted nearest-first). The
-        result's headline measure_value (the nearest distance) is derived from
-        these by the results model.
+        distance to the AOI (or AOI part) in metres (rows arrive sorted
+        nearest-first). The result's headline measure_value (the nearest
+        distance) is derived from these by the results model.
     """
     keep_list = list(keep_properties) if keep_properties else []
     features = [
@@ -201,10 +257,9 @@ def _build_results(
     # column name stays private to the operator that created it.
     gdf = gdf.rename(columns={_DISTANCE_COL: "distance_to_aoi_m"})
 
-    # A failure raises out of the operator, so reaching here always means success.
-    # dataframe carries the matched features as they were read (no clipping) so the
+    # The frame carries the matched features as they were read (no clipping) so the
     # orchestrator can save them; it is dropped once written.
-    return OperatorOutcome(status="success", result=ProximityResult(features=features), dataframe=gdf)
+    return ProximityResult(features=features), gdf
 
 
 def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str:
