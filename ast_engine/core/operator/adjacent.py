@@ -4,17 +4,21 @@ Adjacency analysis Operator. One analysis covered in this operator:
 adjacency: checks whether a dataset shares a boundary with the AOI, and
 reports the total shared border length.
 
-Returns ONE AdjacencyResult per dataset. Each adjacent feature is one feature
-record carrying the length of the boundary it shares with the AOI, in metres;
-the result's measure_value is the total shared border length (the sum) and
-is_adjacent is true when that total is above zero. Features are reported with
-the longest shared border first.
+Returns ONE AdjacencyResult per AOI part (one row of the AOI - a multipart row
+stays one part), all from one read of the dataset. Each adjacent feature is one
+feature record carrying the length of the
+boundary it shares with the part, in metres; the result's measure_value is the
+total shared border length (the sum) and is_adjacent is true when that total is
+above zero. Features are reported with the longest shared border first.
 
 Notes:
 
-- The dataset is read through its adapter. The AOI is dissolved before
-  comparison and each dataset feature is measured against it, so a boundary
-  shared between two dataset features is not counted as a shared border.
+- The dataset is read through its adapter. Each dataset feature is measured on
+  its own, so a boundary shared between two dataset features is not counted as
+  a shared border.
+- Only a part's OUTER edge counts: the stretch of its boundary that is also the
+  boundary of the whole AOI. An edge shared by two AOI parts lies inside the
+  AOI, so a feature sitting in the next part is not adjacent to this one.
 - Null, empty, and invalid geometries are removed or repaired before analysis.
 - If tolerance_m is 0, boundaries must intersect exactly (a true touch); the
   'touches' filter is pushed down to the adapter.
@@ -39,7 +43,7 @@ from shapely.geometry import LineString, MultiLineString, GeometryCollection
 
 from ..aoi import AreaOfInterest
 from ..data_adapters.base import BaseSpatialAdapter, ReadOptions, SpatialFilter
-from ..results import AdjacencyResult, FeatureRecord, OperatorOutcome
+from ..results import AdjacencyResult, FeatureRecord, OperatorOutcome, part_result
 
 try:
     from shapely.validation import make_valid
@@ -58,7 +62,7 @@ def adjacency(
     read_options: ReadOptions | None = None,
     **source_kwargs,
 ) -> OperatorOutcome:
-    """Return one AdjacencyResult for the dataset, features sorted by shared length descending.
+    """Return one AdjacencyResult per AOI part, features sorted by shared length descending.
 
     tolerance_m chooses the match: 0 is a true touch (exact shared edge), above 0
     counts dataset boundary within that distance of the AOI boundary as shared.
@@ -75,6 +79,10 @@ def adjacency(
         raise ValueError("tolerance_m must be non-negative")
     _require_projected(aoi)
 
+    # convert keep_properties to reusable tuple so properties can be read more than once.
+    if keep_properties is not None:
+        keep_properties = tuple(keep_properties)
+
     # Ask the adapter for the candidate features (touches / within_distance pushed down).
     gdf = adapter.read(
         read_options=read_options or _default_read_options(
@@ -84,27 +92,49 @@ def adjacency(
         **source_kwargs,
     )
     if gdf.empty:
-        # Nothing read is still a successful run: no features, no geometry to save.
-        return OperatorOutcome(status="success", result=AdjacencyResult(is_adjacent=False, features=[]), dataframe=gdf)
+        # Nothing read is still a successful run: an empty result for each part,
+        # no geometry to save.
+        return OperatorOutcome(
+            status="success",
+            parts=[part_result(aoi, position, AdjacencyResult(is_adjacent=False, features=[])) for position in range(len(aoi.gdf))],
+        )
 
     gdf = _clean_geometries(gdf)
     if gdf.empty:
         # Every candidate was dropped as unusable geometry - same as nothing read.
-        return OperatorOutcome(status="success", result=AdjacencyResult(is_adjacent=False, features=[]), dataframe=gdf)
+        return OperatorOutcome(
+            status="success",
+            parts=[part_result(aoi, position, AdjacencyResult(is_adjacent=False, features=[])) for position in range(len(aoi.gdf))],
+        )
 
-    # Dissolve the AOI so a boundary shared between two of its parts is not
-    # counted; each dataset feature is then measured against it on its own, which
-    # keeps the per-feature identity the records need.
+    # The boundary of the whole AOI, dissolved: an edge shared by two AOI parts is
+    # inside the AOI, so it is not on this boundary.
     aoi_boundary = aoi.gdf.geometry.union_all().boundary
-    if tolerance_m > 0:
-        # Tolerant match: the dataset boundary that falls within tolerance_m of
-        # the AOI boundary. Absorbs slivers, precision noise and small misalignment.
-        match_target = aoi_boundary.buffer(tolerance_m, cap_style="flat", join_style="mitre")
-    else:
-        # Exact match: only boundary the feature shares with the AOI precisely.
-        match_target = aoi_boundary
 
-    return _build_result(gdf, match_target, feature_id_field, keep_properties)
+    # One read for the whole AOI, then each part (one row of the AOI) is measured
+    # on its own. Each dataset feature is compared with the part's outer edge
+    # separately, which keeps the per-feature identity the records need.
+    parts = []
+    dataframes = {}
+    for position, part_geom in enumerate(aoi.gdf.geometry):
+        # The part's outer edge: the stretch of its boundary that is also the whole
+        # AOI's boundary. A feature sitting in the next part is not adjacent.
+        outer_edge = part_geom.boundary.intersection(aoi_boundary)
+        if tolerance_m > 0:
+            # Tolerant match: the dataset boundary that falls within tolerance_m of
+            # the outer edge. Absorbs slivers, precision noise and small misalignment.
+            match_target = outer_edge.buffer(tolerance_m, cap_style="flat", join_style="mitre")
+        else:
+            # Exact match: only boundary the feature shares with the outer edge precisely.
+            match_target = outer_edge
+
+        result, dataframe = _build_result(gdf, match_target, feature_id_field, keep_properties)
+        entry = part_result(aoi, position, result)
+        parts.append(entry)
+        dataframes[entry.aoi_part_id] = dataframe
+
+    # A failure raises out of the operator, so reaching here always means success.
+    return OperatorOutcome(status="success", parts=parts, dataframes=dataframes)
 
 
 def _build_result(
@@ -112,8 +142,9 @@ def _build_result(
     match_target,
     feature_id_field: str | None,
     keep_properties: Iterable[str] | None,
-) -> OperatorOutcome:
-    """Turn the cleaned rows into one AdjacencyResult, longest shared border first.
+) -> tuple[AdjacencyResult, gpd.GeoDataFrame]:
+    """Turn the cleaned rows into one AdjacencyResult, longest shared border first,
+    plus the matched features to save.
 
     Each feature's shared boundary is merged into clean segments and its length
     summed into the feature's `measure`; features that share no boundary are
@@ -145,14 +176,9 @@ def _build_result(
     # be adjacent - a polygon touching the AOI at a single corner, for example. The
     # frame is saved to disk, so it has to show the same features the result reports.
     gdf = gdf.loc[matched_rows]
-    # A failure raises out of the operator, so reaching here always means success.
-    # dataframe carries the matched features as they were read (no clipping) so the
+    # The frame carries the matched features as they were read (no clipping) so the
     # orchestrator can save them; it is dropped once written.
-    return OperatorOutcome(
-        status="success",
-        result=AdjacencyResult(is_adjacent=bool(features), features=features),
-        dataframe=gdf,
-    )
+    return AdjacencyResult(is_adjacent=bool(features), features=features), gdf
 
 
 def _default_read_options(
