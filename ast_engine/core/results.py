@@ -109,7 +109,9 @@ class AOIPartResult(BaseModel):
     for the AOI checks.)
 
     The dataset is read once for the whole AOI, then its features are measured
-    against each part on its own.
+    against each part on its own. nearest is the exception: it searches the
+    dataset once per part (a search against the whole AOI can miss the nearest
+    feature to a part that sits away from the others).
 
     part_attributes are the row's own attribute values, e.g. the dissolve field
     value that names the part ("A"). Empty for full_union, which keeps no
@@ -120,10 +122,6 @@ class AOIPartResult(BaseModel):
     counts do not - a feature that crosses two parts is counted once in each.
     With allow_overlaps=True the parts can overlap, so area and length inside an
     overlap are counted twice.
-
-    nearest is not split: it returns one entry for the whole AOI, with
-    part_index 0 (real parts are numbered from 1) and aoi_part_id set to the
-    AOI id.
     """
     aoi_part_id: str
     part_index: int
@@ -163,7 +161,7 @@ class OperatorOutcome(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     status: Literal["success", "failure"]
-    # one entry per AOI part (nearest: one entry for the whole AOI)
+    # one entry per AOI part
     parts: List[AOIPartResult] = Field(default_factory=list)
     # each part's matched features, keyed by aoi_part_id, for the orchestrator to
     # save; carried here only, never serialized
