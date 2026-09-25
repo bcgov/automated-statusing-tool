@@ -23,6 +23,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+@app.get("/payload")
+def get_payload():
+    return {"message": "Hello, World!"}
 
 @app.post("/api/jobs", status_code=status.HTTP_201_CREATED)
 def create_job_in_queue_and_db(
