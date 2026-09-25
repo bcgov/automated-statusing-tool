@@ -5,7 +5,8 @@ For one AOI, this runs each dataset's analysis and assembles a single AstResults
 It is the glue between the four pieces that are already built:
 
   - adapters (Oracle / file) read features for an AOI;
-  - operators (overlay / proximity / adjacency) compute one result per dataset;
+  - operators (overlay / proximity / adjacency) read each dataset once (nearest:
+    once per AOI part) and compute one result per AOI part;
   - the registry says, per dataset, which analysis to run and with what params;
   - the results model collects everything into AstResults.
 
@@ -201,6 +202,11 @@ def run_analysis(
     settings = settings or Settings()
     file_adapter = FileSpatialAdapter()
     oracle_adapter = _oracle_adapter(tasks, oracle_connection)
+    # Results come back one per AOI part (one row of the AOI). An AOI with no rows
+    # would make every dataset look like a success with nothing in it, so stop
+    # before the run.
+    if aoi.gdf.empty:
+        raise ValueError(f"AOI {aoi.aoi_id} has no rows to analyse.")
 
     timings: list[tuple[str, float]] = []
     tracker.log("run_start", job_id=job_id, aoi_id=aoi.aoi_id, task_count=len(tasks))
@@ -242,41 +248,47 @@ def _run_one_task(
     timings: list[tuple[str, float]],
     settings: Settings,
 ) -> DatasetResultGroup:
-    """Run one task and wrap its result in a DatasetResultGroup.
+    """Run one task and wrap its per-part results in a DatasetResultGroup.
 
     A failure is logged and recorded as an empty group marked status="failure" so
     the run continues. The status is what tells a dataset that failed apart from
-    one that ran and found nothing near the AOI - both come back with no results.
+    one that ran and found nothing near the AOI - both come back with no features.
 
-    The operator hands back its matched features alongside the result. When
-    record_spatial is on they are saved here, one dataset at a time, and the file
-    path is recorded on the result as spatial_link. The features are dropped as
-    soon as the task ends, so only one dataset's geometry is ever held in memory.
+    The operator reads the dataset once and hands back one result per AOI part,
+    with each part's matched features alongside. When record_spatial is on they
+    are saved here, one file per part, and the file path is recorded on that
+    part's result as spatial_link. The features are dropped as soon as the task
+    ends, so only one dataset's geometry is ever held in memory.
     """
     start = time.perf_counter()
     try:
         adapter = _pick_adapter(task, file_adapter, oracle_adapter)
         outcome = _run_operator(task, aoi, adapter)
-        result = outcome.result
 
-        if settings.record_spatial:
-            write_start = time.perf_counter()
-            result.spatial_link = _write_spatial(
-                gdf=outcome.dataframe,
-                dataset_name=task.dataset_name,
-                operator_name=task.operator,
-                output_dir=settings.temp_dir,
-                source_registry=task.source_registry,
-            )
-            # Only logged when a file was actually written - a dataset with no
-            # matches, or a write that failed, records nothing.
-            if result.spatial_link:
-                tracker.log(
-                    "spatial_written",
-                    dataset=task.dataset_name,
-                    path=result.spatial_link,
-                    seconds=round(time.perf_counter() - write_start, 3),
+        for part in outcome.parts:
+            result = part.result
+            result.registry = task.source_registry
+
+            if settings.record_spatial:
+                write_start = time.perf_counter()
+                result.spatial_link = _write_spatial(
+                    gdf=outcome.dataframes.get(part.aoi_part_id),
+                    dataset_name=task.dataset_name,
+                    part_id=part.aoi_part_id,
+                    operator_name=task.operator,
+                    output_dir=settings.temp_dir,
+                    source_registry=task.source_registry,
                 )
+                # Only logged when a file was actually written - a part with no
+                # matches, or a write that failed, records nothing.
+                if result.spatial_link:
+                    tracker.log(
+                        "spatial_written",
+                        dataset=task.dataset_name,
+                        part=part.aoi_part_id,
+                        path=result.spatial_link,
+                        seconds=round(time.perf_counter() - write_start, 3),
+                    )
 
         elapsed = time.perf_counter() - start
         timings.append((task.dataset_name, elapsed))
@@ -286,7 +298,8 @@ def _run_one_task(
             dataset=task.dataset_name,
             operator=task.operator,
             source=task.source_type,
-            features=result.feature_count,
+            # summed over the parts: a feature that crosses two parts is counted in each
+            features=sum(part.result.feature_count for part in outcome.parts),
             seconds=round(elapsed, 3),
         )
 
@@ -294,7 +307,7 @@ def _run_one_task(
             dataset_id=task.dataset_id,
             dataset_name=task.dataset_name,
             status=outcome.status,
-            results=[result],
+            parts=outcome.parts,
         )
     except Exception as exc:
         elapsed = time.perf_counter() - start
@@ -316,8 +329,7 @@ def _run_one_task(
             dataset_name=task.dataset_name,
             status="failure",
             error=f"{type(exc).__name__}: {exc}",
-            results=[],
-            execution_time=round(elapsed, 3),
+            parts=[],
         )
 
 
@@ -356,7 +368,6 @@ def _run_operator(task: AnalysisTask, aoi: AreaOfInterest, adapter: BaseSpatialA
     common = dict(
         aoi=aoi,
         adapter=adapter,
-        registry=task.source_registry,
         feature_id_field=task.feature_id_field,
         keep_properties=task.keep_properties or None,
         where=task.where,
@@ -393,17 +404,19 @@ def _log_timing_summary(timings: list[tuple[str, float]], tracker: DiagnosticTra
 def _write_spatial(
     gdf: Optional[gpd.GeoDataFrame],
     dataset_name: str,
+    part_id: str,
     operator_name: str,
     output_dir: Optional[str],
     source_registry: Optional[str] = None,
 ) -> Optional[str]:
-    """Save one dataset's matched features as a GeoPackage; return the path, or None.
+    """Save one AOI part's matched features as a GeoPackage; return the path, or None.
 
-    Files are grouped by registry and then by analysis:
-    <output_dir>/<registry>/<operator>/<dataset name>.gpkg. One file per dataset
-    rather than one shared GeoPackage, so parallel workers never write to the same
-    file. Nothing is written when the output folder is not set or the dataset
-    matched no features.
+    Files are grouped by registry, then by analysis, then by dataset:
+    <output_dir>/<registry>/<operator>/<dataset name>/<part id>.gpkg. One file per
+    part rather than one shared GeoPackage, so parallel workers never write to the
+    same file. Each dataset gets its own folder because it returns one result per
+    AOI part, and the parts of one dataset must not overwrite each other. Nothing
+    is written when the output folder is not set or the part matched no features.
 
     The registry folder is what keeps two datasets apart when they share a name.
     That happens for real: Tab 1 is a curated selection of datasets that also
@@ -421,7 +434,7 @@ def _write_spatial(
     folder = Path(output_dir)
     if source_registry:
         folder = folder / _safe_filename(source_registry)
-    path = folder / operator_name / f"{_safe_filename(dataset_name)}.gpkg"
+    path = folder / operator_name / _safe_filename(dataset_name) / f"{_safe_filename(part_id)}.gpkg"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         gdf.to_file(path, driver="GPKG")
