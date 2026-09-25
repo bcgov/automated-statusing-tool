@@ -54,6 +54,37 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
     }
   };
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const payload = {
+      user: inputs.name,
+      date: new Date().toISOString().slice(0, 10),
+      region: inputs.region, // Map the form's region ID to the API's preferred value.
+      area_of_interest: "",
+      crown_file_number: inputs.fileNumber,
+      disposition_number: inputs.dispositionId,
+      parcel_number: inputs.parcelId,
+      output_directory: "/some/configured/output/path",
+      aoi_id: "",
+      aoi_name: "",
+      aoi: {}, // The API expects AOI data, such as GeoJSON.
+    };
+
+    const response = await fetch("/api/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Job submission failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log("Queued job:", result.item.job_id);
+  };
+  
   useEffect(() => {
     if (mapSelection) {
       setInputs((values) => ({
