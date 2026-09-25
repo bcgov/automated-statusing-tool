@@ -31,7 +31,7 @@ interface OLMapProps {
 const DEFAULT_PREVIEW_HUE = 120;
 const DEFAULT_PREVIEW_OPACITY = 70;
 
-// updated week of sept 21: custom SVG icons replace the blurry emoji buttons so the basemap and symbology tools read clearly as map and paint symbols.
+// The custom SVG icons keep the map toolbar compact while still making each control clear to the user.
 const PaperMapIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
     <path
@@ -106,7 +106,8 @@ const SATELLITE_URL =
 const DEFAULT_CENTER: [number, number] = [-123.3656, 48.4284];
 const DEFAULT_ZOOM = 8;
 
-// The map component owns the OpenLayers instance and the basemap/view behavior used by the page.
+// OLMap owns the OpenLayers instance, the public basemap layers, and the TANTALIS parcel preview overlay.
+// It is the main page map used to review a selected parcel and adjust its on-map styling without leaving the current screen.
 const OLMap: React.FC<OLMapProps> = ({
   center = DEFAULT_CENTER,
   zoom = DEFAULT_ZOOM,
@@ -126,7 +127,8 @@ const OLMap: React.FC<OLMapProps> = ({
   const [previewOpacity, setPreviewOpacity] = useState<number>(DEFAULT_PREVIEW_OPACITY);
   const previewLayerRef = useRef<VectorLayer | null>(null);
 
-  // Initialize the map one time and set the starting view, leaving the rest of the behavior to later effects.
+  // Initial map setup runs once when the component mounts.
+  // This creates the OpenLayers map and sets the initial center and zoom without re-creating the instance on every render.
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) {
       return;
@@ -165,7 +167,7 @@ const OLMap: React.FC<OLMapProps> = ({
     };
   }, []);
 
-  // Keep the viewport aligned with the page's desired center/zoom without re-creating the map instance.
+  // Keep the view aligned with the page's desired center and zoom while preserving the current map instance.
   useEffect(() => {
     const map = mapRef.current;
 
@@ -180,7 +182,8 @@ const OLMap: React.FC<OLMapProps> = ({
     });
   }, [center, zoom]);
 
-  // Toggle between the street and satellite tile source when the user changes the basemap setting.
+  // Basemap switching swaps the tile source between street and satellite view.
+  // This keeps the map readable while still allowing the user to inspect the parcel in context.
   useEffect(() => {
     const map = mapRef.current;
 
@@ -244,7 +247,7 @@ const OLMap: React.FC<OLMapProps> = ({
     };
   }, [isDisclaimerExpanded]);
 
-  //zoom controls - adjust the map scale smoothly without re-creating the map
+  // zoomIn and zoomOut update the map scale smoothly without recreating the OpenLayers view.
   const zoomIn = () => {
     const view = mapRef.current?.getView();
 
@@ -286,7 +289,8 @@ const OLMap: React.FC<OLMapProps> = ({
     setSelectedDisclaimerItem("");
   };
 
-  // When the form sends TANTALIS identifiers, query the public WFS layer and draw the matching parcel on the map.
+  // This effect runs whenever the form pushes a new TANTALIS parcel request.
+  // It queries the public WFS layer, draws the matching parcel, and fits the map to the parcel extent so the user can review it immediately.
   useEffect(() => {
     const map = mapRef.current;
 
@@ -374,7 +378,8 @@ const OLMap: React.FC<OLMapProps> = ({
     };
   }, [tantalisPreview, previewHue, previewOpacity]);
 
-  // updated week of sept 21: the parcel preview layer now supports a live colour and transparency control for map review.
+  // Whenever the preview colour or transparency changes, update the parcel layer style in place.
+  // This keeps the overlay reactive without re-fetching the parcel data.
   useEffect(() => {
     const map = mapRef.current;
 
@@ -391,7 +396,7 @@ const OLMap: React.FC<OLMapProps> = ({
     previewLayerRef.current.setStyle(layerStyle);
   }, [previewHue, previewOpacity]);
 
-  // Listen for user clicks on map features and pass the selected disposition ID back up to the page.
+  // The click listener reports parcel selections back to the parent page so the form can prefill the matching parcel identifier.
   useEffect(() => {
     const map = mapRef.current;
 
@@ -420,7 +425,7 @@ const OLMap: React.FC<OLMapProps> = ({
   return (
     <div className="map-shell">
       <div className="map-frame">
-        {/* map container - OpenLayers mounts here and fills the available viewport */}
+        {/* OpenLayers mounts the live map into this container so the parcel preview and basemap controls sit over a single viewport. */}
         <div
           ref={mapContainerRef}
           className="map-container"
@@ -428,7 +433,7 @@ const OLMap: React.FC<OLMapProps> = ({
         />
 
         <div className="map-controls map-controls--right">
-          {/* updated week of sept 21: map toolbar stays above the live symbology control so the preview can be adjusted in place. */}
+          {/* The map toolbar keeps the most common actions in one place: zoom, basemap selection, and preview styling. */}
           <div className="map-zoom-panel">
             <button type="button" onClick={zoomIn} aria-label="Zoom in" title="Zoom in">
               +
