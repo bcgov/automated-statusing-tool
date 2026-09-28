@@ -61,11 +61,13 @@ def print_results(results) -> None:
     print(f"\n=== AstResults  job_id={results.job_id}  aoi_id={results.aoi_id} ===")
     for group in results.results:
         print(f"\nDataset: {group.dataset_name}  (id={group.dataset_id})")
-        if not group.results:
+        if not group.parts:
             print("  (no result - analysis failed, see log above)")
             continue
-        for result in group.results:
+        for part in group.parts:
+            result = part.result
             print(
+                f"  part={part.aoi_part_id} ({part.part_area_ha:.2f} ha) {part.part_attributes}"
                 f"  operator={result.operator_type.value}"
                 f"  features={result.feature_count}"
                 f"  measure={result.measure_value} {result.measure_unit}"
