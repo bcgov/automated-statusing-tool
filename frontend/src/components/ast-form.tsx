@@ -19,12 +19,11 @@ interface ASTFormProps {
   onViewTantalis?: (request: TantalisPreviewRequest) => void;
 }
 
-// ASTForm is the main data-entry form for the AST workflow.
-// It captures contact information, region, source selection, and the TANTALIS identifiers used to preview a parcel on the map.
+// updated week of sept 21: keep the form state and TANTALIS preview action together so the parcel can be reviewed from the map.
 const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
   const navigate = useNavigate();
 
-  // Keep the form values in one object so state resets, updates, and map-driven prefills remain predictable.
+  // Keep the form's field values in one object so the component can update and reset them consistently.
   const initialInputs = {
     name: "" as string,
     email: "" as string,
@@ -41,7 +40,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
   const [inputs, setInputs] = useState(initialInputs);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Tracks the local upload file so the user can see the selected file name and remove it without losing other form data.
+  // updated week of sept 21: keep the selected local upload in state so the user can review or remove it without losing other form entries.
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputs({
       ...inputs,
@@ -96,7 +95,6 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
 
   return (
         <div className="form-container">
-          {/* Contact details are captured at the top of the form before the user selects the source of the parcel information. */}
           <div className="full-width-field">
             <TextField
               label="Name"
@@ -151,7 +149,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
           />
 
           <div className="source-container">
-            {/* The source selector controls which data path the user wants to review: either a direct TANTALIS lookup or a local uploaded dataset. */}
+            {/* Let the user choose between a direct TANTALIS lookup and an uploaded file, with the matching fields shown below. */}
             <RadioGroup
               label="Source"
               orientation="horizontal"
@@ -173,11 +171,11 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
               </Radio>
             </RadioGroup>
 
-            {/* The TANTALIS section is always mounted and expanded conditionally for a smoother form experience. */}
+            {/* Always mounted now — visibility is animated via CSS, not conditional rendering */}
             <div className={`source-details ${inputs.source === "1" ? "expanded" : ""}`}>
               <div className="source-details-inner tantalis-inputs">
                 <hr/>
-                {/* These identifiers are required to query the public TANTALIS parcel layer and map the parcel in context. */}
+                {/* These fields collect the identifiers needed to preview a TANTALIS parcel in the map. */}
                 <TextField 
                   label="File Number" 
                   name="fileNumber" 
@@ -227,7 +225,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
             <div className={`source-details ${inputs.source === "2" ? "expanded" : ""}`}>
               <div className="source-details-inner upload-inputs">
                 <hr/>
-                {/* The upload path allows a user to attach a local dataset without enabling the map preview behavior for that file type. */}
+                {/* updated week of sept 21: allow the user to select an external file without adding the map preview behavior to the upload path. */}
                 <p>Select File:</p>
                 <div className="upload-input-row">
                   <input
@@ -251,7 +249,6 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
             </div>
           </div>
 
-            {/* These switches represent optional workflow outputs such as generated maps and overlap checks. */}
             <div className="switch-container">
               <Switch
                 labelPosition="right"
@@ -282,7 +279,6 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
               </Switch>
             </div>
 
-            {/* Submission and reset actions stay at the bottom of the form so the user can finish the workflow or start over cleanly. */}
             <div className="button-container">
               <Button variant="primary" type="submit">Submit</Button>
               <Button variant="secondary" type="submit" onClick={handleClearAll}>Clear Form</Button>
