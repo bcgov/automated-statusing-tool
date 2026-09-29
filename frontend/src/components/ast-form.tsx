@@ -208,7 +208,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
         {/* TANTALIS section. Always on the page, but only opens (with a CSS animation)
             when TANTALIS is picked. The "expanded" class is what opens it. */}
         <div className={`source-details ${inputs.source === SOURCE_TANTALIS ? "expanded" : ""}`}>
-          <div className="source-details-inner tantalis-inputs">
+          <div className="source-details-inner">
             <hr />
             {/* The three TANTALIS identifiers. Also filled in automatically when a map shape is clicked. */}
             <TextField
@@ -249,7 +249,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
 
         {/* Upload section. Only opens when Upload is picked. */}
         <div className={`source-details ${inputs.source === SOURCE_UPLOAD ? "expanded" : ""}`}>
-          <div className="source-details-inner upload-inputs">
+          <div className="source-details-inner">
             <hr />
             <p>Select File:</p>
             <div className="upload-input-row">
