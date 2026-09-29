@@ -40,17 +40,12 @@ body {
 }
 
 // Font for the whole app: BC Sans, or Arial if BC Sans isn't available.
-// !important forces these settings over anything else, including the design system.
-// Note: because this includes html, 1rem = 12px across the app,
-// and every font-size set inside .landing-page is overridden to 12px.
+// Setting 12px on html also means 1rem = 12px across the app (used by the header title).
+// !important forces this over the design system's own settings.
+// Everything else inherits this font and size, unless a rule below sets its own size.
+// The form's text is set to 12px in LandingPage.scss.
 html,
-body,
-#app,
-#root,
-.form-container,
-.form-container *,
-.landing-page,
-.landing-page * {
+body {
   font-family: "BC Sans", Arial, sans-serif !important;
   font-size: 12px !important;
 }
@@ -140,7 +135,8 @@ select {
   white-space: nowrap; // Keep the title on one line
 }
 
-// GeoBC logo. !important overrides the 30px height set in bcgov-components.tsx.
+// GeoBC logo. This is the only place its size is set.
+// !important makes sure the design system's own logo size can't override it.
 .bcgov-header img {
   height: 24px !important;
   width: auto; // Keep the logo's shape
@@ -444,18 +440,37 @@ select {
   align-items: flex-start;
 }
 
+// Pop-out panels joined to their buttons
+
+// When a toolbar button's panel is open, square off the button's bottom corners
+// so the panel can attach underneath it.
+.map-tool-toggle[aria-expanded="true"] {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+// Shared look for both pop-out panels (Basemap and Shape symbology).
+// They sit right under the open button, at the same width, with the same
+// border and background, so the button and panel look like one box.
+// The button's bottom border acts as a thin divider between them.
+.basemap-panel,
+.map-preview-style-panel {
+  width: 180px; // Same width as the open button
+  margin-top: 0; // No gap between the button and the panel
+  border: 1px solid rgba(15, 23, 42, 0.2); // Same border as the button...
+  border-top: none; // ...but no top border, so it joins the button
+  border-radius: 0 0 8px 8px; // Round the bottom corners only
+  background: rgba(255, 255, 255, 0.96); // Same white as the button
+  // Shadow below the panel only. The -2px keeps it from showing above, on the button.
+  box-shadow: 0 4px 8px -2px rgba(0, 0, 0, 0.15);
+  color: var(--text);
+}
+
 // Basemap picker
 
-// White pop-out panel under the Basemap button.
+// Space inside the Basemap panel.
 .basemap-panel {
-  width: 240px;
-  margin-top: 8px;
   padding: 10px 12px 8px;
-  border: 1px solid rgba(15, 23, 42, 0.15);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-  color: var(--text);
 }
 
 // Panel title ("Select map") on the left, close button on the right.
@@ -500,19 +515,12 @@ select {
 
 // Shape symbology panel
 
-// White pop-out panel under the Shape symbology button.
+// Shape symbology panel layout: the two sliders stacked.
 .map-preview-style-panel {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-width: 150px;
-  margin-top: 8px;
   padding: 8px 10px;
-  border: 1px solid rgba(15, 23, 42, 0.2);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-  color: var(--text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -587,7 +595,8 @@ select {
 }
 
 // The scale bar line and its distance label.
-.burn-severity-scale .ol-scale-line-inner {
+// OpenLayers names this inner part after the scale bar's class name plus "-inner".
+.burn-severity-scale .burn-severity-scale-inner {
   border: 2px solid #2d2d2d;
   border-top: none; // Open at the top, like a bracket
   color: #2d2d2d;
