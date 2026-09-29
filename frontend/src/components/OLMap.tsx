@@ -10,7 +10,7 @@ import type { FC } from "react";
 import Map from "ol/Map"; // The map itself
 import View from "ol/View"; // Controls where the map looks (center and zoom)
 import TileLayer from "ol/layer/Tile"; // Layer for basemap image tiles
-import VectorLayer from "ol/layer/Vector"; // Layer for shapes (the TANTALIS preview)
+import VectorLayer from "ol/layer/Vector"; // Layer for shapes (the Tantalis preview)
 import XYZ from "ol/source/XYZ"; // Loads tiles from a URL pattern like {z}/{y}/{x}
 import VectorSource from "ol/source/Vector"; // Holds the shapes shown in a vector layer
 import { GeoJSON } from "ol/format"; // Reads GeoJSON data into shapes OpenLayers can draw
@@ -236,7 +236,7 @@ const OLMap: FC<OLMapProps> = ({
     };
   }, []);
 
-  // 5. Look up and show the TANTALIS shape whenever the form sends new identifiers.
+  // 5. Look up and show the Tantalis shape whenever the form sends new identifiers.
   // The sliders are left out of the list at the bottom, so moving them doesn't repeat the lookup.
   useEffect(() => {
     const map = mapRef.current;

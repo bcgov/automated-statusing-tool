@@ -1,14 +1,9 @@
-// LandingPage.scss
-// Layout for the landing page: the form on the left and the map on the right.
-// In SCSS, // starts a comment. Comments are ignored by the browser.
-// ">" means "a direct child of". For example, ".landing-page > .form-container"
-// only matches a .form-container sitting directly inside .landing-page.
-
+// Layout for the landing page
 // The whole page area.
-// Uses a grid with two columns: the form (left) and the map (right).
+// Uses a grid with two columns
 .landing-page {
-    font-family: "BC Sans"; // BC Government standard font
-    background: #f4f6f8; // Light grey page background
+    font-family: "BC Sans";
+    background: #f4f6f8;
 
     display: grid; // Lay the page out as a grid
     // Two columns:
@@ -16,7 +11,7 @@
     // 2. Map: takes up all the remaining space. The 0 lets it shrink if needed.
     grid-template-columns: minmax(320px, 33.333vw) minmax(0, 1fr);
 
-    width: 100%; // Fill the full width
+    width: 100%;
     // These three lines stretch the page to fill the space between the banner and the footer.
     // Without them, the page shrinks to fit its contents and leaves a gap under the footer.
     height: 100%; 
