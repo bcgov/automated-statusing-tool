@@ -77,7 +77,7 @@ const createBasemapSource = (url: string): XYZ =>
 // Icon for the Basemap button (a folded paper map).
 // In each d="..." drawing path: M = move to, V = vertical line, L = line to, Z = close the shape.
 const PaperMapIcon: FC = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <svg viewBox="0 0 24 24" aria-hidden="true">
     {/* Outline of the folded map */}
     <path
       d="M4 6.5V17.5L8.5 15.5L15.5 18.5L20 16.5V5.5L15.5 7.5L8.5 4.5L4 6.5Z"
@@ -93,7 +93,7 @@ const PaperMapIcon: FC = () => (
 
 // Icon for the Shape symbology button (a paintbrush).
 const PaintbrushIcon: FC = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+  <svg viewBox="0 0 24 24" aria-hidden="true">
     {/* Brush head */}
     <path
       d="M4 15.5L12.5 7L16.5 11L8 19.5H4V15.5Z"
@@ -458,7 +458,7 @@ const OLMap: FC<OLMapProps> = ({
               aria-controls="basemap-panel"
               onClick={() => setShowBasemapPanel((isOpen) => !isOpen)}
             >
-              <span className="map-tool-toggle__icon map-tool-toggle__icon--map" aria-hidden="true">
+              <span className="map-tool-toggle__icon" aria-hidden="true">
                 <PaperMapIcon />
               </span>
               <span className="map-tool-toggle__label">Basemap</span>
@@ -513,12 +513,12 @@ const OLMap: FC<OLMapProps> = ({
               {/* Opens or closes the colour/transparency panel. */}
               <button
                 type="button"
-                className="map-tool-toggle map-shape-symbology-toggle"
+                className="map-tool-toggle"
                 aria-expanded={showShapeSymbologyPanel}
                 aria-controls="shape-symbology-panel"
                 onClick={() => setShowShapeSymbologyPanel((isOpen) => !isOpen)}
               >
-                <span className="map-tool-toggle__icon map-tool-toggle__icon--paint" aria-hidden="true">
+                <span className="map-tool-toggle__icon" aria-hidden="true">
                   <PaintbrushIcon />
                 </span>
                 <span className="map-tool-toggle__label">Shape symbology</span>
