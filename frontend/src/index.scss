@@ -1,20 +1,26 @@
+// Global styles for the whole app.
+// These apply everywhere. Page-specific layout lives in LandingPage.scss.
+// In SCSS, // starts a comment. The browser never sees comments.
+
+// Load the BC Sans font files (BC Government standard font).
 @import "@bcgov/bc-sans/css/BC_Sans.css";
 
-//define constants for colors and fonts to be used throughout the application
+// Colour variables used throughout the app.
+// :root means "the whole page", so these can be used in any file with var(--name).
 :root {
-  --bc-blue: #003366;
-  --bc-blue-hover: #002b55;
-  --bc-gold: #fcba19;
-  --text: #1f2937;
-  --background: #edf3f8;
-  --map-background: #dfe9f2;
+  --bc-blue: #003366; // BC Gov dark blue
+  --bc-gold: #fcba19; // BC Gov gold (used for accent lines and focus outlines)
+  --text: #1f2937; // Main dark grey text colour
+  --background: #edf3f8; // Light blue-grey page background
+  --map-background: #dfe9f2; // Shown behind the map while tiles load
   --white: #ffffff;
-
-  font-family: "BC Sans", Arial, sans-serif;
-  font-size: 16px;
 }
 
-//define styles for the landing page and its child elements
+// Page basics
+
+// Make the page and the React app containers fill the whole browser window,
+// with no default browser spacing around the edges.
+// #root is the <div> in index.html that the React app is drawn inside.
 html,
 body,
 #app,
@@ -27,56 +33,16 @@ body,
 }
 
 body {
-  overflow: hidden;
+  overflow: hidden; // No page scroll bar. The form scrolls on its own instead.
   background: var(--background);
   color: var(--text);
-  font-family: "BC Sans", Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
+  line-height: 1.5; // Space between lines of text
 }
 
-* {
-  box-sizing: border-box;
-}
-
-button,
-input,
-select,
-textarea,
-label {
-  font: inherit;
-}
-
-button,
-select {
-  touch-action: manipulation;
-}
-
-#app,
-#root {
-  display: flex;
-  flex-direction: column;
-}
-
-#root {
-  max-width: none;
-  min-width: 0;
-  min-height: 100vh;
-  height: 100vh;
-  border: 0;
-  text-align: initial;
-}
-
-#root > * {
-  min-width: 0;
-}
-
-#root > .landing-page {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: auto;
-}
-
+// Font for the whole app: BC Sans, or Arial if BC Sans isn't available.
+// !important forces these settings over anything else, including the design system.
+// Note: because this includes html, 1rem = 12px across the app,
+// and every font-size set inside .landing-page is overridden to 12px.
 html,
 body,
 #app,
@@ -89,7 +55,63 @@ body,
   font-size: 12px !important;
 }
 
-//define header and footer styles for the application
+// Include padding and borders in every element's width and height,
+// so sizes are easier to predict.
+* {
+  box-sizing: border-box;
+}
+
+// Make form controls use the same font as the rest of the page.
+// Browsers give them their own font by default.
+button,
+input,
+select,
+textarea,
+label {
+  font: inherit;
+}
+
+// Stops the small delay and double-tap zoom on touch screens.
+button,
+select {
+  touch-action: manipulation;
+}
+
+// App layout
+
+// Stack the app from top to bottom: header, banner, page, footer.
+#app,
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+// Undo the default Vite starter styles (a narrow, centred, padded #root)
+// and make the app exactly the height of the browser window.
+#root {
+  max-width: none;
+  min-width: 0;
+  height: 100vh; // vh = percent of the window height
+  min-height: 100vh;
+  border: 0;
+  text-align: initial;
+}
+
+// Let every direct child of #root shrink sideways instead of overflowing.
+#root > * {
+  min-width: 0;
+}
+
+// The landing page fills the space left over after the header, banner and footer.
+#root > .landing-page {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+}
+
+// Header
+
+// Row holding the BC Gov header, lined up on the left.
 .bcgov-header {
   width: 100%;
   display: flex;
@@ -97,223 +119,239 @@ body,
   min-height: 56px;
 }
 
+// Inside of the design system header: logo and title on the left, full width.
 .bcgov-header .bcds-header--container {
   display: flex;
-  align-items: center;
+  align-items: center; // Centre the logo and title vertically
   justify-content: flex-start;
   width: auto;
   max-width: none;
   margin: 0;
-  padding: 0 0 0 12px;
+  padding: 0 0 0 12px; // 12px of space on the left only
   min-height: 56px;
 }
 
+// Site title ("Automated Statusing Tool").
 .bcgov-header .bcds-header--title {
   margin-left: 0;
   text-align: left;
-  font-size: 1.4rem;
+  font-size: 1.4rem; // 1.4 x 12px = about 17px
   line-height: 1.2;
-  white-space: nowrap;
+  white-space: nowrap; // Keep the title on one line
 }
 
+// GeoBC logo. !important overrides the 30px height set in bcgov-components.tsx.
 .bcgov-header img {
   height: 24px !important;
-  width: auto;
+  width: auto; // Keep the logo's shape
 }
 
-//define footer styles for the application
+// Footer
+
+// The full blue footer bar with a gold line on top.
 .bcgov-page-footer {
   width: 100%;
   background: var(--bc-blue);
   color: var(--white);
   border-top: 2px solid var(--bc-gold);
-  flex-shrink: 0;
-  transition: transform 0.2s ease;
+  flex-shrink: 0; // Never squash the footer to make room for the page
 }
 
+// Small "More information" tab shown when the footer is collapsed.
+// position: fixed keeps it in the bottom-right corner of the window.
 .bcgov-footer-tab {
   position: fixed;
   right: 18px;
   bottom: 0;
-  z-index: 1000;
+  z-index: 1000; // Sit on top of everything else
   height: 32px;
   padding: 0 16px;
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-bottom: none;
-  border-radius: 8px 8px 0 0;
-  background: rgba(0, 51, 102, 0.92);
+  border-radius: 8px 8px 0 0; // Round the top corners only
+  background: rgba(0, 51, 102, 0.92); // BC blue, slightly see-through
   color: var(--white);
   font-weight: 600;
   letter-spacing: 0.01em;
-  cursor: pointer;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.12);
+  cursor: pointer; // Hand cursor on hover
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.12); // Soft shadow above the tab
 }
 
 .bcgov-footer-tab:hover {
-  background: rgba(0, 51, 102, 1);
+  background: rgba(0, 51, 102, 1); // Solid BC blue on hover
 }
 
+// Footer bar: controls on the left, "Collapse Footer" on the right.
 .bcgov-footer-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between; // Push the two groups to opposite ends
   gap: 12px;
   min-height: 48px;
   padding: 8px 16px;
 }
 
+// Left group: "More info" dropdown and the acknowledgement button.
 .bcgov-footer-controls-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.bcgov-footer-label {
-  font-size: 14px;
-  font-weight: 700;
+// Shared look for the three footer controls:
+// outlined white boxes on the blue bar.
+.bcgov-footer-select,
+.bcgov-footer-toggle,
+.bcgov-footer-collapse {
+  height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  background: transparent;
   color: var(--white);
-  white-space: nowrap;
+  font-weight: 600;
+  cursor: pointer;
 }
 
+// "More info" dropdown.
 .bcgov-footer-select {
   min-width: 160px;
-  height: 32px;
   padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--white);
-  font-weight: 600;
-  appearance: none;
-  cursor: pointer;
+  appearance: none; // Hide the browser's default dropdown arrow
 }
 
+// Dropdown options open on a white list, so use dark text there.
 .bcgov-footer-select option {
-  color: #1f2937;
+  color: var(--text);
 }
 
+// "Show/Hide Territorial Acknowledgement" button.
 .bcgov-footer-toggle {
-  height: 32px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--white);
-  font-weight: 600;
-  cursor: pointer;
 }
 
+// "Collapse Footer" button. Lines up the text and arrow side by side.
+.bcgov-footer-collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+// Faint highlight when hovering the two footer buttons.
 .bcgov-footer-toggle:hover,
 .bcgov-footer-collapse:hover {
   background: rgba(255, 255, 255, 0.08);
 }
 
+// Small space before the up/down arrows.
 .bcgov-footer-arrow {
   margin-left: 6px;
 }
 
-.bcgov-footer-collapse {
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.55);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--white);
-  font-weight: 600;
-  cursor: pointer;
-}
-
+// Slightly bigger arrow on the "Collapse Footer" button.
 .bcgov-footer-collapse .bcgov-footer-arrow {
   font-size: 18px;
   line-height: 1;
 }
 
+// Area that holds the BC Gov footer (territorial acknowledgement) when expanded.
 .bcgov-footer-content {
   padding: 12px 16px 20px;
   color: var(--white);
   background: rgba(0, 51, 102, 0.96);
 }
 
-#root > .landing-page,
-.landing-page {
-  display: grid;
-  grid-template-columns: minmax(320px, 33.333vw) minmax(0, 1fr);
-  align-items: stretch;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
-}
+// Map area
+// The main map layout (sizes and columns) is in LandingPage.scss.
+// These rules only add what LandingPage.scss doesn't set.
 
-.map-shell {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  background: var(--background);
-}
-
+// Map frame: colour shown behind the map while tiles load.
 .map-frame {
-  position: relative;
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
+  min-width: 0; // Let the frame shrink when the window gets narrower
   background: var(--map-background);
 }
 
+// The map itself fills the whole frame.
+// position: absolute + inset: 0 pins all four edges to the frame's edges.
 .map-container {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
 }
 
+// Force OpenLayers' own inner map area to fill the container too.
 .map-container .ol-viewport {
   width: 100% !important;
   height: 100% !important;
 }
 
+// Loading and error message for the TANTALIS lookup.
+// Sits at the bottom centre of the map, so it doesn't cover the scale bar (bottom left).
+.map-preview-status {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%); // Shift left by half its width, so it's truly centred
+  z-index: 130; // Above the map and the preview shape
+  max-width: 360px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+// Map toolbar
+
+// Toolbar floating on top of the map in the top-left corner.
+// (The class name says "right", but it's placed on the left.)
 .map-controls {
   position: absolute;
-  z-index: 100;
-  display: flex;
-  align-items: flex-start;
+  z-index: 100; // Above the map
 }
 
 .map-controls--right {
   top: 16px;
   left: 16px;
-  right: auto;
   display: flex;
-  flex-direction: column;
+  flex-direction: column; // Stack the buttons top to bottom
+  align-items: flex-start;
   gap: 10px;
 }
 
+// Zoom in and zoom out buttons, stacked.
 .map-zoom-panel {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
+// Shared look for all toolbar buttons: white box, thin border, soft shadow.
 .map-zoom-panel button,
 .map-tool-toggle,
 .basemap-panel__header button {
   border: 1px solid rgba(15, 23, 42, 0.2);
   background: rgba(255, 255, 255, 0.96);
-  color: #1f2937;
+  color: var(--text);
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
+// Light blue highlight on hover.
+.map-zoom-panel button:hover,
+.map-tool-toggle:hover,
+.basemap-panel__header button:hover {
+  background: #eef6ff;
+}
+
+// Gold outline when a button is reached with the keyboard (Tab key).
+.map-zoom-panel button:focus-visible,
+.map-basemap-toggle:focus-visible,
+.basemap-panel__header button:focus-visible {
+  outline: 3px solid var(--bc-gold);
+  outline-offset: 2px; // Small gap between the button and the outline
+}
+
+// Square + and − buttons.
 .map-zoom-panel button {
   display: flex;
   align-items: center;
@@ -327,11 +365,14 @@ body,
   line-height: 1;
 }
 
+// Basemap and Shape symbology buttons.
+// They start as a small square showing only the icon,
+// then slide wider to show the label (see the hover rules below).
 .map-tool-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0;
+  gap: 0; // No space next to the hidden label
   width: 44px;
   min-width: 44px;
   height: 44px;
@@ -339,49 +380,55 @@ body,
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
-  overflow: hidden;
-  white-space: nowrap;
+  overflow: hidden; // Hide the label while the button is narrow
+  white-space: nowrap; // Keep the label on one line
+  // Animate the width and colour changes over 0.2 seconds.
   transition: width 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* updated week of sept 21: map toolbar buttons stay compact until hovered or opened, but the expanded width is large enough to fit the full label text without clipping. */
+// The Basemap button is slightly shorter than the others.
+.map-basemap-toggle {
+  height: 40px;
+  padding: 0 12px;
+}
+
+// Box that holds each toolbar icon.
 .map-tool-toggle__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex-shrink: 0; // Never squash the icon
   width: 18px;
   height: 18px;
-  color: #111827;
+  color: #111827; // Near-black. The icons draw in this colour (currentColor).
   line-height: 1;
 }
 
+// The icon drawing itself.
 .map-tool-toggle__icon svg {
   display: block;
   width: 18px;
   height: 18px;
 }
 
-.map-tool-toggle__icon--map,
-.map-tool-toggle__icon--paint {
-  font-size: 17px;
-}
-
+// Button label ("Basemap", "Shape symbology"). Hidden until the button widens.
 .map-tool-toggle__label {
   max-width: 0;
-  opacity: 0;
+  opacity: 0; // Fully see-through
   overflow: hidden;
   transition: max-width 0.2s ease, opacity 0.2s ease;
 }
 
+// Widen the button when it's hovered, reached with the keyboard, or its panel is open.
 .map-tool-toggle:hover,
 .map-tool-toggle:focus-visible,
 .map-tool-toggle[aria-expanded="true"] {
   width: 180px;
-  gap: 8px;
-  justify-content: flex-start;
+  gap: 8px; // Space between the icon and the label
+  justify-content: flex-start; // Line the icon and label up on the left
 }
 
+// Show the label at the same times.
 .map-tool-toggle:hover .map-tool-toggle__label,
 .map-tool-toggle:focus-visible .map-tool-toggle__label,
 .map-tool-toggle[aria-expanded="true"] .map-tool-toggle__label {
@@ -389,30 +436,7 @@ body,
   opacity: 1;
 }
 
-.map-basemap-toggle:hover,
-.map-basemap-toggle:focus-visible,
-.map-basemap-toggle[aria-expanded="true"],
-.map-shape-symbology-toggle:hover,
-.map-shape-symbology-toggle:focus-visible,
-.map-shape-symbology-toggle[aria-expanded="true"] {
-  width: 180px;
-}
-
-.map-zoom-panel button:hover,
-.map-tool-toggle:hover,
-.basemap-panel__header button:hover {
-  background: #eef6ff;
-}
-
-.map-zoom-panel button:focus-visible,
-.map-basemap-toggle:focus-visible,
-.basemap-panel__header button:focus-visible,
-.map-footer-select:focus-visible,
-.map-footer-toggle:focus-visible {
-  outline: 3px solid var(--bc-gold);
-  outline-offset: 2px;
-}
-
+// Each toolbar button with its panel underneath it.
 .map-basemap-wrap,
 .map-shape-symbology-wrap {
   display: flex;
@@ -420,93 +444,9 @@ body,
   align-items: flex-start;
 }
 
-.map-shape-symbology-toggle {
-  width: 44px;
-}
+// Basemap picker
 
-// updated week of sept 21: add a small optional style control so the preview parcel can be recolored and faded while the user reviews it.
-.map-preview-style-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 150px;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(15, 23, 42, 0.2);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-  color: #1f2937;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.map-preview-control {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.map-preview-control input[type="range"] {
-  width: 100%;
-  cursor: pointer;
-  border-radius: 999px;
-}
-
-.map-preview-hue-slider {
-  appearance: none;
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    #ff3b30,
-    #ff9f1c,
-    #f7d154,
-    #2ecc71,
-    #1e90ff,
-    #7b61ff,
-    #ff4fc7,
-    #ff3b30
-  );
-  outline: none;
-}
-
-.map-preview-hue-slider::-webkit-slider-thumb,
-.map-preview-transparency-slider::-webkit-slider-thumb {
-  appearance: none;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: #ffffff;
-  border: 2px solid #0f172a;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
-}
-
-.map-preview-transparency-slider {
-  appearance: none;
-  height: 10px;
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    rgba(15, 23, 42, 0.12),
-    rgba(15, 23, 42, 0.9)
-  );
-  outline: none;
-}
-
-/* updated week of sept 21: keep the basemap toggle at the same compact size as the zoom buttons until the user interacts, then let it expand to show the label. */
-.map-basemap-toggle {
-  width: 44px;
-  min-width: 44px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
+// White pop-out panel under the Basemap button.
 .basemap-panel {
   width: 240px;
   margin-top: 8px;
@@ -515,9 +455,10 @@ body,
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
-  color: #1f2937;
+  color: var(--text);
 }
 
+// Panel title ("Select map") on the left, close button on the right.
 .basemap-panel__header {
   display: flex;
   align-items: center;
@@ -528,6 +469,7 @@ body,
   font-weight: 700;
 }
 
+// Small square close (−) button.
 .basemap-panel__header button {
   display: flex;
   align-items: center;
@@ -540,28 +482,103 @@ body,
   line-height: 1;
 }
 
+// Each basemap choice: radio button and its label on one row.
 .basemap-option {
   display: flex;
   align-items: center;
   gap: 10px;
   width: 100%;
   padding: 7px 2px;
-  color: #1f2937;
+  color: var(--text);
   font-size: 14px;
   cursor: pointer;
 }
 
 .basemap-option:hover {
-  background: rgba(0, 51, 102, 0.04);
+  background: rgba(0, 51, 102, 0.04); // Very faint blue on hover
 }
 
+// Shape symbology panel
+
+// White pop-out panel under the Shape symbology button.
+.map-preview-style-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 150px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+// Each slider with its label above it.
+.map-preview-control {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+// Shared look for both sliders: a thin rounded bar the full width of the panel.
+.map-preview-hue-slider,
+.map-preview-transparency-slider {
+  appearance: none; // Remove the browser's default slider look
+  width: 100%;
+  height: 10px;
+  border-radius: 999px; // Fully rounded ends
+  cursor: pointer;
+  outline: none;
+}
+
+// Colour slider: a rainbow bar that matches the colour wheel.
+.map-preview-hue-slider {
+  background: linear-gradient(
+    to right,
+    #ff3b30,
+    #ff9f1c,
+    #f7d154,
+    #2ecc71,
+    #1e90ff,
+    #7b61ff,
+    #ff4fc7,
+    #ff3b30
+  );
+}
+
+// Transparency slider: fades from light to dark grey.
+.map-preview-transparency-slider {
+  background: linear-gradient(to right, rgba(15, 23, 42, 0.12), rgba(15, 23, 42, 0.9));
+}
+
+// The round handle you drag on both sliders.
+// ::-webkit-slider-thumb works in Chrome and Edge.
+.map-preview-hue-slider::-webkit-slider-thumb,
+.map-preview-transparency-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%; // Circle
+  background: var(--white);
+  border: 2px solid #0f172a;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.15);
+}
+
+// Scale bar
+
+// White box for the scale bar in the bottom-left corner of the map.
+// !important is needed to override OpenLayers' own scale bar positioning.
 .burn-severity-scale {
   position: absolute !important;
   left: 16px !important;
   bottom: 16px !important;
-  top: auto !important;
-  right: auto !important;
-  z-index: 500 !important;
+  z-index: 500 !important; // Above the map and the toolbar
   background: rgba(255, 255, 255, 0.95) !important;
   border-radius: 4px;
   padding: 4px 8px;
@@ -569,90 +586,19 @@ body,
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+// The scale bar line and its distance label.
 .burn-severity-scale .ol-scale-line-inner {
   border: 2px solid #2d2d2d;
-  border-top: none;
+  border-top: none; // Open at the top, like a bracket
   color: #2d2d2d;
   font-size: 11px;
   font-weight: 700;
   text-align: center;
 }
 
-.map-footer-ribbon {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--bc-blue);
-  border-top: 2px solid var(--bc-gold);
-  color: var(--white);
-}
+// Small screens
 
-.map-footer-label {
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.map-footer-select {
-  min-width: 150px;
-  height: 32px;
-  padding: 0 10px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 4px;
-  background: var(--white);
-  color: #1f2937;
-}
-
-.map-footer-disclaimer {
-  flex: 1;
-  min-width: 0;
-  padding: 0 12px;
-  border-left: 1px solid rgba(255, 255, 255, 0.2);
-  color: var(--white);
-}
-
-.map-footer-disclaimer p {
-  margin: 0;
-  color: var(--white);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.map-footer-toggle {
-  height: 32px;
-  padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--white);
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.map-footer-toggle:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.map-footer-toggle-icon {
-  margin-left: 6px;
-}
-
-@media (max-width: 900px) {
-  .map-footer-ribbon {
-    flex-wrap: wrap;
-  }
-
-  .map-footer-disclaimer {
-    width: 100%;
-    flex-basis: 100%;
-    padding-top: 8px;
-    border-left: none;
-  }
-}
-
+// On screens 768px wide or less, move the toolbar and scale bar closer to the edges.
 @media (max-width: 768px) {
   .map-controls--right {
     top: 10px;
