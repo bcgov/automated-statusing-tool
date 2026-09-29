@@ -19,8 +19,10 @@ const PageHeader = () => {
 };
 
 //page footer, collapsible info panel, links and acknowledgement toggle
+//useState is a React hook that allows functional components to have state variables. 
+//The initial state is set to false, indicating that the footer is initially collapsed.
 const PageFooter = () => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false); //state, setState = useState(initialState);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedFooterItem, setSelectedFooterItem] = useState("");
 

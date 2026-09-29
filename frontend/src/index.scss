@@ -1,5 +1,6 @@
 @import "@bcgov/bc-sans/css/BC_Sans.css";
 
+//define constants for colors and fonts to be used throughout the application
 :root {
   --bc-blue: #003366;
   --bc-blue-hover: #002b55;
@@ -13,6 +14,7 @@
   font-size: 16px;
 }
 
+//define styles for the landing page and its child elements
 html,
 body,
 #app,
@@ -87,6 +89,7 @@ body,
   font-size: 12px !important;
 }
 
+//define header and footer styles for the application
 .bcgov-header {
   width: 100%;
   display: flex;
@@ -118,6 +121,7 @@ body,
   width: auto;
 }
 
+//define footer styles for the application
 .bcgov-page-footer {
   width: 100%;
   background: var(--bc-blue);
