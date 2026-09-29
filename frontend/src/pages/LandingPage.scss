@@ -1,24 +1,14 @@
 // Layout for the landing page
-// In SCSS, // starts a comment. Comments are ignored by the browser.
-// ">" means "a direct child of". For example, ".landing-page > .form-container"
-// only matches a .form-container sitting directly inside .landing-page.
-
-// The whole page area.
-// Uses a grid with two columns: the form (left) and the map (right).
+// Page uses a grid with two columns: the form (left) and the map (right).
+// Its height and flex settings are in index.scss (#root > .landing-page).
 .landing-page {
-    font-family: "BC Sans"; // BC Government standard font
     background: #f4f6f8; // Light grey page background
-
     display: grid; // Lay the page out as a grid
     // Two columns:
     // 1. Form: one third of the screen width, but never narrower than 320px.
     // 2. Map: takes up all the remaining space. The 0 lets it shrink if needed.
     grid-template-columns: minmax(320px, 33.333vw) minmax(0, 1fr);
-
     width: 100%; // Fill the full width
-    height: 100%; // Fill the full height of the area it sits in
-    min-height: 0; // Lets the page shrink to fit, instead of pushing past the screen
-    flex: 1 1 auto; // Grow to fill any spare space left by the header and footer
     overflow: hidden; // Hide anything that spills outside the page area
 }
 
@@ -44,38 +34,18 @@
 // Map column (right side).
 // The outer box that holds the map. It stacks its contents from top to bottom.
 .landing-page > .map-shell {
-    width: 100%; // Fill the whole right column
-    max-width: none; // Remove any width limit
     min-width: 0; // Lets the map shrink when the window gets narrower
-    height: 100%; // Fill the full height
     min-height: 0; // Lets it shrink to fit, instead of pushing past the screen
-    margin: 0; // No space around the outside
-
-    border: none; // No border
-    box-shadow: none; // No shadow
-    background: #dbeaf7; // Light blue, shown only while the map tiles are loading
-
     display: flex; // Stack the contents...
     flex-direction: column; // ...from top to bottom
     overflow: hidden; // Hide anything that spills outside
 }
 
 // The frame inside the map column. The map, toolbar and messages all sit inside it.
+// The map itself is pinned to fill this frame in index.scss (.map-container).
 .landing-page > .map-shell > .map-frame {
-    position: relative; // Lets the toolbar and messages be placed on top of the map
+    position: relative; // Lets the map, toolbar and messages be placed on top of each other
     flex: 1 1 auto; // Grow to fill the map column
-    width: 100%;
-    height: 100%;
     min-height: 420px; // Never shorter than 420px, so the map stays usable on small screens
     overflow: hidden; // Hide anything that spills outside the frame
-}
-
-// The <div> OpenLayers draws the map inside.
-.landing-page .map-container {
-    width: 100%; // Fill the frame
-    height: 100%;
-    min-height: 0; // Lets it shrink with the frame
-    margin: 0; // No space around the outside
-    border: none; // No border
-    box-shadow: none; // No shadow
 }
