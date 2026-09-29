@@ -1,0 +1,105 @@
+[
+  {
+    "user": "alice",
+    "date": "2026-09-29",
+    "region": "Cariboo",
+    "area_of_interest": "North Lake Area",
+    "crown_file_number": "CF-1001",
+    "disposition_number": "DISP-2001",
+    "parcel_number": "PARCEL-1001",
+    "output_directory": "/tmp/ast_jobs/job_001",
+    "retain_existing_outputs": false,
+    "suppress_tab_3": false,
+    "suppress_map_creation": false,
+    "open_output_directory_on_completion": false,
+    "enable_portable_spreadsheet": false,
+    "registries": ["fcbc"],
+    "aoi_id": "AOI-1001",
+    "aoi_name": "North Lake Area",
+    "aoi": {
+      "type": "Feature",
+      "properties": {
+        "name": "North Lake Area"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [1, 0],
+            [1, 1],
+            [0, 1],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    "status": "Queued"
+  },
+  {
+    "user": "bob",
+    "date": "2026-09-29",
+    "region": "South Coast",
+    "area_of_interest": "Harbour Ridge",
+    "crown_file_number": "CF-2002",
+    "disposition_number": "DISP-2002",
+    "parcel_number": "PARCEL-2002",
+    "output_directory": "/tmp/ast_jobs/job_002",
+    "retain_existing_outputs": true,
+    "suppress_tab_3": false,
+    "suppress_map_creation": true,
+    "open_output_directory_on_completion": false,
+    "enable_portable_spreadsheet": true,
+    "registries": ["fcbc", "pmbc"],
+    "aoi_id": "AOI-2002",
+    "aoi_name": "Harbour Ridge",
+    "aoi": {
+      "type": "Feature",
+      "properties": {
+        "name": "Harbour Ridge"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [-123.35, 48.42]
+      }
+    },
+    "status": "Queued"
+  },
+  {
+    "user": "charlie",
+    "date": "2026-09-29",
+    "region": "Thompson Okanagan",
+    "area_of_interest": "Okanagan Bench",
+    "crown_file_number": "CF-3003",
+    "disposition_number": "DISP-3003",
+    "parcel_number": "PARCEL-3003",
+    "output_directory": "/tmp/ast_jobs/job_003",
+    "retain_existing_outputs": false,
+    "suppress_tab_3": true,
+    "suppress_map_creation": false,
+    "open_output_directory_on_completion": true,
+    "enable_portable_spreadsheet": false,
+    "registries": ["fcbc"],
+    "aoi_id": "AOI-3003",
+    "aoi_name": "Okanagan Bench",
+    "aoi": {
+      "type": "Feature",
+      "properties": {
+        "name": "Okanagan Bench"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [0, 0],
+            [2, 0],
+            [2, 2],
+            [0, 2],
+            [0, 0]
+          ]
+        ]
+      }
+    },
+    "status": "Queued"
+  }
+]
