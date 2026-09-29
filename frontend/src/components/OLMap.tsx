@@ -27,7 +27,7 @@ import "ol/ol.css";
 // The only two basemap choices.
 type BasemapId = "street" | "satellite";
 
-// The three Tantalis identifiers. All values are kept as strings in the app.
+// The three Tantalis identifiers. All values are kept as strings in the app
 interface TantalisIdentifiers {
   fileNumber: string;
   dispositionId: string;

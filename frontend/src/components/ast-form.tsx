@@ -42,7 +42,7 @@ interface FormInputs {
   fileNumber: string;
   dispositionId: string;
   parcelId: string;
-  uploadFile: File | null; // The chosen file, or null if none.
+  uploadFile: File | null;
   maps: boolean; // Generate Maps switch (true = on)
   overlaps: boolean; // Export Overlap Results switch (true = on)
 }

@@ -541,7 +541,7 @@ select {
     to right,
     #ff3b30,
     #ff9f1c,
-    #f7d154,
+    #eff754,
     #2ecc71,
     #1e90ff,
     #7b61ff,
@@ -569,7 +569,6 @@ select {
 }
 
 // Scale bar
-
 // White box for the scale bar in the bottom-left corner of the map.
 // !important is needed to override OpenLayers' own scale bar positioning.
 .burn-severity-scale {
@@ -584,8 +583,8 @@ select {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-// The scale bar line and its distance label.
-// OpenLayers names this inner part after the scale bar's class name plus "-inner".
+// The scale bar line and its distance label
+// OpenLayers names this inner part after the scale bar's class name plus "-inner"
 .burn-severity-scale .burn-severity-scale-inner {
   border: 2px solid #2d2d2d;
   border-top: none; // Open at the top, like a bracket
@@ -596,7 +595,6 @@ select {
 }
 
 // Small screens
-
 // On screens 768px wide or less, move the toolbar and scale bar closer to the edges.
 @media (max-width: 768px) {
   .map-controls--right {
