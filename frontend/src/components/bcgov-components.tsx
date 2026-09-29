@@ -56,21 +56,16 @@ const PageFooter: FC = () => {
   const [isExpanded, setIsExpanded] = useState<boolean>(false);
   // Whether the whole footer is shrunk down to the small "More information" tab. Starts full size.
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
-  // Which link is picked in the dropdown. Empty = "More info" (nothing picked).
-  const [selectedFooterItem, setSelectedFooterItem] = useState<string>("");
 
   // Runs when a link is picked in the dropdown. Opens that page in a new tab.
   const handleFooterSelect = (event: ChangeEvent<HTMLSelectElement>): void => {
     const nextValue = event.target.value;
-    setSelectedFooterItem(nextValue);
 
     // Only open a page if a real link was picked (not the "More info" placeholder).
     if (nextValue) {
       // "noopener,noreferrer" is a security setting. It stops the new page
       // from being able to access or control this page.
       window.open(nextValue, "_blank", "noopener,noreferrer");
-      // Reset the dropdown back to "More info" so it's ready for the next pick.
-      setSelectedFooterItem("");
     }
   };
 
@@ -97,11 +92,11 @@ const PageFooter: FC = () => {
           <div className="bcgov-footer-toolbar">
             {/* Left side of the footer bar. */}
             <div className="bcgov-footer-controls-left">
-              {/* "More info" dropdown. Picking a link opens that policy page. */}
+              {/* "More info" dropdown. Picking a link opens that policy page.
+                  value="" keeps it showing "More info", so it resets after every pick. */}
               <select
-                id="bcgov-footer-select"
                 className="bcgov-footer-select"
-                value={selectedFooterItem}
+                value=""
                 onChange={handleFooterSelect}
                 aria-label="Select disclaimer information"
               >
