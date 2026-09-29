@@ -3,7 +3,7 @@ import { Header, Footer, AlertBanner } from "@bcgov/design-system-react-componen
 
 import geobcLogo from "../assets/geobc_logo.png";
 
-//page header component
+//page header - BC Gov branded top bar with site title and logo
 const PageHeader = () => {
   return (
     <div className="bcgov-header">
@@ -18,12 +18,13 @@ const PageHeader = () => {
   );
 };
 
-//page footer component
+//page footer, collapsible info panel, links and acknowledgement toggle
 const PageFooter = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [selectedFooterItem, setSelectedFooterItem] = useState("");
 
+  //footer link list - external BC Gov pages users can open from the menu
   const footerLinks = [
     { label: "Disclaimer", value: "https://www2.gov.bc.ca/gov/content?id=79F93E018712422FBC8E674A67A70535" },
     { label: "Privacy", value: "https://www2.gov.bc.ca/gov/content?id=9E890E16955E4FF4BF3B0E07B4722932" },
@@ -31,13 +32,13 @@ const PageFooter = () => {
     { label: "Contact us", value: "https://www2.gov.bc.ca/gov/content?id=6A77C17D0CCB48F897F8598CCC019111" },
   ];
 
-  //footer dropdown select handler
+  //footer dropdown, opens selected policy page in new tab
   const handleFooterSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const nextValue = event.target.value;
     setSelectedFooterItem(nextValue);
 
     if (nextValue) {
-      window.open(nextValue, "_blank", "noopener,noreferrer");
+      window.open(nextValue, "_blank", "noopener,noreferrer"); //security, prevents opened page accessing original window
     }
   };
 
@@ -46,7 +47,7 @@ const PageFooter = () => {
       {isCollapsed ? (
         <button
           type="button"
-          className="bcgov-footer-tab"
+          className="bcgov-footer-tab" //tab to reopen collapsed footer
           aria-label="Show more information"
           title="Show more information"
           onClick={() => setIsCollapsed(false)}
@@ -57,6 +58,7 @@ const PageFooter = () => {
         <div className={`bcgov-page-footer ${isExpanded ? "expanded" : "collapsed"}`}>
           <div className="bcgov-footer-toolbar">
             <div className="bcgov-footer-controls-left">
+              {/* footer link menu - user selects a policy page to open */}
               <select
                 id="bcgov-footer-select"
                 className="bcgov-footer-select"
@@ -74,7 +76,7 @@ const PageFooter = () => {
 
               <button
                 type="button"
-                className="bcgov-footer-toggle"
+                className="bcgov-footer-toggle" //toggle territorial acknowledgement panel
                 aria-expanded={isExpanded}
                 aria-label={isExpanded ? "Collapse territorial acknowledgement" : "Expand territorial acknowledgement"}
                 onClick={() => setIsExpanded((value) => !value)}
@@ -86,7 +88,7 @@ const PageFooter = () => {
 
             <button
               type="button"
-              className="bcgov-footer-collapse"
+              className="bcgov-footer-collapse" //collapse footer to compact info tab
               aria-label="Collapse footer"
               title="Collapse footer"
               onClick={() => setIsCollapsed(true)}
@@ -98,7 +100,7 @@ const PageFooter = () => {
 
           {isExpanded && (
             <div className="bcgov-footer-content">
-              <Footer />
+              <Footer /> {/* BC Gov footer content shown when expanded */}
             </div>
           )}
         </div>
@@ -107,6 +109,7 @@ const PageFooter = () => {
   );
 };
 
+//development banner shown across the app to communicate current status
 const AlertBannerComponent = () => {
  const alertmessage = "This site is currently in development.";  
 
