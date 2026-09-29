@@ -42,24 +42,24 @@
 // Row with the "View shape on map" link, centred.
 .tantalis-preview-row {
   display: flex;
-  justify-content: center; // Centre from left to right
-  align-items: center; // Centre from top to bottom
+  justify-content: center;
+  align-items: center;
   margin-top: 12px;
 }
 
 // "View shape on map" is a button, but styled to look like a link,
 // so it doesn't look like a main action such as Submit.
 .tantalis-preview-link {
-  padding: 0; // Remove the default button spacing...
+  padding: 0;
   margin: 0;
-  border: none; // ...border...
-  background: transparent; // ...and grey background
-  color: #0053a4; // Link blue
+  border: none; 
+  background: transparent; 
+  color: #0053a4;
   font-weight: 600; // Semi-bold
   line-height: 1.4;
   text-decoration: underline;
-  text-underline-offset: 0.18rem; // Small gap between the text and its underline
-  cursor: pointer; // Hand cursor on hover
+  text-underline-offset: 0.18rem;
+  cursor: pointer; 
   transition: color 0.2s ease, opacity 0.2s ease; // Fade the colour change
 
   // Darker blue when hovered over
@@ -73,7 +73,7 @@
 // Message next to "View shape on map" (for example, when a field is empty).
 .tantalis-preview-message {
   margin: 8px 0 0; // 8px of space above only
-  color: #313132; // Dark grey
+  color: #313132;
 }
 
 // File picker and the chosen file's name, side by side.
