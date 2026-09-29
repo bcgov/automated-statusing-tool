@@ -1,6 +1,4 @@
 
-from 
-
 def process_job(job):
     print("Processing job:", job["user"], job["aoi_id"])
     return {
