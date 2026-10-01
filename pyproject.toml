@@ -18,9 +18,7 @@ dependencies = [
     "sqlalchemy>=2.0.50",
     "sqlglot>=30.11.0",
     "boto3>=1.43.36",
-    "fastapi[standard]>=0.141.1",
-    "dataclasses>=0.8",
-    "rq>=2.12.0",
+    "redis>=8.1.0",
 ]
 
 [build-system]
@@ -29,11 +27,12 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ast_engine*",  "ast_api*", "shared_models*"]
+include = ["ast_engine*"]
 
 [tool.pytest.ini_options]
 markers = [
-  "unit: fast unit tests with no external dependencies"
+  "unit: fast unit tests with no external dependencies",
+  "integration: tests on real data; BCGW tests skip when credentials are not set"
 ]
 
 [dependency-groups]
