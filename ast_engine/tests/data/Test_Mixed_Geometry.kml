@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="test_shape_a" id="test_shape_a">
+	<SimpleField name="OBJECTID" type="int"></SimpleField>
+	<SimpleField name="NoteType" type="int"></SimpleField>
+	<SimpleField name="Notes" type="string"></SimpleField>
+	<SimpleField name="created_user" type="string"></SimpleField>
+	<SimpleField name="created_date" type="float"></SimpleField>
+	<SimpleField name="last_edited_user" type="string"></SimpleField>
+	<SimpleField name="last_edited_date" type="float"></SimpleField>
+	<SimpleField name="Shape_Length" type="float"></SimpleField>
+	<SimpleField name="Shape_Area" type="float"></SimpleField>
+</Schema>
+<Folder><name>test_shape_a</name>
+  <Placemark id="test_shape_a.1">
+	<name>Test Shape A</name>
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#test_shape_a">
+		<SimpleData name="OBJECTID">1</SimpleData>
+		<SimpleData name="NoteType">0</SimpleData>
+		<SimpleData name="Notes">Should intersect WHA, Unencumbered Land, Private Land, Provincial Land and Several Lakes.</SimpleData>
+		<SimpleData name="created_user">EMILLAN</SimpleData>
+		<SimpleData name="created_date">1777412260000</SimpleData>
+		<SimpleData name="last_edited_user">EMILLAN</SimpleData>
+		<SimpleData name="last_edited_date">1777412317000</SimpleData>
+		<SimpleData name="Shape_Length">13875.8096000031</SimpleData>
+		<SimpleData name="Shape_Area">12017814.5219125</SimpleData>
+	</SchemaData></ExtendedData>
+      <Polygon><outerBoundaryIs><LinearRing><coordinates>-121.228409008656,51.3612298328513 -121.231644116542,51.3312891560251 -121.18011726253,51.3291056590703 -121.176847411461,51.3590449239147 -121.228409008656,51.3612298328513</coordinates></LinearRing></outerBoundaryIs></Polygon>
+  </Placemark>
+
+  <Placemark id="test_shape_a.2">
+	<name>Test Point A - Inside Polygon</name>
+	<Style><IconStyle><color>ff00ff00</color><scale>1.1</scale></IconStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#test_shape_a">
+		<SimpleData name="OBJECTID">2</SimpleData>
+		<SimpleData name="NoteType">1</SimpleData>
+		<SimpleData name="Notes">Point located inside Test Shape A to test point/polygon overlap.</SimpleData>
+		<SimpleData name="created_user">EMILLAN</SimpleData>
+		<SimpleData name="created_date">1777412260000</SimpleData>
+		<SimpleData name="last_edited_user">EMILLAN</SimpleData>
+		<SimpleData name="last_edited_date">1777412317000</SimpleData>
+		<SimpleData name="Shape_Length">0</SimpleData>
+		<SimpleData name="Shape_Area">0</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-121.204500000000,51.345250000000</coordinates></Point>
+  </Placemark>
+
+  <Placemark id="test_shape_a.3">
+	<name>Test Point B - Near Polygon Edge</name>
+	<Style><IconStyle><color>ff00ffff</color><scale>1.1</scale></IconStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#test_shape_a">
+		<SimpleData name="OBJECTID">3</SimpleData>
+		<SimpleData name="NoteType">1</SimpleData>
+		<SimpleData name="Notes">Point located inside Test Shape A near the eastern edge to test point/polygon overlap.</SimpleData>
+		<SimpleData name="created_user">EMILLAN</SimpleData>
+		<SimpleData name="created_date">1777412260000</SimpleData>
+		<SimpleData name="last_edited_user">EMILLAN</SimpleData>
+		<SimpleData name="last_edited_date">1777412317000</SimpleData>
+		<SimpleData name="Shape_Length">0</SimpleData>
+		<SimpleData name="Shape_Area">0</SimpleData>
+	</SchemaData></ExtendedData>
+      <Point><coordinates>-121.185500000000,51.348000000000</coordinates></Point>
+  </Placemark>
+
+  <Placemark id="test_shape_a.4">
+	<name>Test Line A - Crosses Polygon</name>
+	<Style><LineStyle><color>ff00a5ff</color><width>3</width></LineStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#test_shape_a">
+		<SimpleData name="OBJECTID">4</SimpleData>
+		<SimpleData name="NoteType">2</SimpleData>
+		<SimpleData name="Notes">Line crosses through Test Shape A to test line/polygon overlap.</SimpleData>
+		<SimpleData name="created_user">EMILLAN</SimpleData>
+		<SimpleData name="created_date">1777412260000</SimpleData>
+		<SimpleData name="last_edited_user">EMILLAN</SimpleData>
+		<SimpleData name="last_edited_date">1777412317000</SimpleData>
+		<SimpleData name="Shape_Length">0</SimpleData>
+		<SimpleData name="Shape_Area">0</SimpleData>
+	</SchemaData></ExtendedData>
+      <LineString><tessellate>1</tessellate><coordinates>-121.238000000000,51.343500000000 -121.205000000000,51.346000000000 -121.169000000000,51.348500000000</coordinates></LineString>
+  </Placemark>
+
+  <Placemark id="test_shape_a.5">
+	<name>Test Line B - Fully Inside Polygon</name>
+	<Style><LineStyle><color>ffff00ff</color><width>3</width></LineStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#test_shape_a">
+		<SimpleData name="OBJECTID">5</SimpleData>
+		<SimpleData name="NoteType">2</SimpleData>
+		<SimpleData name="Notes">Line located fully inside Test Shape A to test contained line/polygon overlap.</SimpleData>
+		<SimpleData name="created_user">EMILLAN</SimpleData>
+		<SimpleData name="created_date">1777412260000</SimpleData>
+		<SimpleData name="last_edited_user">EMILLAN</SimpleData>
+		<SimpleData name="last_edited_date">1777412317000</SimpleData>
+		<SimpleData name="Shape_Length">0</SimpleData>
+		<SimpleData name="Shape_Area">0</SimpleData>
+	</SchemaData></ExtendedData>
+      <LineString><tessellate>1</tessellate><coordinates>-121.222000000000,51.353000000000 -121.205000000000,51.344000000000 -121.184000000000,51.336500000000</coordinates></LineString>
+  </Placemark>
+</Folder>
+</Document></kml>
