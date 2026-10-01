@@ -232,9 +232,11 @@ A discarded component and a removed source row can describe the same cleanup eve
 
 Each `AOIPart` contains one valid Polygon in a one-row GeoDataFrame. The part builder preserves the normalized CRS and the attributes retained by the dissolve policy.
 
-Parts include `part_id`, `parent_aoi_id`, `part_index`, `geom_type`, `gdf`, `bounds`, `area_ha`, `vertex_count`, `has_z`, and `has_m`. The `geometry` and `crs` properties provide convenient access to the part's spatial data.
+Parts include `source_row`, `part_id`, `parent_aoi_id`, `part_index`, `geom_type`, `gdf`, `bounds`, `area_ha`, `vertex_count`, `has_z`, and `has_m`. The `geometry` and `crs` properties provide convenient access to the part's spatial data.
 
 Part indexes are one-based. IDs use zero padding, such as `aoi_001_part_0001`, and follow normalized/exploded output order. They are not persistent identifiers for matching the same geometry across reordered builds.
+
+`source_row` attribute is an integer, zero-based consecutive value containing the row in which the polygon was derived from in the normalized gdf. It allows for duplicate values when MuliPolygons are retrieved from the gdf.
 
 ### Inspection snapshot
 
