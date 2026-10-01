@@ -14,4 +14,4 @@ with jobs_path.open("r", encoding="utf-8") as f:
 
 for job in jobs:
     print ("Enqueueing job:", job["user"], job["aoi_id"])
-    rq_queue.enqueue("ast_api.job_processor.process_job", job)
+    rq_queue.enqueue("ast_api.job_management.test.process_job", job)

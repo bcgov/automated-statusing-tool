@@ -8,3 +8,4 @@ The same approached used by the burn severity application ([link here](https://g
 
 Redis Information: 
 - Port 6379
+- 
