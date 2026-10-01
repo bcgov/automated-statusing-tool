@@ -57,9 +57,13 @@ def within_distance(
     filter. Pass your own read_options to override. Dataset identity travels in
     source_kwargs.
     """
-    if distance_m < 0:
-        raise ValueError("distance_m must be non-negative")
+    if distance_m <= 0:
+        raise ValueError("distance_m must be positive")
     _require_projected(aoi)
+
+    # convert keep_properties to reusable tuple so properties can be read more than once.
+    if keep_properties is not None:
+        keep_properties = tuple(keep_properties)
 
     # Ask the adapter for the candidate features (within_distance pushed down).
     gdf = adapter.read(
@@ -113,6 +117,10 @@ def nearest(
     if max_distance_m is not None and max_distance_m < 0:
         raise ValueError("max_distance_m must be non-negative")
     _require_projected(aoi)
+
+    # convert keep_properties to reusable tuple so properties can be read more than once.
+    if keep_properties is not None:
+        keep_properties = tuple(keep_properties)
 
     # adapter read (nearest pushed down); file adapters read all and we take top-k below.
     gdf = adapter.read(
@@ -206,7 +214,7 @@ def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str
     """
     if feature_id_field and feature_id_field in row.index:
         value = row[feature_id_field]
-        if value is not None:
+        if pd.notna(value):
             return str(value)
     return str(idx)
 

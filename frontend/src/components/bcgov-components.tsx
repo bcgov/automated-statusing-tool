@@ -1,0 +1,63 @@
+import React, { useState, useRef, useEffect } from "react";
+//import { useAuth } from '../auth/AuthContext'
+import { Header, Footer, Button } from "@bcgov/design-system-react-components";
+import { useMatch, Link } from "react-router-dom";
+const geobcLogo = new URL("../assets/geobc_logo.png", import.meta.url).href;
+//import HealthStatus from "./HealthStatus";
+//import { useHealth } from "./HealthContext";
+
+{/*
+interface HeaderLinkProps {
+  url: string;
+  title: string;
+  displayText: string;
+}
+
+
+const HeaderLink: React.FC<HeaderLinkProps> = ({url, title, displayText}) => {
+  return (
+    <Link className="header-link" to={url} title={title}
+    >{displayText}</Link>
+  );
+};
+*/}
+
+const PageHeader: React.FC = () => {
+  return (
+    <div className="bcgov-header">
+      <Header 
+        title="Automated Statusing Tool"
+        logoLinkElement={<a href="/" title="Return home"></a>}
+        logoImage={<img src={geobcLogo}
+        alt="GeoBC Logo" 
+        style={{ height: "30px" }} />}
+      />
+    </div>
+  );
+};
+
+const PageFooter: React.FC = () => {
+  const isMapPage = useMatch("/map/*");
+
+  if (isMapPage) {
+    return null;
+  }
+
+  return (
+    <div>
+      <Footer/>
+    </div>
+  );
+};
+
+const SubmitButton: React.FC = () => {
+  //const { user, login, logout, isAuthenticated, isLoadingAuth } = useAuth(); 
+  return (
+    <Button
+      variant="primary"
+    >Submit</Button>
+  );
+};
+
+
+export { PageHeader, PageFooter, SubmitButton };

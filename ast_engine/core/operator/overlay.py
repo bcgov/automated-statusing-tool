@@ -68,6 +68,10 @@ def intersection(
     """
     _require_projected(aoi)
 
+    # convert keep_properties to reusable tuple so properties can be read more than once.
+    if keep_properties is not None:
+        keep_properties = tuple(keep_properties)
+
     # Ask the adapter for the candidate features (intersects pushed down).
     gdf = adapter.read(
         read_options=read_options or _default_read_options(aoi, feature_id_field, keep_properties, where),
@@ -215,7 +219,7 @@ def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str
     """
     if feature_id_field and feature_id_field in row.index:
         value = row[feature_id_field]
-        if value is not None:
+        if pd.notna(value):
             return str(value)
     return str(idx)
 
