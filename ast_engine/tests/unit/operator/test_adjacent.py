@@ -43,6 +43,7 @@ HOW TO EXTEND
 
 import pytest
 from shapely.geometry import Polygon
+import geopandas as gpd
 
 from ast_engine.tests.helpers.aoi_cases import (
     geographic_operator_aoi,
@@ -54,6 +55,28 @@ from ast_engine.tests.helpers.spatial_adapters import InMemorySpatialAdapter
 
 
 pytestmark = pytest.mark.unit
+
+# Repeated scenarios stay local to this test module. Every call creates
+# fresh geometries and a fresh GeoDataFrame; IDs are supplied explicitly.
+def _polygon_features(aoi) -> gpd.GeoDataFrame:
+    """Partial, outside, inside: deliberately not sorted by overlap area."""
+
+    minx, miny, maxx, _ = aoi.gdf.total_bounds
+
+    # Full rectangle: 200 m wide by 100 m high, entirely inside the AOI.
+    inside = rect(minx + 100, miny + 100, minx + 300, miny + 200)
+
+    # Half of this 200 m by 100 m rectangle lies inside the AOI.
+    partial = rect(maxx - 100, miny + 100, maxx + 100, miny + 200)
+
+    outside = rect(maxx + 300, miny + 100, maxx + 400, miny + 200)
+
+    return aoi_gdf(
+        [partial, outside, inside],
+        crs=aoi.gdf.crs,
+        Id=[22, 33, 11],
+        Name=["partial", "outside", "inside"],
+    )
 
 
 # # --- shared a boundary ------------------------------------------------------
@@ -234,3 +257,41 @@ def test_tolerant_match_asks_for_within_distance_search():
 
     assert sf.predicate == "within_distance"
     assert sf.distance == tolerance
+
+
+@pytest.mark.parametrize(
+    "make_keep_properties",
+    [
+        pytest.param(list, id="list"),
+        pytest.param(iter, id="iterator"),
+    ],
+)
+def test_keep_properties_accepts_reusable_and_one_shot_iterables(
+    make_keep_properties,
+):
+    """Column selection must not consume the properties needed by results."""
+    aoi = projected_operator_aoi()
+
+    _, miny, maxx, maxy = aoi.gdf.total_bounds
+    polygon = Polygon(
+        [
+            (maxx, miny),
+            (maxx + 500, miny),
+            (maxx + 500, maxy),
+            (maxx, maxy),
+        ]
+    )
+
+    adapter = InMemorySpatialAdapter(aoi_gdf([polygon]))
+
+    result = adjacency(
+        aoi=aoi,
+        adapter=adapter,
+        tolerance_m=0,
+        feature_id_field="Id",
+        keep_properties=make_keep_properties(["Name"]),
+    )
+
+    assert result.is_adjacent is True
+    assert set(adapter.last_options.keep_columns) == {"Id", "Name"}
+    assert result.feature_count == 1
