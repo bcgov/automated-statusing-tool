@@ -12,6 +12,7 @@ Purpose:
     - Features are sorted by overlap (descending)
     - Totals are summed correctly
     - Properties and feature IDs are handled correctly
+    - With an AOI of two parts, a feature crossing both is listed under each
     - Non-overlapping features are dropped
     - Invalid AOIs are rejected
 
@@ -19,8 +20,9 @@ Examples:
 _valid_aoi()
 non_valid_aoi()
 
-Note: the operator returns an OperatorOutcome - the analysis result plus the
-features it was built from - so these tests read `.result` off the call.
+Note: the operator returns an OperatorOutcome - one result per AOI part, plus the
+features each was built from. The test AOIs here are one row, so one part:
+the tests read `.parts[0].result` off the call.
 
 --------------------------------------------------------------------------
 """
@@ -28,6 +30,7 @@ features it was built from - so these tests read `.result` off the call.
 import pytest
 from pathlib import Path
 import geopandas as gpd
+from shapely.geometry import box
 
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, DatasetInfo
@@ -88,7 +91,7 @@ def test_polygon_overlap_exact_values():
         adapter=FileSpatialAdapter(),
         keep_properties=["Name"],
         path=POLYGONS,
-    ).result
+    ).parts[0].result
 
     assert test.feature_count == 2  # outside dropped
 
@@ -107,7 +110,7 @@ def test_line_overlap_exact_values():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POLYLINES,
-    ).result
+    ).parts[0].result
 
     assert test.feature_count == 2
 
@@ -124,7 +127,7 @@ def test_point_overlay_count():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POINTS,
-    ).result
+    ).parts[0].result
 
     assert test.feature_count == 2
     assert all(f.measure is None for f in test.features)
@@ -139,7 +142,7 @@ def test_sorted_descending_by_overlap():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POLYGONS,
-    ).result
+    ).parts[0].result
 
     measures = [f.measure for f in test.features]
     assert measures == sorted(measures, reverse=True)
@@ -155,7 +158,7 @@ def test_zero_overlap_removed():
         aoi=_valid_aoi(),
         adapter=FileSpatialAdapter(),
         path=POLYGONS,
-    ).result
+    ).parts[0].result
 
     assert all(f.measure > 0 for f in test.features)
 
@@ -170,7 +173,7 @@ def test_properties_preserved():
         adapter=FileSpatialAdapter(),
         keep_properties=["Name"],
         path=POLYGONS,
-    ).result
+    ).parts[0].result
 
     names = [f.properties["Name"] for f in test.features]
     assert len(names) == test.feature_count
@@ -183,7 +186,7 @@ def test_feature_id_fallback():
         adapter=FileSpatialAdapter(),
         feature_id_field="NOT_REAL",
         path=POLYGONS,
-    ).result
+    ).parts[0].result
 
     ids = [f.feature_id for f in test.features]
     assert len(set(ids)) == len(ids)
@@ -213,7 +216,7 @@ def test_build_results():
         feature_id_field="FID",
         keep_properties=["Name"],
         path = POINTS,
-    ).result
+    ).parts[0].result
     # extract_properties: the Name column comes through for the points inside the AOI
     assert [f.properties.get("Name") for f in test.features] == ["First", "Second"]
     # extract_feature_id: no real "FID" column, so IDs fall back to distinct row numbers
@@ -286,7 +289,7 @@ def test_empty_returns_zero_area():
         adapter=adapter,
         geom_type="polygon",
         path=POLYGONS,
-    ).result
+    ).parts[0].result
 
     assert test.total_area == 0.0
     assert test.features == []
@@ -337,9 +340,30 @@ def test_geom_type_override_returns_correct_result_types():
             adapter=FileSpatialAdapter(),
             geom_type=geom_type,
             path=path,
-        ).result
+        ).parts[0].result
 
         assert isinstance(result, expected_type)
 
 
+def test_feature_crossing_two_parts_is_listed_in_both():
+    """Cut the AOI into two rows (two parts) right through the "First" polygon.
+    It is listed under both parts, each with its own share of the overlap, and
+    the two shares add up to its overlap with the whole AOI."""
+    polygons = gpd.read_file(POLYGONS).to_crs(3005)
+    cut_x = polygons.loc[polygons["Name"] == "First"].geometry.iloc[0].centroid.x
+    minx, miny, maxx, maxy = _valid_aoi().gdf.total_bounds
+    halves = [box(minx, miny, cut_x, maxy), box(cut_x, miny, maxx, maxy)]
+    gdf = gpd.GeoDataFrame({"label": ["west", "east"]}, geometry=halves, crs="EPSG:3005")
+    request = AOIRequest(aoi_id="test_aoi", name="Two rows", dissolve_mode="preserve_features")
+    aoi = AOIBuilder().from_gdf(request, gdf)
 
+    split = intersection(aoi=aoi, adapter=FileSpatialAdapter(), keep_properties=["Name"], path=POLYGONS)
+    whole = intersection(aoi=_valid_aoi(), adapter=FileSpatialAdapter(), keep_properties=["Name"], path=POLYGONS)
+
+    shares = []
+    for part in split.parts:
+        first = [f for f in part.result.features if f.properties["Name"] == "First"]
+        assert len(first) == 1                      # listed under this part too
+        shares.append(first[0].measure)
+    whole_first = [f for f in whole.parts[0].result.features if f.properties["Name"] == "First"][0]
+    assert sum(shares) == pytest.approx(whole_first.measure)

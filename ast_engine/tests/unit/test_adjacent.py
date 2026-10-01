@@ -17,10 +17,13 @@ What we check:
 - several adjacent polygons come back sorted longest-shared first, with their
   IDs and kept columns;
 - bad input (negative tolerance) and a lat/long AOI are rejected;
-- the operator asks the source for the right search (touches vs within_distance).
+- the operator asks the source for the right search (touches vs within_distance);
+- with an AOI of two parts, only each part's outer edge counts: the edge the two
+  parts share is inside the AOI.
 
-Note: the operator returns an OperatorOutcome - the analysis result plus the
-features it was built from - so these tests read `.result` off the call.
+Note: the operator returns an OperatorOutcome - one result per AOI part, plus the
+features each was built from. The test AOIs here are one row, so one part:
+the tests read `.parts[0].result` off the call (except the two-part test).
 """
 
 import pytest
@@ -95,7 +98,7 @@ def test_shares_full_edge_is_adjacent():
     aoi = _valid_aoi()
     minx, miny, maxx, maxy = aoi.gdf.total_bounds
     poly = Polygon([(maxx, miny), (maxx + 500, miny), (maxx + 500, maxy), (maxx, maxy)])
-    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).result
+    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).parts[0].result
     assert result.is_adjacent is True
     assert result.measure_value == pytest.approx(maxy - miny)  # the AOI's height
 
@@ -105,7 +108,7 @@ def test_corner_touch_not_adjacent():
     aoi = _valid_aoi()
     minx, miny, maxx, maxy = aoi.gdf.total_bounds
     poly = Polygon([(maxx, maxy), (maxx + 500, maxy), (maxx + 500, maxy + 500), (maxx, maxy + 500)])
-    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).result
+    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).parts[0].result
     assert result.is_adjacent is False
     assert result.measure_value == 0.0
 
@@ -115,15 +118,15 @@ def test_sliver_gap_missed_at_zero_caught_with_tolerance():
     aoi = _valid_aoi()
     minx, miny, maxx, maxy = aoi.gdf.total_bounds
     poly = Polygon([(maxx + 0.3, miny), (maxx + 500, miny), (maxx + 500, maxy), (maxx + 0.3, maxy)])
-    exact = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).result
-    tolerant = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0.5).result
+    exact = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0).parts[0].result
+    tolerant = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([poly])), tolerance_m=0.5).parts[0].result
     assert exact.is_adjacent is False
     assert tolerant.is_adjacent is True
 
 
 def test_empty_dataset_not_adjacent():
     """Nothing comes back from the source -> not adjacent."""
-    result = adjacency(aoi=_valid_aoi(), adapter=FakeAdapter(), tolerance_m=0).result
+    result = adjacency(aoi=_valid_aoi(), adapter=FakeAdapter(), tolerance_m=0).parts[0].result
     assert result.is_adjacent is False
     assert result.feature_count == 0
 
@@ -142,9 +145,11 @@ def test_saved_features_match_the_result():
 
     outcome = adjacency(aoi=aoi, adapter=FakeAdapter(gdf), tolerance_m=0, keep_properties=["Name"])
 
-    assert outcome.result.feature_count == 1
-    assert len(outcome.dataframe) == outcome.result.feature_count
-    assert list(outcome.dataframe["Name"]) == ["edge"]
+    part = outcome.parts[0]
+    saved = outcome.dataframes[part.aoi_part_id]
+    assert part.result.feature_count == 1
+    assert len(saved) == part.result.feature_count
+    assert list(saved["Name"]) == ["edge"]
 
 
 def test_multiple_adjacent_sorted_longest_first():
@@ -158,7 +163,7 @@ def test_multiple_adjacent_sorted_longest_first():
     result = adjacency(
         aoi=aoi, adapter=FakeAdapter(gdf), tolerance_m=0,
         feature_id_field="Id", keep_properties=["Name"],
-    ).result
+    ).parts[0].result
     assert result.feature_count == 2
     measures = [f.measure for f in result.features]
     assert measures[0] > measures[1]                     # longest shared border first
@@ -194,3 +199,39 @@ def test_tolerant_match_asks_for_within_distance_search():
     sf = adapter.last_options.spatial_filter
     assert sf.predicate == "within_distance"
     assert sf.distance == 5
+
+
+# --- an AOI of two parts: only each part's outer edge counts ----------------
+def _two_block_aoi() -> AreaOfInterest:
+    """The AOI box cut into block A (west) and block B (east), grouped by a
+    "block" field, so it has two parts. The two blocks share the middle edge."""
+    minx, miny, maxx, maxy = _valid_aoi().gdf.total_bounds
+    mid = (minx + maxx) / 2
+    block_a = Polygon([(minx, miny), (mid, miny), (mid, maxy), (minx, maxy)])
+    block_b = Polygon([(mid, miny), (maxx, miny), (maxx, maxy), (mid, maxy)])
+    gdf = gpd.GeoDataFrame({"block": ["A", "B"]}, geometry=[block_a, block_b], crs="EPSG:3005")
+    request = AOIRequest(
+        aoi_id="test_aoi", name="Two blocks", dissolve_mode="by_fields", dissolve_fields=("block",)
+    )
+    return AOIBuilder().from_gdf(request, gdf)
+
+
+def test_edge_between_two_parts_does_not_count():
+    """A polygon inside block B, along the A|B edge, is adjacent to neither block:
+    that edge is inside the AOI. A polygon across the top touches both blocks'
+    outer edge, and each block reports the length it shares."""
+    aoi = _two_block_aoi()
+    minx, miny, maxx, maxy = aoi.gdf.total_bounds
+    mid = (minx + maxx) / 2
+    inside_b = Polygon([(mid, miny + 100), (mid + 300, miny + 100), (mid + 300, maxy - 100), (mid, maxy - 100)])
+    across_top = Polygon([(mid - 400, maxy), (mid + 600, maxy), (mid + 600, maxy + 200), (mid - 400, maxy + 200)])
+    gdf = _gdf([inside_b, across_top], Name=["inside_b", "across_top"])
+
+    outcome = adjacency(aoi=aoi, adapter=FakeAdapter(gdf), tolerance_m=0, keep_properties=["Name"])
+
+    block_a, block_b = outcome.parts
+    assert [block_a.part_attributes, block_b.part_attributes] == [{"block": "A"}, {"block": "B"}]
+    assert [f.properties["Name"] for f in block_a.result.features] == ["across_top"]
+    assert [f.properties["Name"] for f in block_b.result.features] == ["across_top"]
+    assert block_a.result.measure_value == pytest.approx(400.0)   # 400 m along A's top edge
+    assert block_b.result.measure_value == pytest.approx(600.0)   # 600 m along B's top edge
