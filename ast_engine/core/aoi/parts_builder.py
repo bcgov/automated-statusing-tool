@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 
 import geopandas as gpd
+import pandas as pd
+from pandas.api.types import is_integer_dtype
 from shapely.geometry import Polygon
 
 from .exceptions import (
@@ -16,6 +18,7 @@ from .utils import check_gdf
 
 logger = logging.getLogger(__name__)
 
+_SOURCE_ROW_COLUMN = "__aoi_source_row"
 
 class AOIPartBuilder:
     """
@@ -94,13 +97,28 @@ class AOIPartBuilder:
     ) -> gpd.GeoDataFrame:
         """
         Explode normalized polygonal AOI geometry into singlepart rows.
+        Retain the ogiginal AOI ID and row index in the exploded GeoDataFrame for traceability.
         """
-        exploded = (
-            gdf.explode(
-                index_parts=True,
+        if _SOURCE_ROW_COLUMN in gdf.columns:
+            raise SpatialDataError(
+                f"AOI {aoi_id!r} contains reserved column "
+                f"{_SOURCE_ROW_COLUMN!r}."
             )
-            .reset_index(drop=True)
-        )
+        
+        index = gdf.index
+
+        if (
+            not is_integer_dtype(index.dtype)
+            or not index.equals(pd.RangeIndex(len(gdf)))
+        ):
+            raise SpatialDataError(
+                f"Normalized AOI {aoi_id!r} must have a consecutive "
+                "zero-based integer index."
+            )
+
+        source = gdf.copy()
+        source[_SOURCE_ROW_COLUMN] = source.index
+        exploded = source.explode(ignore_index=True)
 
         if exploded.empty:
             raise SpatialGeometryError(
@@ -130,14 +148,17 @@ class AOIPartBuilder:
                 part_id=part_id,
             )
 
+            source_row = int(row[_SOURCE_ROW_COLUMN])
+
             part_gdf = self._single_part_gdf(
                 exploded,
                 row_index=int(row_index),
-            )
+            ).drop(columns=[_SOURCE_ROW_COLUMN])
 
             part = AOIPart.from_gdf(
                 parent_aoi_id=aoi_id,
                 part_index=part_index,
+                source_row=source_row,
                 gdf=part_gdf,
                 part_id=part_id,
             )

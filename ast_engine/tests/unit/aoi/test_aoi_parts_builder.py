@@ -14,6 +14,7 @@ from shapely.geometry import (
     MultiPolygon,
     Point,
     Polygon,
+    box
 )
 
 from ast_engine.core.aoi.exceptions import (
@@ -63,6 +64,7 @@ def test_single_polygon_has_expected_identity_geometry_and_properties(part_build
     assert part.part_id == "watershed_17_part_0001"
     assert part.parent_aoi_id == "watershed_17"
     assert part.part_index == 1
+    assert part.source_row == 0
     assert part.geom_type == "Polygon"
     assert part.geometry.equals(polygon)
     assert part.geometry.is_valid
@@ -91,6 +93,7 @@ def test_mixed_polygon_and_multipolygon_rows_get_sequential_parts(part_builder):
 
     assert len(parts) == 3
     assert [part.part_index for part in parts] == [1, 2, 3]
+    assert [part.source_row for part in parts] == [0, 0, 1]
     assert [part.part_id for part in parts] == [
         "test_aoi_part_0001", "test_aoi_part_0002", "test_aoi_part_0003"
     ]
@@ -174,18 +177,21 @@ def test_overlapping_valid_features_are_preserved_without_dissolving(part_builde
 @pytest.mark.parametrize(
     "make_index",
     [
-        pytest.param(lambda: pd.Index([30, 10], name="source_row"), id="nonconsecutive"),
-        pytest.param(lambda: pd.Index(["north", "south"]), id="text-labels"),
-        pytest.param(lambda: pd.Index(["same", "same"]), id="duplicate-labels"),
         pytest.param(
-            lambda: pd.MultiIndex.from_tuples(
-                [("batch_B", 9), ("batch_A", 2)], names=["batch", "source_row"]
-            ),
-            id="multiindex",
+            lambda: pd.RangeIndex(2),
+            id="range-index",
+        ),
+        pytest.param(
+            lambda: pd.Index([0, 1], dtype="int64"),
+            id="integer-index",
+        ),
+        pytest.param(
+            lambda: pd.Index([0, 1], dtype="int64", name="source_row"),
+            id="named-integer-index",
         ),
     ],
 )
-def test_source_index_does_not_control_part_ids_or_lose_rows(part_builder, make_index):
+def test_valid_normalized_index_preserves_part_ids_and_source_rows(part_builder, make_index):
     first = rect(0, 0, 100, 100)
     second = rect(200, 0, 300, 100)
     third = rect(400, 0, 500, 100)
@@ -202,6 +208,7 @@ def test_source_index_does_not_control_part_ids_or_lose_rows(part_builder, make_
     assert [part.part_id for part in parts] == [
         "indexed_part_0001", "indexed_part_0002", "indexed_part_0003"
     ]
+    assert [part.source_row for part in parts] == [0, 0, 1]
     assert [part.gdf["SourceId"].iloc[0] for part in parts] == ["multi", "multi", "single"]
     for part, expected in zip(parts, [first, second, third], strict=True):
         assert part.geometry.equals(expected)
@@ -397,7 +404,7 @@ def test_building_and_editing_one_part_leave_source_and_sibling_unchanged(part_b
         Name=["Original"],
         SourceId=[12],
     ).rename_geometry("shape")
-    source.index = pd.Index([50], name="source_row")
+    source.index = pd.Index([0], name="source_row")
     source_before = source.copy(deep=True)
 
     parts = part_builder.build_parts(aoi_id="isolation", gdf=source)
@@ -566,3 +573,94 @@ def test_unexpected_factory_error_bubbles_up_unchanged(part_builder, monkeypatch
         )
 
     assert exc_info.value is failure
+
+@pytest.mark.parametrize(
+    "make_index",
+    [
+        pytest.param(
+            lambda: pd.Index([1, 2]),
+            id="not-zero-based",
+        ),
+        pytest.param(
+            lambda: pd.Index([0, 2]),
+            id="gap-in-sequence",
+        ),
+        pytest.param(
+            lambda: pd.Index([0, 0]),
+            id="duplicate-integer-labels",
+        ),
+        pytest.param(
+            lambda: pd.Index(["north", "south"]),
+            id="text-labels",
+        ),
+        pytest.param(
+            lambda: pd.MultiIndex.from_tuples(
+                [("batch_B", 9), ("batch_A", 2)],
+                names=["batch", "source_row"],
+            ),
+            id="multiindex",
+        ),
+    ],
+)
+def test_rejects_non_normalized_source_index(part_builder, make_index):
+    first = rect(0, 0, 100, 100)
+    second = rect(200, 0, 300, 100)
+    third = rect(400, 0, 500, 100)
+    source = aoi_gdf(
+        [MultiPolygon([first, second]), third], SourceId=["multi", "single"]
+    )
+    source.index = make_index()
+    original_index = source.index.copy()
+    with pytest.raises(
+        AOIPartBuildError,
+        match="consecutive zero-based integer index",
+    ) as exc_info:
+        part_builder.build_parts(aoi_id="indexed", gdf=source)
+
+    assert isinstance(exc_info.value.__cause__, SpatialDataError)
+    assert source.index.equals(original_index)
+
+
+def test_build_parts_preserves_normalized_source_row() -> None:
+    # Six distinct, disjoint polygons in BC Albers; each is 100 m square.
+    polygons = [
+        box(1_000_000 + i * 200, 500_000, 1_000_100 + i * 200, 500_100)
+        for i in range(6)
+    ]
+
+    # Normalized rows 0, 1, 2 contain 3, 2, 1 polygons respectively.
+    gdf = gpd.GeoDataFrame(
+        {"name": ["three_parts", "two_parts", "one_part"]},
+        geometry=[
+            MultiPolygon(polygons[:3]),
+            MultiPolygon(polygons[3:5]),
+            polygons[5],
+        ],
+        crs="EPSG:3005",
+    )
+    original = gdf.copy(deep=True)
+
+    parts = AOIPartBuilder().build_parts(aoi_id="test_aoi", gdf=gdf)
+
+    assert len(parts) == 6
+    expected_source_rows = [0, 0, 0, 1, 1, 2]
+    assert [part.source_row for part in parts] == expected_source_rows
+    assert [part.part_index for part in parts] == [1, 2, 3, 4, 5, 6]
+
+    for part, polygon, source_row in zip(
+        parts, polygons, expected_source_rows, strict=True
+    ):
+        # Check that provenance belongs to the correct geometry and attributes.
+        assert type(part.source_row) is int
+        assert isinstance(part.geometry, Polygon)
+        assert part.geometry.equals(polygon)
+        assert part.gdf["name"].iloc[0] == original.loc[source_row, "name"]
+
+        # Each part has one row; its local index is independent of source_row.
+        assert len(part.gdf) == 1
+        assert part.gdf.index.tolist() == [0]
+        assert part.gdf.crs == original.crs
+        assert "__aoi_source_row" not in part.gdf.columns
+
+    # Building parts must not alter the caller's data, geometry, or index.
+    assert_geodataframe_equal(gdf, original)

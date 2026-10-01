@@ -109,6 +109,7 @@ def builder_case() -> _BuilderCase:
             part_id="watershed_17_part_0001",
             parent_aoi_id=spec.aoi_id,
             geom_type="Polygon",
+            source_row=0,
             part_index=1,
             gdf=normalized_gdf.copy(deep=True),
             bounds=(0.0, 0.0, 200.0, 100.0),

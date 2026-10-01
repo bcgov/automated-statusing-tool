@@ -33,6 +33,7 @@ def _part(
     *,
     area_ha: float,
     vertex_count: int,
+    source_row: int = 0,
     index: int = 1,
     crs="EPSG:3005",
 ) -> AOIPart:
@@ -46,6 +47,7 @@ def _part(
         part_id=f"test_aoi_part_{index:04d}",
         parent_aoi_id="test_aoi",
         geom_type="Polygon",
+        source_row=source_row,
         part_index=index,
         gdf=aoi_gdf([polygon], crs=crs),
         bounds=tuple(float(value) for value in polygon.bounds),
@@ -114,8 +116,8 @@ def test_footprint_uses_union_while_part_area_keeps_every_part(
     second = rect(*second_bounds)
     source = aoi_gdf([first, second])
     parts = (
-        _part(first, area_ha=1.0, vertex_count=5),
-        _part(second, area_ha=second_area_ha, vertex_count=5, index=2),
+        _part(first, area_ha=1.0, vertex_count=5, index=1, source_row=0),
+        _part(second, area_ha=second_area_ha, vertex_count=5, index=2, source_row=1),
     )
 
     props = inspector.inspect(source, parts)
@@ -140,8 +142,8 @@ def test_multipolygon_has_one_feature_and_two_parts(inspector):
     second = rect(200, 0, 400, 100)  # 2 ha.
     source = aoi_gdf([MultiPolygon([first, second])])
     parts = (
-        _part(first, area_ha=1.0, vertex_count=5),
-        _part(second, area_ha=2.0, vertex_count=5, index=2),
+        _part(first, area_ha=1.0, vertex_count=5, index=1, source_row=0),
+        _part(second, area_ha=2.0, vertex_count=5, index=2, source_row=0),
     )
 
     props = inspector.inspect(source, parts)
@@ -166,10 +168,12 @@ def test_mixed_geometry_type_is_sorted_and_independent_of_row_order(inspector, r
     if reverse_rows:
         rows.reverse()
     source = aoi_gdf(rows)
+    single_source_row = 1 if reverse_rows else 0
+    multi_source_row = 0 if reverse_rows else 1
     parts = (
-        _part(first, area_ha=1.0, vertex_count=5),
-        _part(second, area_ha=2.0, vertex_count=5, index=2),
-        _part(third, area_ha=3.0, vertex_count=5, index=3),
+        _part(first, area_ha=1.0, vertex_count=5, index=1, source_row=single_source_row),
+        _part(second, area_ha=2.0, vertex_count=5, index=2, source_row=multi_source_row),
+        _part(third, area_ha=3.0, vertex_count=5, index=3, source_row=multi_source_row),
     )
 
     props = inspector.inspect(source, parts)
@@ -191,8 +195,8 @@ def test_hole_area_is_excluded_and_vertex_total_differs_from_maximum(inspector):
     triangle = Polygon([(300, 0), (400, 0), (300, 100)])  # 0.5 ha, 4 vertices.
     source = aoi_gdf([holed, triangle])
     parts = (
-        _part(holed, area_ha=3.0, vertex_count=10),
-        _part(triangle, area_ha=0.5, vertex_count=4, index=2),
+        _part(holed, area_ha=3.0, vertex_count=10, index=1, source_row=0),
+        _part(triangle, area_ha=0.5, vertex_count=4, index=2, source_row=1),
     )
 
     props = inspector.inspect(source, parts)
@@ -234,7 +238,7 @@ def test_dimension_flags_aggregate_supplied_part_metadata(inspector, flags, expe
     polygons = [rect(x, 0, x + 100, 100) for x in (0, 200, 400)]
     parts = tuple(
         replace(
-            _part(polygon, area_ha=1.0, vertex_count=5, index=index),
+            _part(polygon, area_ha=1.0, vertex_count=5, index=index, source_row=index-1),
             has_z=has_z,
             has_m=has_m,
         )
@@ -299,7 +303,7 @@ def test_inspection_preserves_source_and_part_frames_with_duplicate_row_labels(i
     source.index = pd.Index([42, 42], name="source_row")
     parts = (
         _part(first, area_ha=1.0, vertex_count=5),
-        _part(second, area_ha=1.0, vertex_count=5, index=2),
+        _part(second, area_ha=1.0, vertex_count=5, index=2, source_row=1),
     )
     for part in parts:
         part.gdf["note"] = ["keep this"]
