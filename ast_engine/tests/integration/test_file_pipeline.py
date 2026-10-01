@@ -16,7 +16,8 @@ from uuid import uuid4
 import geopandas as gpd
 import pytest
 
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
+from ast_engine.core.aoi.aoi_builder import AOIBuilder
+from ast_engine.core.aoi.models import AOIRequest, AOIBuildRequest
 from ast_engine.core.execution import AnalysisTask, run_analysis
 from ast_engine.core.results import (
     AdjacencyResult,
@@ -177,7 +178,9 @@ def test_kml_aoi_reprojects():
         name="Integration AOI from KML",
         target_crs="EPSG:3005",
     )
-    kml_aoi = AOIBuilder().from_gdf(request, kml_gdf)
+    build_request = AOIBuildRequest(spec=request, raw_gdf=kml_gdf)
+    built_aoi = AOIBuilder().build_from_request(build_request)
+    kml_aoi = built_aoi.aoi
     assert kml_aoi.crs_epsg == 3005
 
     task = _file_task("parcels", PARCELS_GDB, "overlay", geom_type="polygon")
