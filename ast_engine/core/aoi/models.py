@@ -272,6 +272,7 @@ class AOIPart:
     part_id: str
     parent_aoi_id: str
     geom_type: str
+    source_row: int
     part_index: int
     gdf: gpd.GeoDataFrame
     bounds: tuple[float, float, float, float]
@@ -285,6 +286,7 @@ class AOIPart:
         cls,
         *,
         parent_aoi_id: str,
+        source_row: int,
         part_index: int,
         gdf: gpd.GeoDataFrame,
         part_id: str,
@@ -308,6 +310,7 @@ class AOIPart:
             part_id=resolved_part_id,
             parent_aoi_id=parent_aoi_id,
             geom_type=str(geom.geom_type),
+            source_row=int(source_row),
             part_index=int(part_index),
             gdf=gdf.reset_index(drop=True),
             bounds=tuple(float(value) for value in geom.bounds),
