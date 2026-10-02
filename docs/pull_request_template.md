@@ -3,6 +3,12 @@
 > 1. Reference to the issue #
 > 2. Description of the changes proposed
 
+## Version Impact
+ 
+- [ ] Patch (bug fix, maintenance, documentation)
+- [ ] Minor (new feature, enhancement)
+- [ ] Major (breaking change)
+
 ### Check List
 - [ ] Code runs locally
 - [ ] Tests pass
