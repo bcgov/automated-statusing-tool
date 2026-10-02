@@ -3,9 +3,12 @@ from pathlib import Path
 
 import redis
 from rq import Queue
+from ast_engine.config.settings import Settings
 
-redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-rq_queue = Queue("ast-rq", connection=redis_client)
+settings = Settings()
+
+redis_client = redis.Redis(host=settings.redis_host, port=settings.redis_port, decode_responses=True)
+rq_queue = Queue(settings.job_queue, connection=redis_client)
 
 jobs_path = Path(__file__).with_name("jobs.json")
 
