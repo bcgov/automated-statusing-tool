@@ -17,6 +17,7 @@ That is tested in this seperate script (not a pytest test) that we run manually:
 """
 from unittest.mock import MagicMock
 
+import oracledb
 import pytest
 import geopandas as gpd
 from shapely.geometry import Polygon
@@ -161,6 +162,37 @@ def test_oracle_adapter_passes_k_for_nearest(_mock_adapter, _aoi):
 
     bind_vars = cursor.execute.call_args.args[1]
     assert bind_vars.get("k") == 5
+
+
+def test_oracle_adapter_binds_aoi_as_wkt_clob(_mock_adapter, _aoi):
+    adapter, cursor = _mock_adapter
+    opts = ReadOptions(
+        spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects")
+    )
+    adapter._read_impl(read_options=opts, table=TABLE)
+
+    bind_vars = cursor.execute.call_args.args[1]
+    assert bind_vars["wkt_aoi"].startswith("POLYGON")
+    assert bind_vars["srid"] == 3005
+    assert "SDO_GEOMETRY(:wkt_aoi, :srid)" in cursor.execute.call_args.args[0]
+    assert "wkb_aoi" not in bind_vars
+    cursor.setinputsizes.assert_called_once_with(wkt_aoi=oracledb.DB_TYPE_CLOB)
+
+
+def test_oracle_adapter_transforms_wkt_aoi_when_srids_differ(
+    _mock_adapter, _aoi, monkeypatch
+):
+    adapter, cursor = _mock_adapter
+    monkeypatch.setattr(utils, "get_srid", lambda *args, **kwargs: 4326)
+    opts = ReadOptions(
+        spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects")
+    )
+    adapter._read_impl(read_options=opts, table=TABLE)
+
+    sql = cursor.execute.call_args.args[0]
+    bind_vars = cursor.execute.call_args.args[1]
+    assert "SDO_CS.TRANSFORM(SDO_GEOMETRY(:wkt_aoi, :srid), :srid_t)" in sql
+    assert bind_vars["srid_t"] == 4326
 
 
 # ---------------------------------------------------------------------------

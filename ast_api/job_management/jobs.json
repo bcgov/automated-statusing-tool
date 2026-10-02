@@ -1,42 +1,5 @@
 [
   {
-    "user": "alice",
-    "date": "2026-09-29",
-    "region": "Cariboo",
-    "area_of_interest": "North Lake Area",
-    "crown_file_number": "CF-1001",
-    "disposition_number": "DISP-2001",
-    "parcel_number": "PARCEL-1001",
-    "output_directory": "/tmp/ast_jobs/job_001",
-    "retain_existing_outputs": false,
-    "suppress_tab_3": false,
-    "suppress_map_creation": false,
-    "open_output_directory_on_completion": false,
-    "enable_portable_spreadsheet": false,
-    "registries": ["fcbc"],
-    "aoi_id": "AOI-1001",
-    "aoi_name": "North Lake Area",
-    "aoi": {
-      "type": "Feature",
-      "properties": {
-        "name": "North Lake Area"
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [0, 0],
-            [1, 0],
-            [1, 1],
-            [0, 1],
-            [0, 0]
-          ]
-        ]
-      }
-    },
-    "status": "Queued"
-  },
-  {
     "user": "bob",
     "date": "2026-09-29",
     "region": "South Coast",
@@ -54,51 +17,12 @@
     "aoi_id": "AOI-2002",
     "aoi_name": "Harbour Ridge",
     "aoi": {
-      "type": "Feature",
-      "properties": {
-        "name": "Harbour Ridge"
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [-123.35, 48.42]
-      }
-    },
-    "status": "Queued"
-  },
-  {
-    "user": "charlie",
-    "date": "2026-09-29",
-    "region": "Thompson Okanagan",
-    "area_of_interest": "Okanagan Bench",
-    "crown_file_number": "CF-3003",
-    "disposition_number": "DISP-3003",
-    "parcel_number": "PARCEL-3003",
-    "output_directory": "/tmp/ast_jobs/job_003",
-    "retain_existing_outputs": false,
-    "suppress_tab_3": true,
-    "suppress_map_creation": false,
-    "open_output_directory_on_completion": true,
-    "enable_portable_spreadsheet": false,
-    "registries": ["fcbc"],
-    "aoi_id": "AOI-3003",
-    "aoi_name": "Okanagan Bench",
-    "aoi": {
-      "type": "Feature",
-      "properties": {
-        "name": "Okanagan Bench"
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [0, 0],
-            [2, 0],
-            [2, 2],
-            [0, 2],
-            [0, 0]
-          ]
-        ]
-      }
+      "type": "FeatureCollection",
+      "name": "aoi3",
+      "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+      "features": [
+      { "type": "Feature", "properties": { "test": "1" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -128.157726717862516, 56.52342182216816 ], [ -128.12880266134718, 56.515180743797607 ], [ -128.050930201498176, 56.488516473601734 ], [ -127.99912117719046, 56.43864613156812 ], [ -127.963204491627465, 56.418609330286735 ], [ -127.913302547969124, 56.427222933355907 ], [ -127.96670080615128, 56.432319861217778 ], [ -127.968607886800669, 56.442335969786683 ], [ -127.993399935242394, 56.459901714313141 ], [ -128.019781217558574, 56.484480115190024 ], [ -128.062690532169256, 56.498166894023377 ], [ -128.096064443533123, 56.515531464493051 ], [ -128.149144854940403, 56.533413916925255 ], [ -128.157726717862516, 56.52342182216816 ] ] ] } }
+      ]
     },
     "status": "Queued"
   }

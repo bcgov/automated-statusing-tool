@@ -13,7 +13,7 @@ from ..exceptions import DataCrsError, DataReadError
 from ..where_compiler import compile_where
 
 from . import queries, utils
-from .geometry import aoi_to_wkb_srid, df_to_gdf
+from .geometry import aoi_to_wkt_srid, df_to_gdf
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +81,8 @@ class OracleAdapter(BaseSpatialAdapter):
         read_options.where = None
         read_options.definition_query = None
 
-        # 2. AOI -> WKB + SRID for bind variables
-        wkb_aoi, srid = aoi_to_wkb_srid(aoi)
+        # 2. AOI -> WKT + SRID for bind variables
+        wkt_aoi, srid = aoi_to_wkt_srid(aoi)
 
         # 3. Inspect table metadata - Review this later. Will be handled upstream by Data inventory module!
         geom_col = utils.get_geometry_column(self.connection, self.cursor, table)
@@ -127,7 +127,7 @@ class OracleAdapter(BaseSpatialAdapter):
         sql = utils.apply_geometry_fix(sql, table, geom_col)
 
         # 7. Coordinate transform if AOI SRID != table SRID
-        bind_vars: dict[str, Any] = {"wkb_aoi": wkb_aoi, "srid": srid}
+        bind_vars: dict[str, Any] = {"wkt_aoi": wkt_aoi, "srid": srid}
         if srid_t != srid:
             sql = utils.apply_coordinate_transform(sql, geom_col, srid_t)
             bind_vars["srid_t"] = srid_t
@@ -136,7 +136,7 @@ class OracleAdapter(BaseSpatialAdapter):
 
         # 8. Execute
         logger.debug("Executing Oracle overlay query against %s", table)
-        self.cursor.setinputsizes(wkb_aoi=oracledb.DB_TYPE_BLOB)
+        self.cursor.setinputsizes(wkt_aoi=oracledb.DB_TYPE_CLOB)
         self.cursor.execute(sql, bind_vars)
         names = [d[0] for d in self.cursor.description]
         rows = self.cursor.fetchall()

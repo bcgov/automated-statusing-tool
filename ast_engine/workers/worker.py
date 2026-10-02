@@ -7,6 +7,9 @@ from uuid import UUID
 from enum import StrEnum
 from typing import Optional, Any, Iterable
 from pydantic import BaseModel
+import oracledb
+from ast_engine.core.data_adapters.oracle.geometry import aoi_to_wkb_srid
+
 
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
 from ast_engine.core.execution import run_analysis, build_tasks
@@ -40,48 +43,48 @@ class AstJob(BaseModel):
     status: Optional [JobStatus]
 
     
-def publish_results(job: AstJob, ast_results: AstResults):
-    # Publishes AstResults to local disk storage or S3
+# def publish_results(job: AstJob, ast_results: AstResults):
+#     # Publishes AstResults to local disk storage or S3
 
-    logging.debug("Publish [job-id: %s]: Started",job.job_id)
-    job.status = JobStatus.PUBLISHING
+#     logging.debug("Publish [job-id: %s]: Started",job.job_id)
+#     job.status = JobStatus.PUBLISHING
 
-    # hey -- AstResults is a Pydantic model, so we can serialize it to JSON directly
-    output_dir = Path(settings.temp_dir) / str(job.job_id)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    raw_results_file = output_dir / "raw_results.json"
-    raw_results_file.write_text(ast_results.model_dump_json())
+#     # hey -- AstResults is a Pydantic model, so we can serialize it to JSON directly
+#     output_dir = Path(settings.temp_dir) / str(job.job_id)
+#     output_dir.mkdir(parents=True, exist_ok=True)
+#     raw_results_file = output_dir / "raw_results.json"
+#     raw_results_file.write_text(ast_results.model_dump_json())
 
-    # catalog the operator artifacts
-    operator_outputs = []
-    for dataset_group in ast_results.results:
-        for result in dataset_group.results:
-            if result.spatial_link:
-                operator_output = OperatorArtifact(registry=result.registry,operator=result.operator_type,dataset_name=dataset_group.dataset_name,path=result.spatial_link)
-                operator_outputs.append(operator_output)
+#     # catalog the operator artifacts
+#     operator_outputs = []
+#     for dataset_group in ast_results.results:
+#         for result in dataset_group.results:
+#             if result.spatial_link:
+#                 operator_output = OperatorArtifact(registry=result.registry,operator=result.operator_type,dataset_name=dataset_group.dataset_name,path=result.spatial_link)
+#                 operator_outputs.append(operator_output)
     
-    completed_at = datetime.now(UTC).isoformat()
+#     completed_at = datetime.now(UTC).isoformat()
 
-    # Publisher will upload all items in the manifest paths
-    storage_context = JobStorageContext(job_id=job.job_id,created_date=job.created_at)
-    writer = create_results_writer(context=storage_context)
-    publisher = ResultsPublisher(writer=writer)
-    artifacts = publisher.publish_job_results(
-        job_id=job.job_id,
-        user=job.user,
-        created_at=job.created_at,
-        completed_at=completed_at,
-        execution_time=ast_results.execution_time,
-        status="success",
-        engine_version="1.0.0", # TODO: draw from config
-        raw_results_json=raw_results_file,
-        operator_outputs=operator_outputs
-        # Include other optional paths as they become available:
-        # extracted_gpkg=..., 
-        # aoi_geojson=...,
-    )
-    logging.debug("Publish [job-id: %s]: Completed", job.job_id)
-    return {"job":job, "artifacts": artifacts}
+#     # Publisher will upload all items in the manifest paths
+#     storage_context = JobStorageContext(job_id=job.job_id,created_date=job.created_at)
+#     writer = create_results_writer(context=storage_context)
+#     publisher = ResultsPublisher(writer=writer)
+#     artifacts = publisher.publish_job_results(
+#         job_id=job.job_id,
+#         user=job.user,
+#         created_at=job.created_at,
+#         completed_at=completed_at,
+#         execution_time=ast_results.execution_time,
+#         status="success",
+#         engine_version="1.0.0", # TODO: draw from config
+#         raw_results_json=raw_results_file,
+#         operator_outputs=operator_outputs
+#         # Include other optional paths as they become available:
+#         # extracted_gpkg=..., 
+#         # aoi_geojson=...,
+#     )
+#     logging.debug("Publish [job-id: %s]: Completed", job.job_id)
+#     return {"job":job, "artifacts": artifacts}
 
 def run_worker(job: AstJob, publish: bool = False):
     # executes ast_engine and optionally publishes using storage settings in ast_engine.config.settings
@@ -110,6 +113,23 @@ def run_worker(job: AstJob, publish: bool = False):
         
         request = AOIRequest(aoi_id=job.aoi_id, name=job.aoi_name, target_crs= settings.system_crs)
         aoi = AOIBuilder().from_gdf(request, gdf)
+
+        # geom = aoi.gdf.geometry.union_all()
+        # wkt_aoi = geom.wkt
+
+        # conn.cursor.setinputsizes(wkt_aoi=oracledb.DB_TYPE_CLOB)
+        # conn.cursor.execute(
+        #     """
+        #     SELECT SDO_UTIL.TO_WKTGEOMETRY(
+        #         SDO_GEOMETRY(:wkt_aoi, :srid)
+        #     )
+        #     FROM dual
+        #     """,
+        #     {"wkt_aoi": geom.wkt, "srid": aoi.gdf.crs.to_epsg()},
+        # )
+        
+        # parsed_wkt = conn.cursor.fetchone()[0].read()
+        # print("Direct constructor parsed AOI:", parsed_wkt[:100])
 
         tasks = build_tasks(job.registries)
         tracker = DiagnosticTracker()

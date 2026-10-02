@@ -220,8 +220,8 @@ def apply_coordinate_transform(query: str, geom_col: str, srid_t: int) -> str:
 
     # Distance-based predicate (within_distance):
     query = query.replace(
-        "SDO_GEOMETRY(:wkb_aoi, :srid),",
-        "SDO_CS.TRANSFORM(SDO_GEOMETRY(:wkb_aoi, :srid), :srid_t),",
+        "SDO_GEOMETRY(:wkt_aoi, :srid),",
+        "SDO_CS.TRANSFORM(SDO_GEOMETRY(:wkt_aoi, :srid), :srid_t),",
     )
 
     # Output WKT geometry — back-transform to the AOI's SRID for the caller:
