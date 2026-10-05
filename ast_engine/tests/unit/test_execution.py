@@ -15,17 +15,21 @@ What we check:
   attribute filter is forwarded to the adapter);
 - the registry -> task mapper fills the task fields (and lower-cases the geometry
   type), skips a dataset with no operator, and tags provenance across registries;
-- saving the spatial output: off by default, one GeoPackage per dataset when it
-  is on, nothing written for a dataset with no matches, and a failed write never
-  costs the analysis result.
+- saving the spatial output: off by default, one GeoPackage per AOI part (in a
+  folder per dataset) when it is on, nothing written for a dataset with no
+  matches, and a failed write never costs the analysis result;
+- results per AOI part: each dataset returns one result per AOI row, labelled
+  with the row's attributes; a multipart row is still one part.
 
-The AOI is the Test_Shape_A box (a rectangle in BC Albers / EPSG:3005).
+The AOI is the Test_Shape_A box (a rectangle in BC Albers / EPSG:3005). It is
+one row, so each dataset returns one part.
 """
 
 import pytest
 from pathlib import Path
 
 import geopandas as gpd
+from shapely.geometry import MultiPolygon, box
 from uuid import UUID
 
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
@@ -65,6 +69,23 @@ def _valid_aoi() -> AreaOfInterest:
     """A normal AOI in BC Albers (metres) - what the operators expect."""
     gdf = gpd.read_file(SHP)
     return AOIBuilder().from_gdf(AOIRequest(aoi_id="test_aoi", name="Test AOI"), gdf)
+
+
+def _west_and_east_halves(gap_m=0.0):
+    """The Test_Shape_A box cut into a west and an east half, gap_m apart."""
+    minx, miny, maxx, maxy = _valid_aoi().gdf.total_bounds
+    mid = (minx + maxx) / 2
+    west = box(minx, miny, mid - gap_m / 2, maxy)
+    east = box(mid + gap_m / 2, miny, maxx, maxy)
+    return west, east
+
+
+def _two_row_aoi() -> AreaOfInterest:
+    """An AOI of two rows (west and east halves) kept as they are, each with a label."""
+    west, east = _west_and_east_halves()
+    gdf = gpd.GeoDataFrame({"label": ["west", "east"]}, geometry=[west, east], crs="EPSG:3005")
+    request = AOIRequest(aoi_id="test_aoi", name="Two rows", dissolve_mode="preserve_features")
+    return AOIBuilder().from_gdf(request, gdf)
 
 
 def _file_task(dataset_id, name, datasource, operator, **kwargs) -> AnalysisTask:
@@ -155,14 +176,15 @@ def test_end_to_end_file_run_assembles_results():
     assert len(result.results) == 3
 
     groups = {group.dataset_name: group for group in result.results}
-    # each group holds exactly one typed result, of the operator's type
-    assert isinstance(groups["polys"].results[0], PolyOverlayResult)
-    assert groups["polys"].results[0].feature_count == 2          # outside polygon dropped
-    assert isinstance(groups["points"].results[0], ProximityResult)
-    assert groups["points"].results[0].feature_count >= 1
+    # a one-row AOI: each group holds exactly one part, with a typed result of the operator's type
+    assert all(len(group.parts) == 1 for group in result.results)
+    assert isinstance(groups["polys"].parts[0].result, PolyOverlayResult)
+    assert groups["polys"].parts[0].result.feature_count == 2          # outside polygon dropped
+    assert isinstance(groups["points"].parts[0].result, ProximityResult)
+    assert groups["points"].parts[0].result.feature_count >= 1
     # the box dataset is the AOI itself, so it shares its whole boundary
-    assert isinstance(groups["box"].results[0], AdjacencyResult)
-    assert groups["box"].results[0].is_adjacent is True
+    assert isinstance(groups["box"].parts[0].result, AdjacencyResult)
+    assert groups["box"].parts[0].result.is_adjacent is True
 
 
 def test_per_task_error_isolation():
@@ -178,13 +200,13 @@ def test_per_task_error_isolation():
     assert len(result.results) == 2
     bad = next(g for g in result.results if g.dataset_name == "missing")
     good = next(g for g in result.results if g.dataset_name == "polys")
-    assert bad.results == []                       # failure recorded as an empty group
+    assert bad.parts == []                         # failure recorded as an empty group
     assert bad.status == "failure"                 # ...and marked, so it is not read as "nothing found"
     assert bad.error                               # with the reason kept for the analyst
-    assert len(good.results) == 1                  # the good dataset still ran
+    assert len(good.parts) == 1                    # the good dataset still ran
     assert good.status == "success"
     assert good.error is None
-    assert good.results[0].feature_count == 2
+    assert good.parts[0].result.feature_count == 2
 
 
 def test_a_dataset_with_no_matches_is_a_success_not_a_failure():
@@ -197,13 +219,13 @@ def test_a_dataset_with_no_matches_is_a_success_not_a_failure():
     group = result.results[0]
     assert group.status == "success"               # the read worked
     assert group.error is None
-    assert group.results[0].feature_count == 0     # there was just nothing near the AOI
+    assert group.parts[0].result.feature_count == 0   # there was just nothing near the AOI
 
 
 # --- Saving the spatial output ----------------------------------------------
-# record_spatial is off by default; when it is on, each dataset's matched
-# features are saved as a GeoPackage under temp_dir and the file path is recorded
-# on the result as spatial_link.
+# record_spatial is off by default; when it is on, each AOI part's matched
+# features are saved as a GeoPackage under temp_dir, in a folder per dataset, and
+# the file path is recorded on that part's result as spatial_link.
 
 def _overlay_task() -> AnalysisTask:
     """One polygon overlay task - 2 of the 3 test polygons match the AOI."""
@@ -216,21 +238,22 @@ def test_record_spatial_off_writes_nothing(tmp_path):
     job_id = UUID("32345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
-    assert result.results[0].results[0].spatial_link is None
+    assert result.results[0].parts[0].result.spatial_link is None
     assert list(tmp_path.iterdir()) == []
 
 
 def test_record_spatial_writes_a_gpkg_and_records_the_path(tmp_path):
-    """One GeoPackage per dataset, in a folder named after the analysis."""
+    """One GeoPackage per AOI part, in a folder per dataset, under the analysis."""
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("42345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
-    # the space in "test polys" is replaced so the name works as a file name
-    written = tmp_path / "overlay" / "test_polys.gpkg"
+    # the space in "test polys" is replaced so the name works as a folder name;
+    # the AOI is one row, so there is one part file
+    written = tmp_path / "overlay" / "test_polys" / "test_aoi_part_1.gpkg"
     assert written.exists()
 
-    saved = result.results[0].results[0]
+    saved = result.results[0].parts[0].result
     assert saved.spatial_link == str(written)
 
     # the features are saved as they were read - same count as the result
@@ -250,8 +273,8 @@ def test_record_spatial_skips_a_dataset_with_no_matches(tmp_path):
     job_id = UUID("52345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id=job_id, settings=settings)
 
-    assert result.results[0].results[0].feature_count == 0
-    assert result.results[0].results[0].spatial_link is None
+    assert result.results[0].parts[0].result.feature_count == 0
+    assert result.results[0].parts[0].result.spatial_link is None
     assert list(tmp_path.iterdir()) == []
 
 
@@ -265,7 +288,7 @@ def test_a_failed_write_keeps_the_analysis_result(tmp_path, monkeypatch):
     job_id = UUID("62345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
-    saved = result.results[0].results[0]
+    saved = result.results[0].parts[0].result
     assert saved.feature_count == 2        # the analysis still came through
     assert saved.spatial_link is None      # but nothing was saved
 
@@ -287,20 +310,69 @@ def test_same_dataset_name_in_two_registries_writes_two_files(tmp_path):
     job_id = UUID("72345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_valid_aoi(), tasks=tasks, job_id=job_id, settings=settings)
 
-    from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest.gpkg"
-    from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest.gpkg"
+    from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest" / "test_aoi_part_1.gpkg"
+    from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest" / "test_aoi_part_1.gpkg"
     assert from_tab1.exists()
     assert from_provincial.exists()
 
     # each result points at its own file, not at a shared one
-    links = [group.results[0].spatial_link for group in result.results]
+    links = [group.parts[0].result.spatial_link for group in result.results]
     assert links == [str(from_tab1), str(from_provincial)]
+    # and each result records the registry it came from
+    assert [group.parts[0].result.registry for group in result.results] == ["tab1", "provincial"]
 
 
 def test_safe_filename_cleans_registry_names():
     """Registry names carry spaces and brackets; the file name keeps only safe characters."""
     assert _safe_filename("Indian Reserves (Tab 1)") == "Indian_Reserves_Tab_1"
     assert _safe_filename("///") == "dataset"
+
+
+# --- Results per AOI part ---------------------------------------------------
+# A part is one row of the AOI, as its dissolve rule left it. Each dataset is
+# read once, then measured against each part on its own. Both test polygons that
+# overlap the Test_Shape_A box sit in its west half.
+
+def test_two_row_aoi_gives_one_labelled_result_per_row():
+    """Two rows -> two results per dataset, each labelled from its row. The halves
+    don't overlap, so the per-part areas add up to the one-row answer."""
+    job_id = UUID("82345678-1234-5678-1234-567812345678")
+    whole = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id).results[0].parts[0]
+    parts = run_analysis(aoi=_two_row_aoi(), tasks=[_overlay_task()], job_id=job_id).results[0].parts
+
+    assert [p.aoi_part_id for p in parts] == ["test_aoi_part_1", "test_aoi_part_2"]
+    assert [p.part_attributes for p in parts] == [{"label": "west"}, {"label": "east"}]
+    assert [p.result.feature_count for p in parts] == [2, 0]
+    assert sum(p.part_area_ha for p in parts) == pytest.approx(whole.part_area_ha)
+    assert sum(p.result.total_area for p in parts) == pytest.approx(whole.result.total_area)
+
+
+def test_a_multipart_row_is_one_part():
+    """One row made of two separate pieces is still one part, measured as one area."""
+    west, east = _west_and_east_halves(gap_m=100)
+    gdf = gpd.GeoDataFrame(geometry=[MultiPolygon([west, east])], crs="EPSG:3005")
+    aoi = AOIBuilder().from_gdf(AOIRequest(aoi_id="test_aoi", name="Two pieces"), gdf)
+    job_id = UUID("92345678-1234-5678-1234-567812345678")
+    parts = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id).results[0].parts
+
+    assert len(parts) == 1
+    assert parts[0].part_area_ha == pytest.approx((west.area + east.area) / 10_000)
+    assert parts[0].part_attributes == {}          # full_union keeps no attributes
+
+
+def test_record_spatial_writes_one_file_per_part(tmp_path):
+    """Each part with matches gets its own GeoPackage in the dataset's folder."""
+    settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
+    job_id = UUID("a2345678-1234-5678-1234-567812345678")
+    result = run_analysis(aoi=_two_row_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
+    west, east = result.results[0].parts
+
+    written = tmp_path / "overlay" / "test_polys" / "test_aoi_part_1.gpkg"
+    assert west.result.spatial_link == str(written)
+    assert len(gpd.read_file(written)) == west.result.feature_count
+    # nothing matched in the east half, so nothing is saved for it
+    assert east.result.spatial_link is None
+    assert [p.name for p in written.parent.iterdir()] == ["test_aoi_part_1.gpkg"]
 
 
 # --- Routing helpers --------------------------------------------------------
