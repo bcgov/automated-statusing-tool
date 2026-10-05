@@ -119,7 +119,10 @@ def adjacency(
     for position, part_geom in enumerate(aoi.gdf.geometry):
         # The part's outer edge: the stretch of its boundary that is also the whole
         # AOI's boundary. A feature sitting in the next part is not adjacent.
-        outer_edge = part_geom.boundary.intersection(aoi_boundary)
+        # The intersection comes back cut into one short line per vertex, so merge
+        # the pieces back into continuous lines: buffered one by one (flat ends),
+        # the tolerance band below would lose a corner at every vertex.
+        outer_edge = MultiLineString(_merge_shared_lines(part_geom.boundary.intersection(aoi_boundary)))
         if tolerance_m > 0:
             # Tolerant match: the dataset boundary that falls within tolerance_m of
             # the outer edge. Absorbs slivers, precision noise and small misalignment.
