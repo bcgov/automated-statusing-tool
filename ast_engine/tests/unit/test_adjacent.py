@@ -18,6 +18,8 @@ What we check:
   IDs and kept columns;
 - bad input (negative tolerance) and a lat/long AOI are rejected;
 - the operator asks the source for the right search (touches vs within_distance);
+- with a tolerance, the band around the AOI's edge keeps its corners on a
+  many-sided AOI (real parcels have hundreds of vertices);
 - with an AOI of two parts, only each part's outer edge counts: the edge the two
   parts share is inside the AOI.
 
@@ -29,7 +31,7 @@ the tests read `.parts[0].result` off the call (except the two-part test).
 import pytest
 from pathlib import Path
 import geopandas as gpd
-from shapely.geometry import Polygon
+from shapely.geometry import Point, Polygon
 
 from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter, DatasetInfo
@@ -199,6 +201,33 @@ def test_tolerant_match_asks_for_within_distance_search():
     sf = adapter.last_options.spatial_filter
     assert sf.predicate == "within_distance"
     assert sf.distance == 5
+
+
+# --- a tolerance on a many-sided AOI --------------------------------------
+def test_tolerance_band_keeps_its_corners_on_a_many_sided_aoi():
+    """With a tolerance, the shared border is measured inside a band around the
+    AOI's edge. Real parcels have hundreds of vertices, and the band must still
+    follow the whole edge, corners included: a feature just outside a 64-sided
+    AOI gets the same shared border as measuring against the full AOI boundary."""
+    minx, miny, maxx, maxy = _valid_aoi().gdf.total_bounds
+    centre = Point((minx + maxx) / 2, (miny + maxy) / 2)
+    circle = centre.buffer(500, quad_segs=16)                     # a 64-sided polygon
+    aoi = AOIBuilder().from_gdf(
+        AOIRequest(aoi_id="test_aoi", name="Many sides"),
+        gpd.GeoDataFrame(geometry=[circle], crs="EPSG:3005"),
+    )
+    # a half ring 3 to 10 m outside the AOI, on its east side
+    ring = centre.buffer(510, quad_segs=16).difference(centre.buffer(503, quad_segs=16))
+    east = Polygon([(centre.x, miny - 1000), (maxx + 1000, miny - 1000),
+                    (maxx + 1000, maxy + 1000), (centre.x, maxy + 1000)])
+    half_ring = ring.intersection(east)
+
+    tolerance = 5
+    band = aoi.gdf.geometry.union_all().boundary.buffer(tolerance, cap_style="flat", join_style="mitre")
+    expected = half_ring.boundary.intersection(band).length
+
+    result = adjacency(aoi=aoi, adapter=FakeAdapter(_gdf([half_ring])), tolerance_m=tolerance).parts[0].result
+    assert result.measure_value == pytest.approx(expected, rel=1e-9)
 
 
 # --- an AOI of two parts: only each part's outer edge counts ----------------
