@@ -135,7 +135,7 @@ def test_within_distance_measures_known_distances(point_distance_m, radius_m):
         aoi=aoi,
         adapter=InMemorySpatialAdapter(source),
         distance_m=radius_m,
-    )
+    ).result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == 1
@@ -156,7 +156,7 @@ def test_within_distance_filters_and_sorts_results():
         distance_m=12.0,
         feature_id_field="Id",
         keep_properties=["Name", "Colour"],
-    )
+    ).result
 
     assert result.feature_count == 2
     assert result.measure_value == pytest.approx(3.0)
@@ -185,7 +185,7 @@ def test_within_distance_includes_exact_radius():
         adapter=InMemorySpatialAdapter(source),
         distance_m=12.0,
         feature_id_field="Id",
-    )
+    ).result
 
     assert result.feature_count == 2
     assert result.measure_value == pytest.approx(11.75)
@@ -218,7 +218,7 @@ def test_nearest_sorts_before_limiting_k(k, expected_ids, expected_distances):
         adapter=InMemorySpatialAdapter(_proximity_features(aoi)),
         k=k,
         feature_id_field="Id",
-    )
+    ).result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == len(expected_distances)
@@ -240,7 +240,7 @@ def test_nearest_defaults_to_one_feature():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_proximity_features(aoi)),
         feature_id_field="Id",
-    )
+    ).result
 
     assert result.feature_count == 1
     assert result.measure_value == pytest.approx(3.0)
@@ -265,7 +265,7 @@ def test_nearest_applies_max_distance_cap(max_distance_m, expected_distances):
         adapter=InMemorySpatialAdapter(_proximity_features(aoi)),
         k=2,
         max_distance_m=max_distance_m,
-    )
+    ).result
 
     assert result.feature_count == len(expected_distances)
     assert result.measure_value == pytest.approx(3.0)
@@ -310,7 +310,7 @@ def test_intersecting_points_report_zero_distance(operator, operator_kwargs):
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="Id",
         **operator_kwargs,
-    )
+    ).result
 
     assert result.feature_count == 2
     assert result.measure_value == 0.0
@@ -331,7 +331,7 @@ def test_empty_adapter_returns_zero_result(operator, operator_kwargs):
         aoi=projected_operator_aoi(),
         adapter=InMemorySpatialAdapter(),
         **operator_kwargs,
-    )
+    ).result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == 0
@@ -360,7 +360,7 @@ def test_all_candidates_outside_limit_return_zero_result(operator, operator_kwar
         aoi=aoi,
         adapter=InMemorySpatialAdapter(source),
         **operator_kwargs,
-    )
+    ).result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == 0
@@ -382,7 +382,7 @@ def test_missing_id_column_uses_source_index_labels(operator, operator_kwargs):
         feature_id_field="NOT_REAL",
         keep_properties=["Colour"],
         **operator_kwargs,
-    )
+    ).result
 
     assert result.feature_count == 2
     assert [feature.feature_id for feature in result.features] == ["303", "101"]
@@ -444,7 +444,7 @@ def test_keep_properties_accepts_reusable_and_one_shot_iterables(
         feature_id_field="Id",
         keep_properties=make_keep_properties(["Name"]),
         **operator_kwargs,
-    )
+    ).result
 
     assert adapter.last_options is not None
     assert set(adapter.last_options.keep_columns) == {"Id", "Name"}
@@ -655,7 +655,7 @@ def test_distance_uses_all_aoi_parts_and_excludes_the_gap(operator, operator_kwa
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="Id",
         **operator_kwargs,
-    )
+    ).result
 
     assert result.feature_count == 2
     assert result.measure_value == 0.0
