@@ -141,7 +141,7 @@ def test_polygon_overlap_exact_values():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         keep_properties=["Name"],
-    )
+    ).result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -162,7 +162,7 @@ def test_line_overlap_exact_values():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_line_features(aoi)),
         keep_properties=["Name"],
-    )
+    ).result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -185,7 +185,7 @@ def test_point_overlay_count():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_point_features(aoi)),
         keep_properties=["Name"],
-    )
+    ).result
 
     assert result.feature_count == 2
     assert result.measure_value == 2
@@ -206,7 +206,7 @@ def test_sorted_descending_by_overlap():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         feature_id_field="Id",
-    )
+    ).result
 
     assert result.feature_count == 2
     assert [feature.measure for feature in result.features] == pytest.approx(
@@ -224,7 +224,7 @@ def test_zero_overlap_removed():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         keep_properties=["Name"],
-    )
+    ).result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -245,7 +245,7 @@ def test_properties_preserved():
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         feature_id_field="Id",
         keep_properties=["Name"],
-    )
+    ).result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -266,7 +266,7 @@ def test_feature_id_fallback():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="NOT_REAL",
-    )
+    ).result
 
     assert result.feature_count == 2
     ids = [feature.feature_id for feature in result.features]
@@ -322,7 +322,7 @@ def test_keep_properties_accepts_reusable_and_one_shot_iterables(
         adapter=adapter,
         feature_id_field="Id",
         keep_properties=make_keep_properties(["Name"]),
-    )
+    ).result
 
     assert adapter.last_options is not None
     assert set(adapter.last_options.keep_columns) == {"Id", "Name"}
@@ -358,7 +358,7 @@ def test_build_results():
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="FID",
         keep_properties=["Name"],
-    )
+    ).result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -478,7 +478,7 @@ def test_empty_dataset_returns_typed_zero_result(
         aoi=projected_operator_aoi(),
         adapter=InMemorySpatialAdapter(),
         geom_type=geom_type,
-    )
+    ).result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == 0
@@ -514,7 +514,7 @@ def test_all_outside_features_return_typed_zero_result(
     assert len(source) == 1  # Keep this distinct from the empty-input case.
 
     # Infer the type from the geometry before the outside row is removed.
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source))
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == 0
@@ -533,7 +533,7 @@ def test_polygon_sharing_only_aoi_edge_has_zero_overlap_area():
         crs=aoi.gdf.crs,
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source))
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
 
     assert isinstance(result, PolyOverlayResult)
     assert result.feature_count == 0
@@ -551,7 +551,7 @@ def test_line_touching_aoi_at_endpoint_has_zero_overlap_length():
         crs=aoi.gdf.crs,
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source))
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
 
     assert isinstance(result, LineOverlayResult)
     assert result.feature_count == 0
@@ -569,7 +569,7 @@ def test_line_along_aoi_boundary_contributes_its_overlap_length():
         crs=aoi.gdf.crs,
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source))
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
 
     assert result.feature_count == 1
     assert result.total_length == pytest.approx(100.0)
@@ -598,7 +598,7 @@ def test_unknown_geom_type_falls_back_to_geometry_inference(
         aoi=aoi,
         adapter=InMemorySpatialAdapter(make_features(aoi)),
         geom_type="unknown",  # Deliberately exercise the documented fallback.
-    )
+    ).result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == 2
@@ -624,7 +624,7 @@ def test_overlay_includes_both_aoi_parts_but_excludes_the_gap():
         Name=["spanning"],
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source))
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
 
     assert result.feature_count == 1
     assert result.total_area == pytest.approx(20_000.0)
@@ -710,7 +710,7 @@ def test_geom_type_override_returns_correct_result_types(
         aoi=aoi,
         adapter=InMemorySpatialAdapter(make_features(aoi)),
         geom_type=geom_type,
-    )
+    ).result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == expected_count

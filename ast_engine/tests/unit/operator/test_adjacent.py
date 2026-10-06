@@ -26,7 +26,7 @@ COVERAGE
   or within_distance when using a tolerance.
 
 HOW TO EXTEND
--------------
+-------------f
 1. Add a descriptively named test for each new behaviour or edge case.
 2. Use small polygons with independently calculable shared-edge lengths.
 3. Create fresh AOI stubs, GeoDataFrames, and in-memory adapters for each
@@ -99,7 +99,7 @@ def test_shares_full_edge_is_adjacent():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(aoi_gdf([polygon])),
         tolerance_m=0,
-    )
+    ).result
 
     assert result.is_adjacent is True
     assert result.measure_value == pytest.approx(maxy - miny)
@@ -122,7 +122,7 @@ def test_corner_touch_not_adjacent():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(aoi_gdf([poly])),
         tolerance_m=0
-    )
+    ).result
 
     assert result.is_adjacent is False
     assert result.measure_value == 0.0
@@ -162,7 +162,7 @@ def test_positive_tolerance_accepts_only_nearby_polygons(
         adapter=InMemorySpatialAdapter(source),
         tolerance_m=0.5,
         feature_id_field="Id",
-    )
+    ).result
 
     assert result.is_adjacent is expected_adjacent
     assert result.feature_count == (1 if expected_adjacent else 0)
@@ -183,7 +183,12 @@ def test_empty_dataset_not_adjacent():
 
     aoi = projected_operator_aoi()
 
-    result = adjacency(aoi=aoi, adapter=InMemorySpatialAdapter(), tolerance_m=0)
+    result = adjacency(
+        aoi=aoi,
+        adapter=InMemorySpatialAdapter(),
+        tolerance_m=0
+        ).result
+    
     assert result.is_adjacent is False
     assert result.feature_count == 0
 
@@ -201,7 +206,7 @@ def test_multiple_adjacent_sorted_longest_first():
     result = adjacency(
         aoi=aoi, adapter=InMemorySpatialAdapter(gdf), tolerance_m=0,
         feature_id_field="Id", keep_properties=["Name"],
-    )
+    ).result
     assert result.feature_count == 2
     measures = [f.measure for f in result.features]
     assert measures[0] > measures[1]                     # longest shared border first
@@ -290,7 +295,7 @@ def test_keep_properties_accepts_reusable_and_one_shot_iterables(
         tolerance_m=0,
         feature_id_field="Id",
         keep_properties=make_keep_properties(["Name"]),
-    )
+    ).result
 
     assert result.is_adjacent is True
     assert set(adapter.last_options.keep_columns) == {"Id", "Name"}
