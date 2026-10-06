@@ -164,6 +164,7 @@ def path_translate(in_path:str, path_dict:dict|None = None) -> str:
     elif name == "posix":
 
         if path_dict is not None:
+            in_path = in_path.lower()
             for old, new in path_dict.items():
                 in_path = in_path.replace(old, new)
         else:
