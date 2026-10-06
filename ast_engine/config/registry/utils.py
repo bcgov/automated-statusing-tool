@@ -1,5 +1,6 @@
 from copy import deepcopy
-from .models import Registry, BaseDataset
+from .models import Registry, BaseDataset, SkippedDataset
+from pydantic import ValidationError
 import pandas as pd
 from pathlib import Path
 import yaml
@@ -26,8 +27,52 @@ def dump_yaml(registry: Registry, file_path: Path):
         # cannot parse the where back. Matches enrichment.build()'s dump.
         yaml.dump(registry.model_dump(by_alias=True), f, sort_keys=False)
 
-def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
+def short_reason(exc: Exception) -> str:
+    '''Turn an error into one readable line for the build report.
+
+    A validation error normally prints over several lines and repeats the whole
+    spreadsheet row back at you. When you are looking for the cell to fix, only
+    the message itself helps.
+    '''
+    if isinstance(exc, ValidationError):
+        text = "; ".join(e.get("msg", "") for e in exc.errors() if e.get("msg"))
+    else:
+        text = f"{type(exc).__name__}: {exc}"
+    text = " ".join(text.split())
+    return text if len(text) <= 200 else text[:197] + "..."
+
+
+def log_skipped(skipped: list[SkippedDataset], total: int) -> None:
+    '''Log the datasets that could not be built, so a build never ends quietly.
+
+    The build still finishes and the registry is still written - a couple of bad
+    rows should not cost you the other sixty. What must not happen is the registry
+    coming out short with nothing to show for it, so the same list is written into
+    the registry itself under 'skipped'.
+    '''
+    if not skipped:
+        logger.info("All %d datasets built", total)
+        return
+    logger.warning(
+        "%d of %d datasets could not be built and are recorded as skipped:",
+        len(skipped), total,
+    )
+    for item in skipped:
+        logger.warning("    %s [%s] -> %s", item.name, item.stage, item.reason)
+
+
+def hydrate_base_datasets(seed: list[dict]) -> tuple[list[BaseDataset], list[SkippedDataset]]:
     '''Hydrates a list of BaseDatasets from a dictionary
+
+    Returns the datasets it could build and a list of the ones it could not. A bad
+    row is skipped rather than stopping the build, so a couple of bad rows never
+    cost you the rest of the spreadsheet - but the caller gets the list back so the
+    skipped datasets can be recorded in the registry instead of quietly vanishing.
+
+    The usual cause is a Definition_Query the parser does not understand
+    (definition_to_where raises while the dataset is being validated), most often
+    an ESRI-flavoured expression from a regional spreadsheet such as a date
+    calculated with sysdate.
     -------------
     example:
     -------------
@@ -39,9 +84,23 @@ def hydrate_base_datasets(seed: list[dict]) -> list[BaseDataset]:
         "aggregate_columns": ["MAP_TILE_DISPLAY_NAME"],
     },
     ]
+
+    hydrated, skipped = hydrate_base_datasets(seed)
     '''
     logger.debug(f"Hydrating datasets: Count {len(seed)}")
-    return [BaseDataset(**item) for item in seed]
+    hydrated = []
+    skipped: list[SkippedDataset] = []
+    for item in seed:
+        try:
+            hydrated.append(BaseDataset(**item))
+        except Exception as exc:
+            skipped.append(SkippedDataset(
+                name=str(item.get("name", "?")),
+                datasource=str(item.get("datasource", "?")),
+                stage="spreadsheet row",
+                reason=short_reason(exc),
+            ))
+    return hydrated, skipped
 
 
 def infer_operator(buffer_distance) -> dict:
@@ -142,11 +201,15 @@ class RegistryBuilder():
     datasets (required)
 
     '''
-    def __init__(self, datasets, version:str = "0.1", os_type:str|None = None, date = None ):
+    def __init__(self, datasets, version:str = "0.1", os_type:str|None = None, date = None,
+                 skipped: list|None = None ):
         self.version = version
         self.os_type = os_type
         self.date = date
         self.datasets = datasets
+        # Datasets from the spreadsheet that could not be built. They are written
+        # into the registry so it says what it does not cover.
+        self.skipped = skipped or []
     def enrich(self):
         '''
         Generate the values where applicable
@@ -165,11 +228,12 @@ class RegistryBuilder():
         '''
         self.enrich()
         registry = Registry(
-            version=self.version, 
-            os=self.os_type, 
-            date=self.date, 
-            id=self.id, 
-            datasets=self.datasets)
+            version=self.version,
+            os=self.os_type,
+            date=self.date,
+            id=self.id,
+            datasets=self.datasets,
+            skipped=self.skipped)
         return registry
 
 

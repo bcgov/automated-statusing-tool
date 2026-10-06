@@ -37,7 +37,7 @@ def test_util_hydrate_datasets():
     '''Test hydrate datasets from dict
     '''
     # load sample registry
-    basedatasets = utils.hydrate_base_datasets(DATA_DICT)
+    basedatasets, _ = utils.hydrate_base_datasets(DATA_DICT)
     assert len(basedatasets) == 2
     assert basedatasets[0].name == "Mapsheet"
     assert basedatasets[1].datasource == "WHSE_ADMIN_BOUNDARIES.ADM_NR_DISTRICTS_SP"
@@ -82,7 +82,7 @@ def test_load_registry_from_yaml():
 def test_hydrate_base_datasets():
     ''' Test dataset hydration'''
     indata = [DATA_DICT[0]]
-    dsets = utils.hydrate_base_datasets(indata)
+    dsets, _ = utils.hydrate_base_datasets(indata)
     assert len(dsets) == 1
     assert dsets[0].name == DATA_DICT[0]["name"]
     assert dsets[0].datasource == DATA_DICT[0]["datasource"]
@@ -103,7 +103,7 @@ def test_registry_creation(monkeypatch):
         enrichment.OracleAdapter, "describe", lambda self, *, table: info
     )
 
-    dsets = utils.hydrate_base_datasets(DATA_DICT)
+    dsets, _ = utils.hydrate_base_datasets(DATA_DICT)
     registry_datasets = []
     for d in dsets:
         enrich_data = enrichment.Enrich(d, connection=MagicMock(), cursor=MagicMock())
@@ -152,7 +152,7 @@ def test_ingest_spreadsheet_to_model():
     }
 
     data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(SAMPLE_XLSX))
-    dsets = utils.hydrate_base_datasets(data)
+    dsets, _ = utils.hydrate_base_datasets(data)
     assert len(dsets) > 0
 
 

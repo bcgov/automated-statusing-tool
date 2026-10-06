@@ -32,6 +32,7 @@ def test_bundle_roundtrip_json()
 """
 
 import pytest
+from uuid import UUID
 from ast_engine.core.results import (
     AstResults, PointOverlayResult, PolyOverlayResult, LineOverlayResult,
     ProximityResult, AdjacencyResult, FeatureRecord, DatasetResultGroup
@@ -89,8 +90,9 @@ def test_spatial_link_empty_by_default():
     assert result.spatial_link is None
 
 def test_bundle_roundtrip_json():
+    job_id = UUID("12345678-1234-5678-1234-567812345678")
     bundle = AstResults(
-        job_id="test_job",
+        job_id=job_id,
         aoi_id="test_aoi",
         results=[
             DatasetResultGroup(
@@ -105,7 +107,7 @@ def test_bundle_roundtrip_json():
     # Deserialize
     restored = AstResults.model_validate_json(json_str)
     
-    assert restored.job_id == "test_job"
+    assert restored.job_id == job_id
     assert len(restored.results) > 0
 
 
@@ -149,7 +151,8 @@ def test_roundtrip_preserves_each_result_type():
             AdjacencyResult(is_adjacent=True, features=[FeatureRecord(feature_id="n1", measure=10.0)]),
         ],
     )
-    bundle = AstResults(job_id="j", aoi_id="aoi", results=[group])
+    job_id = UUID("12345678-1234-5678-1234-567812345678")
+    bundle = AstResults(job_id=job_id, aoi_id="aoi", results=[group])
 
     restored = AstResults.model_validate_json(bundle.model_dump_json())
     results = restored.results[0].results

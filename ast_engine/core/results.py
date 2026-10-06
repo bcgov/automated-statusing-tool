@@ -5,9 +5,11 @@ serializing execution outputs into a predictable, schema-conformant form.
 '''
 from datetime import datetime, UTC
 from enum import Enum
+from uuid import UUID
 from functools import partial
 from typing import List, Union, Literal, Annotated, Dict
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, ConfigDict
+import geopandas as gpd
 
 class FeatureRecord(BaseModel):
     # non-spatial record
@@ -25,6 +27,7 @@ class OperatorType(str, Enum):
 class BaseOperatorResult(BaseModel):
     # Do not instantiate directly; use operator‑specific subclasses.
     analysis_timestamp: datetime = Field(default_factory=partial(datetime.now,tz=UTC))
+    registry: str | None = None
     operator_type: OperatorType
     features: List[FeatureRecord] = Field(default_factory=list)
     # path to the saved spatial output; set by the orchestrator, not the operator
@@ -90,12 +93,27 @@ AnalysisResult = Annotated[
     Union[PointOverlayResult, LineOverlayResult, PolyOverlayResult, AdjacencyResult, ProximityResult],
     Field(discriminator="operator_type")
 ]
+
+class OperatorOutcome(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    status: Literal["success", "failure"]
+    result: AnalysisResult | None = None
+    dataframe: gpd.GeoDataFrame | None = None
+
 class DatasetResultGroup(BaseModel):
     dataset_id: str
     dataset_name: str
+    # did this dataset run? set by the orchestrator, not the operator. Tells a
+    # dataset that failed apart from one that ran and found nothing - both come
+    # back with no results.
+    status: Literal["success", "failure"] = "success"
+    # why it failed; empty when the dataset ran
+    error: str | None = None
     results: List[AnalysisResult]
 
 class AstResults(BaseModel):
-    job_id: str
+    job_id: UUID
     aoi_id: str
     results: List[DatasetResultGroup]
+    execution_time: float | None = None

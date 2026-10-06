@@ -11,6 +11,7 @@ Run:
 """
 
 from pathlib import Path
+from uuid import uuid4
 
 import geopandas as gpd
 
@@ -76,7 +77,7 @@ def print_results(results) -> None:
 def main() -> None:
     setup_logging()
     aoi = build_aoi()
-    results = run_analysis(aoi=aoi, tasks=demo_tasks(), job_id="demo-job")
+    results = run_analysis(aoi=aoi, tasks=demo_tasks(), job_id=uuid4())
     print_results(results)
 
 

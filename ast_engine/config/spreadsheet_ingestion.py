@@ -14,7 +14,7 @@ variables if set, otherwise the script prompts for them (the password is read
 with getpass so it never echoes ).
 '''
 
-
+import argparse
 import getpass
 import os
 import sys
@@ -42,9 +42,56 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 def main() -> None:
-    spreadsheet_io = {
-        "ast_engine/config/registry/tab1/tab1.xlsx":"ast_engine/config/registry/tab1/tab1.yaml",
-    }
+    parser = argparse.ArgumentParser(
+        description="Build a dataset registry from an input spreadsheet."
+    )
+    parser.add_argument(
+        "--input",
+        "-i",
+        help="Folder that contains the spreadsheet (xlsx) files.",
+        required=False,
+    )
+    parser.add_argument(
+        "--file",
+        "-f",
+        help="Single spreadsheet (xlsx) file to ingest.",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        help="Folder to write the registry (yaml) files.",
+        required=False,
+    )
+    args = parser.parse_args()
+    print(args)
+    if args.output is not None:
+        output_dir = args.output
+    else:
+        output_dir = "ast_engine/tests/registry"
+        print(f"No output folder specified, defaulting to {output_dir}")
+    if args.input is not None:
+        spreadsheet_io = {
+            f"{args.input}/{xlsx}": f"{output_dir}/{xlsx.replace('.xlsx', '.yaml')}"
+            for xlsx in os.listdir(args.input)
+            if xlsx.endswith(".xlsx")
+        }
+        if len(spreadsheet_io) == 0:
+            raise FileNotFoundError(f"No .xlsx files found in {args.input}")
+    elif args.file is not None:
+        if not os.path.isfile(args.file):
+            raise FileNotFoundError(f"File not found: {args.file}")
+        if not args.file.endswith(".xlsx"):
+            raise ValueError(f"File is not an .xlsx spreadsheet: {args.file}")
+        spreadsheet_io = {
+            args.file: f"{output_dir}/{Path(args.file).stem}.yaml"
+        }
+    else: # demo mode
+        print("No parameters provided. Running in demo mode")
+        spreadsheet_io = {
+            "ast_engine/tests/registry/Test_Registry.xlsx":"ast_engine/tests/registry/Test_Registry.yaml",
+            "ast_engine/tests/registry/Test_Registry_2.xlsx":"ast_engine/tests/registry/Test_Registry_2.yaml",
+        }
+    print(f"Spreadsheet I/O mapping: {spreadsheet_io}")
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
@@ -72,7 +119,13 @@ def main() -> None:
         # Ensure pathing is correct for host OS
         for dataset in datasets:
             dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
-        hydrated = utils.hydrate_base_datasets(datasets)
+        # A dataset that cannot be built is skipped and the build carries on - a
+        # couple of bad rows should not cost you the rest of the spreadsheet. Every
+        # one that is skipped is collected here and written into the registry under
+        # 'skipped', so the registry always says what it does not cover. Without
+        # that the registry just comes out short, and nothing later can tell
+        # "checked and found nothing" apart from "never checked at all".
+        hydrated, skipped = utils.hydrate_base_datasets(datasets)
         base_datasets_list = []
         with OracleConnection(user, password, host) as (conn, cursor):
             for dataset in hydrated:
@@ -82,12 +135,22 @@ def main() -> None:
                     enriched.enrich()
                     base_datasets_list.append(enriched.build())
                 except DataAdapterError as e:
+                    # Usually a path in the spreadsheet that no longer points at
+                    # anything, or a BCGW table that cannot be read.
                     print(e)
-                    logger.warning(f"Warning: skipping {dataset.name} due to a read error: {e}")
-                    continue
-        registry = utils.RegistryBuilder(base_datasets_list).build()
-        # registry = models.Registry(version="0.1", datasets=base_datasets_list)
+                    logger.warning(f"Could not read {dataset.name}: {e}")
+                    skipped.append(models.SkippedDataset(
+                        name=dataset.name,
+                        datasource=dataset.datasource,
+                        stage="reading the dataset",
+                        reason=utils.short_reason(e),
+                    ))
+        utils.log_skipped(skipped, len(datasets))
+        registry = utils.RegistryBuilder(base_datasets_list, skipped=skipped).build()
         utils.dump_yaml(registry, Path(yaml_out))
+        logger.info(
+            "Wrote %s: %d datasets, %d skipped", yaml_out, len(base_datasets_list), len(skipped)
+        )
 
 
 if __name__ == "__main__":

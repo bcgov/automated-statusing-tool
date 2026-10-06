@@ -109,8 +109,10 @@ ast_engine/
 | `core/`           | Runtime processing modules such as AOI handling, overlays, data adapters, and result generation |
 | `data_inventory/` | Prepared or managed data inventory / registry content used by runtime workflows                 |
 | `schemas/`        | Schema definitions and contracts for inputs, outputs, and registry records                      |
+| `storage/`        | Storage provides utilities for creating a job manifest and writing job artifacts to local or S3
 | `tests/`          | Unit and integration tests for the engine package                                               |
 | `utils/`          | Shared utilities such as logging, path helpers, and common validation helpers                   |
+| `workers/`        | Workers move a job request through the engine, collects results and publishes to storage |
 | `model_config.py` | Runtime settings and configuration access                                                       |
 | `README.md`       | Engine-level developer documentation                                                            |
 
@@ -766,6 +768,29 @@ Examples:
 * output has non-critical policy concerns
 
 ---
+
+# Setting up a working copy
+
+From the repo root, after cloning:
+
+```bash
+uv sync
+```
+
+That creates the `.venv`, installs the dependencies, and installs `ast_engine` itself into the
+environment so `import ast_engine` works from anywhere - including the scripts in `scripts/`,
+which are run from a subfolder and would not otherwise find the package.
+
+Then:
+
+```bash
+uv run pytest -m unit                              # the fast test suite
+uv run python scripts/orchestrator_run.py          # the file-based demo, no database needed
+```
+
+If you see `ModuleNotFoundError: No module named 'ast_engine'`, the package is not installed in
+your environment. Run `uv sync` from the repo root. On an older working copy created before the
+build settings were added to `pyproject.toml`, run `uv pip install -e .` once instead.
 
 # Testing
 
