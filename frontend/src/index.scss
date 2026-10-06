@@ -1,8 +1,6 @@
 // Global styles for the whole app.
 // These apply everywhere. Page-specific layout lives in LandingPage.scss.
-// In SCSS, // starts a comment. The browser never sees comments.
 
-// Load the BC Sans font files (BC Government standard font).
 @import "@bcgov/bc-sans/css/BC_Sans.css";
 
 // Colour variables used throughout the app.

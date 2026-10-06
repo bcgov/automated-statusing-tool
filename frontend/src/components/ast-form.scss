@@ -1,9 +1,4 @@
-// Styles for the AST form (the left side of the landing page).
-// In SCSS, // starts a comment. The browser never sees comments.
-// & means "this same element". For example, &.expanded inside .source-details
-// means ".source-details that also has the expanded class".
-// Note: all text sizes in the form are set to 12px in LandingPage.scss,
-// so no font sizes are set here.
+// Styles for the AST form
 
 // Stretch the Name and Email fields to the full width of the form.
 // .bcds-react-aria-TextField is the class the design system gives its text fields.

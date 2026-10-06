@@ -7,10 +7,10 @@ import { useEffect, useRef, useState } from "react";
 import type { FC } from "react";
 
 // OpenLayers pieces used to build the map.
-import Map from "ol/Map"; // The map itself
+import Map from "ol/Map";
 import View from "ol/View"; // Controls where the map looks (center and zoom)
 import TileLayer from "ol/layer/Tile"; // Layer for basemap image tiles
-import VectorLayer from "ol/layer/Vector"; // Layer for shapes (the Tantalis preview)
+import VectorLayer from "ol/layer/Vector"; // Layer for shapes (Tantalis preview)
 import XYZ from "ol/source/XYZ"; // Loads tiles from a URL pattern like {z}/{y}/{x}
 import VectorSource from "ol/source/Vector"; // Holds the shapes shown in a vector layer
 import { GeoJSON } from "ol/format"; // Reads GeoJSON data into shapes OpenLayers can draw
@@ -48,9 +48,8 @@ interface OLMapProps {
 
 // Starting colour of the preview shape. 120 on the colour wheel = green.
 const DEFAULT_PREVIEW_HUE = 120;
-// Starting transparency of the preview shape, as a percent.
 const DEFAULT_PREVIEW_OPACITY = 70;
-// Starting map location (the middle of BC) as [longitude, latitude].
+// Starting map location in the middle of BC
 const DEFAULT_CENTER: [number, number] = [-126.5, 54.6];
 // Starting zoom level. 5 shows the whole province.
 const DEFAULT_ZOOM = 5;
