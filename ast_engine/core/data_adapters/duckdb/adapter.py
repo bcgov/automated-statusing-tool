@@ -237,4 +237,4 @@ class DuckDBAdapter(BaseSpatialAdapter):
                     return {"geometry_column":primary_col,"crs":crs_meta}
         except duckdb.Error:
             pass
-        return None
+        return {"geometry_column": None, "crs": None}
