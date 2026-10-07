@@ -218,11 +218,12 @@ def test_publisher_gives_each_aoi_part_its_own_file(tmp_path: Path):
         operator_outputs=part_files,
     )
 
-    # put_file(path, relative_key, ...): one upload per part, each to its own key
+    # put_file(path, relative_key, ...): one upload per part, each to its own key,
+    # named after the dataset and the part
     keys = [call.args[1] for call in mock_writer.put_file.call_args_list]
     assert [key for key in keys if key.endswith(".gpkg")] == [
-        "data/provincial/polygon_overlay/Parks/aoi_part_1.gpkg",
-        "data/provincial/polygon_overlay/Parks/aoi_part_2.gpkg",
+        "data/provincial/polygon_overlay/Parks_aoi_part_1.gpkg",
+        "data/provincial/polygon_overlay/Parks_aoi_part_2.gpkg",
     ]
     # and one manifest entry per part
     manifest = json.loads(mock_writer.put_text.call_args.args[0])
