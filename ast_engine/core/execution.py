@@ -411,11 +411,14 @@ def _write_spatial(
 ) -> Optional[str]:
     """Save one AOI part's matched features as a GeoPackage; return the path, or None.
 
-    Files are grouped by registry, then by analysis, then by dataset:
-    <output_dir>/<registry>/<operator>/<dataset name>/<part id>.gpkg. One file per
+    Files are grouped by registry and then by analysis:
+    <output_dir>/<registry>/<operator>/<dataset name>_<part id>.gpkg. One file per
     part rather than one shared GeoPackage, so parallel workers never write to the
-    same file. Each dataset gets its own folder because it returns one result per
-    AOI part, and the parts of one dataset must not overwrite each other. Nothing
+    same file. The file name carries both the dataset and the part, so the parts
+    of one dataset never overwrite each other, and the layer inside the GeoPackage
+    (which takes the file's name) says what it is when opened in a GIS. There is
+    no folder per dataset: with the dataset name in both the folder and the file,
+    long dataset names went past the 260-character path limit on Windows. Nothing
     is written when the output folder is not set or the part matched no features.
 
     The registry folder is what keeps two datasets apart when they share a name.
@@ -434,7 +437,7 @@ def _write_spatial(
     folder = Path(output_dir)
     if source_registry:
         folder = folder / _safe_filename(source_registry)
-    path = folder / operator_name / _safe_filename(dataset_name) / f"{_safe_filename(part_id)}.gpkg"
+    path = folder / operator_name / f"{_safe_filename(dataset_name)}_{_safe_filename(part_id)}.gpkg"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         gdf.to_file(path, driver="GPKG")
