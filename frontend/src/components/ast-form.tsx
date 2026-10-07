@@ -1,4 +1,3 @@
-import { useNavigate } from "react-router-dom";
 import { useRef, useState, useEffect } from "react";
 import { Button, Switch, Select, Radio, RadioGroup, TextField } from "@bcgov/design-system-react-components";
 import "./ast-form.scss";
@@ -14,8 +13,6 @@ interface ASTFormProps {
 
 // variable containing HTML to display in the 'root' node
 const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
-  const navigate = useNavigate();
-
   const initialInputs = {
     name: "" as string,
     email: "" as string,
@@ -30,6 +27,8 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
   };
 
   const [inputs, setInputs] = useState(initialInputs);
+  const [submissionMessage, setSubmissionMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,6 +53,59 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
     }
   };
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setSubmissionMessage("");
+
+    const regionLabels: Record<string, string> = {
+      cariboo: "Cariboo",
+      kootenay: "Kootenay Boundary",
+      northeast: "Northeast",
+      omineca: "Omineca",
+      skeena: "Skeena",
+      south_coast: "South Coast",
+      thompson_okanagan: "Thompson Okanagan",
+      west_coast: "West Coast",
+    };
+
+    const payload = {
+      user: inputs.name,
+      date: new Date().toISOString().slice(0, 10),
+      region: regionLabels[inputs.region] ?? inputs.region,
+      area_of_interest: "",
+      crown_file_number: inputs.fileNumber,
+      disposition_number: inputs.dispositionId,
+      parcel_number: inputs.parcelId,
+      output_directory: "",
+      suppress_map_creation: !inputs.maps,
+      aoi_id: mapSelection?.dispositionId ?? "",
+      aoi_name: "",
+      aoi: {},
+    };
+
+    try {
+      const response = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.detail ?? `Job submission failed: ${response.status}`);
+      }
+
+      setSubmissionMessage(`Job queued: ${result.item.job_id}`);
+    } catch (error) {
+      setSubmissionMessage(
+        error instanceof Error ? error.message : "Unable to submit the job."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
   useEffect(() => {
     if (mapSelection) {
       setInputs((values) => ({
@@ -64,7 +116,7 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
   }, [mapSelection]);
 
   return (
-        <div className="form-container">
+      <form className="form-container" onSubmit={handleSubmit}>
           <div className="full-width-field">
             <TextField
               label="Name"
@@ -233,10 +285,13 @@ const ASTForm: React.FC<ASTFormProps> = ({ mapSelection }) => {
             </div>
 
             <div className="button-container">
-              <Button variant="primary" type="submit">Submit</Button>
-              <Button variant="secondary" type="submit" onClick={handleClearAll}>Clear Form</Button>
+              <Button variant="primary" type="submit" isDisabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "Submit"}
+              </Button>
+              <Button variant="secondary" type="button" onClick={handleClearAll}>Clear Form</Button>
             </div>
-        </div>
+            <p role="status" aria-live="polite">{submissionMessage}</p>
+        </form>
     )
   }
 
