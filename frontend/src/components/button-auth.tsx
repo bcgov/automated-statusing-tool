@@ -32,12 +32,12 @@ const LoginLogoutButton: React.FC = () => {
         </Button>
         </>
       ) : (
-        <Button
-          onPress={login}
-          variant="primary" // Or 'secondary' as in your example
-        >
-          Login
-        </Button>
+          <Button
+            onPress={login}
+            variant="primary" // Or 'secondary' as in your example
+          >
+            Login
+          </Button>
       )}
     </>
   );
