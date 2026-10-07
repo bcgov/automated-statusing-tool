@@ -107,10 +107,11 @@ class ResultsPublisher:
 
         if operator_outputs:
             for item in operator_outputs:
-                # One file per AOI part, in a folder per dataset, so the parts of one
-                # dataset never share a key (or a manifest entry) and overwrite each other.
+                # One file per AOI part, named after the dataset and the part, so the
+                # parts of one dataset never share a key (or a manifest entry) and
+                # overwrite each other.
                 artifact_name = f"gpkg_{item.registry}_{item.operator}_{item.dataset_name}_{item.part_id}"
-                relative_key = f"data/{item.registry}/{item.operator}/{item.dataset_name}/{item.part_id}.gpkg"
+                relative_key = f"data/{item.registry}/{item.operator}/{item.dataset_name}_{item.part_id}.gpkg"
 
                 item_metadata = {
                     "registry": item.registry,
