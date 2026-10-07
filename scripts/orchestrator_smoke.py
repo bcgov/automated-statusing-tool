@@ -283,10 +283,10 @@ def get_oracle_connection(tasks, needed_for_aoi: bool = False):
 
 
 def warn_about_duplicate_outputs(tasks) -> None:
-    """Warn when two datasets in the SAME registry would be saved to one folder.
+    """Warn when two datasets in the SAME registry would be saved to the same files.
 
-    The spatial output goes to <folder>/<registry>/<operator>/<dataset name>/<part id>.gpkg,
-    so two registries carrying the same dataset name each keep their own folder.
+    The spatial output goes to <folder>/<registry>/<operator>/<dataset name>_<part id>.gpkg,
+    so two registries carrying the same dataset name each keep their own files.
     What is still not separated is the same name twice inside one registry -
     usually a duplicated row in the source spreadsheet. The second write replaces
     the first, and both results end up pointing at whatever survived.
@@ -299,9 +299,9 @@ def warn_about_duplicate_outputs(tasks) -> None:
     clashes = {path: group for path, group in by_path.items() if len(group) > 1}
     if not clashes:
         return
-    print("\n*** WARNING: datasets that would share one spatial output folder ***")
+    print("\n*** WARNING: datasets that would share spatial output files ***")
     for (registry, operator, filename), group in clashes.items():
-        print(f"  {registry}/{operator}/{filename}/  <- {len(group)} datasets:")
+        print(f"  {registry}/{operator}/{filename}_<part id>.gpkg  <- {len(group)} datasets:")
         for task in group:
             print(f"      {task.dataset_name}   (datasource: {task.datasource})")
     print("Only the last one written will survive - most likely a duplicated "
