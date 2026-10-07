@@ -7,6 +7,7 @@
   background-color: rgba(250, 250, 250, 1);
   width: 400px;
   box-sizing: border-box;
+  min-height:600px;
 }
 
 .source-container {
@@ -52,4 +53,13 @@
   justify-content: center;
   gap: 20px;
   margin-top: 20px;
+}
+
+.login-container {
+  width:100%;
+  height:100%;
+  background-color: #fff;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
 }
