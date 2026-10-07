@@ -15,9 +15,10 @@ What we check:
   attribute filter is forwarded to the adapter);
 - the registry -> task mapper fills the task fields (and lower-cases the geometry
   type), skips a dataset with no operator, and tags provenance across registries;
-- saving the spatial output: off by default, one GeoPackage per AOI part (in a
-  folder per dataset) when it is on, nothing written for a dataset with no
+- saving the spatial output: off by default, one GeoPackage per AOI part (named
+  <dataset>_<part id>) when it is on, nothing written for a dataset with no
   matches, and a failed write never costs the analysis result;
+- the run's diagnostic events are written to a JSONL file when asked;
 - results per AOI part: each dataset returns one result per AOI row, labelled
   with the row's attributes; a multipart row is still one part.
 
@@ -25,10 +26,12 @@ The AOI is the Test_Shape_A box (a rectangle in BC Albers / EPSG:3005). It is
 one row, so each dataset returns one part.
 """
 
+import json
 import pytest
 from pathlib import Path
 
 import geopandas as gpd
+import pyogrio
 from shapely.geometry import MultiPolygon, box
 from uuid import UUID
 
@@ -53,6 +56,7 @@ from ast_engine.core.results import (
 )
 from ast_engine.config.registry.models import Registry, RegistryDataset
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
+from ast_engine.utils.diagnostics import DiagnosticTracker
 
 pytestmark = pytest.mark.unit
 
@@ -224,8 +228,8 @@ def test_a_dataset_with_no_matches_is_a_success_not_a_failure():
 
 # --- Saving the spatial output ----------------------------------------------
 # record_spatial is off by default; when it is on, each AOI part's matched
-# features are saved as a GeoPackage under temp_dir, in a folder per dataset, and
-# the file path is recorded on that part's result as spatial_link.
+# features are saved as a GeoPackage under temp_dir, named after the dataset and
+# the part, and the file path is recorded on that part's result as spatial_link.
 
 def _overlay_task() -> AnalysisTask:
     """One polygon overlay task - 2 of the 3 test polygons match the AOI."""
@@ -243,15 +247,17 @@ def test_record_spatial_off_writes_nothing(tmp_path):
 
 
 def test_record_spatial_writes_a_gpkg_and_records_the_path(tmp_path):
-    """One GeoPackage per AOI part, in a folder per dataset, under the analysis."""
+    """One GeoPackage per AOI part, named <dataset>_<part id>, under the analysis."""
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("42345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
-    # the space in "test polys" is replaced so the name works as a folder name;
+    # the space in "test polys" is replaced so the name works as a file name;
     # the AOI is one row, so there is one part file
-    written = tmp_path / "overlay" / "test_polys" / "test_aoi_part_1.gpkg"
+    written = tmp_path / "overlay" / "test_polys_test_aoi_part_1.gpkg"
     assert written.exists()
+    # the layer inside takes the file's name, so a GIS shows the dataset and the part
+    assert pyogrio.list_layers(written)[0][0] == "test_polys_test_aoi_part_1"
 
     saved = result.results[0].parts[0].result
     assert saved.spatial_link == str(written)
@@ -310,8 +316,8 @@ def test_same_dataset_name_in_two_registries_writes_two_files(tmp_path):
     job_id = UUID("72345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_valid_aoi(), tasks=tasks, job_id=job_id, settings=settings)
 
-    from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest" / "test_aoi_part_1.gpkg"
-    from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest" / "test_aoi_part_1.gpkg"
+    from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest_test_aoi_part_1.gpkg"
+    from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest_test_aoi_part_1.gpkg"
     assert from_tab1.exists()
     assert from_provincial.exists()
 
@@ -360,19 +366,55 @@ def test_a_multipart_row_is_one_part():
     assert parts[0].part_attributes == {}          # full_union keeps no attributes
 
 
+def test_rows_with_the_same_field_value_are_reported_together():
+    """Grouped by a field (by_fields), two separate "A" rows are ONE part, and the
+    "First" polygon, which falls in both of them, is listed once for A with its
+    whole overlap."""
+    polygons = gpd.read_file(POLYGONS).to_crs("EPSG:3005")
+    first = polygons.loc[polygons["Name"] == "First"].geometry.iloc[0]
+    minx, miny, maxx, maxy = _valid_aoi().gdf.total_bounds
+    mid = (minx + maxx) / 2
+    cut = first.centroid.x                          # the two A rows are 2 m apart, right through "First"
+    a1, a2 = box(minx, miny, cut - 1, maxy), box(cut + 1, miny, mid, maxy)
+    rows = gpd.GeoDataFrame({"group": ["A", "A", "B"]}, geometry=[a1, a2, box(mid, miny, maxx, maxy)], crs="EPSG:3005")
+    request = AOIRequest(aoi_id="test_aoi", name="Groups", dissolve_mode="by_fields", dissolve_fields=("group",))
+    task = _file_task("1", "test polys", POLYGONS, "overlay", geom_type="polygon", keep_properties=["Name"])
+    job_id = UUID("c2345678-1234-5678-1234-567812345678")
+
+    parts = run_analysis(aoi=AOIBuilder().from_gdf(request, rows), tasks=[task], job_id=job_id).results[0].parts
+
+    assert [p.part_attributes for p in parts] == [{"group": "A"}, {"group": "B"}]
+    first_in_a = [f for f in parts[0].result.features if f.properties["Name"] == "First"]
+    assert len(first_in_a) == 1                     # listed once, not once per row
+    assert first_in_a[0].measure == pytest.approx(first.intersection(a1.union(a2)).area)
+
+
 def test_record_spatial_writes_one_file_per_part(tmp_path):
-    """Each part with matches gets its own GeoPackage in the dataset's folder."""
+    """Each part with matches gets its own GeoPackage, named after the dataset and the part."""
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("a2345678-1234-5678-1234-567812345678")
     result = run_analysis(aoi=_two_row_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
     west, east = result.results[0].parts
 
-    written = tmp_path / "overlay" / "test_polys" / "test_aoi_part_1.gpkg"
+    written = tmp_path / "overlay" / "test_polys_test_aoi_part_1.gpkg"
     assert west.result.spatial_link == str(written)
     assert len(gpd.read_file(written)) == west.result.feature_count
     # nothing matched in the east half, so nothing is saved for it
     assert east.result.spatial_link is None
-    assert [p.name for p in written.parent.iterdir()] == ["test_aoi_part_1.gpkg"]
+    assert [p.name for p in written.parent.iterdir()] == ["test_polys_test_aoi_part_1.gpkg"]
+
+
+def test_run_events_are_written_to_jsonl(tmp_path):
+    """Asked for a JSONL file, the tracker writes every event of the run to it -
+    including run_start, whose job_id is a UUID that plain JSON cannot hold."""
+    path = tmp_path / "run.jsonl"
+    job_id = UUID("b2345678-1234-5678-1234-567812345678")
+    run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id,
+                 tracker=DiagnosticTracker(jsonl_path=path))
+
+    events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    assert [event["step"] for event in events] == ["run_start", "dataset_done", "run_complete"]
+    assert events[0]["extra"]["job_id"] == str(job_id)
 
 
 # --- Routing helpers --------------------------------------------------------
