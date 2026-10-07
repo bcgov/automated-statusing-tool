@@ -1,8 +1,9 @@
 import logging
-from .models import BaseDataset, RegistryDataset
+from .models import BaseDataset, RegistryDataset, DataAdapter
 from ...core.data_adapters.base import DatasetInfo
 from ...core.data_adapters.file.adapter import FileSpatialAdapter
 from ...core.data_adapters.oracle.adapter import OracleAdapter
+from ...core.data_adapters.duckdb.adapter import DuckDBAdapter
 from typing import Optional
 import uuid
 
@@ -20,14 +21,14 @@ class Enrich():
     # every BCGW table and most file feature classes; FID might be the case for some shapefiles.
     # If none are present we leave unique_id unset and the operators fall back to the row index.
     ID_FIELD_CANDIDATES = ("OBJECTID", "FID")
-    def __init__(self, base: BaseDataset, connection=None, cursor=None):
+    def __init__(self, base: BaseDataset, connection=None, cursor=None,duckdb_config=None):
         # enrichment state
         self.id: Optional[str]
         self.columns: Optional[list[str]] = None
         self.geom_column: Optional[str] = None
         self.geometry_type: Optional[str] = None
         self.crs: Optional[str] = None
-        self.data_adapter: Optional[str] = None
+        self.data_adapter: Optional[DataAdapter] = None
         self.row_count: Optional[int] = None
         self.base = base
         # A live BCGW connection is only needed to enrich Oracle datasets. The
@@ -35,14 +36,18 @@ class Enrich():
         # build, the same way the read path does. File datasets ignore it.
         self.connection = connection
         self.cursor = cursor
+        # A duckdb configuration for s3 is only needed to enrich geoparquet files over https
+        self.duckdb_config = duckdb_config
     def resolve_adapter(self):
         # File datasources carry a path (slashes) or a known geo file type;
         # everything else is a BCGW table named SCHEMA.TABLE.
         ds = self.base.datasource.strip()
+        if ds.startswith("http:") and ds.lower().endswith('.parquet'):
+            return DataAdapter.DUCKDB_GEOPARQUET
         if "/" in ds or "\\" in ds or ds.lower().endswith(self.GEO_EXTENSIONS):
-            return "FILE"
+            return DataAdapter.FILE
         if "." in ds:
-            return "ORACLE"
+            return DataAdapter.ORACLE
         raise ValueError(f"Could not resolve a data adapter for: {ds!r}")
     def _set_metadata(self, info: DatasetInfo):
         # Map the adapter's DatasetInfo onto the enrichment fields. The field
@@ -69,16 +74,25 @@ class Enrich():
             table=self.base.datasource
         )
         self._set_metadata(info)
+    def enrich_from_duckdb_geoparquet(self):
+        if self.duckdb_config is None:
+            raise ValueError("Enriching a parquet file from s3/http requires " \
+            "duckdb s3 configuration. Create during the build and pass to Enrich "
+            f"Dataset: {self.base.datasource!r}")
+        info = DuckDBAdapter(config=self.duckdb_config).describe(source=self.base.datasource)
+        self._set_metadata(info=info)
     def enrich(self):
         '''Resolves data adapter and enriches object with metadata'''
         # TODO: Do we need to somehow enforce unique? or move this up to the 
         # hydration level or Registry object level to ensure unique
         self.id = str(uuid.uuid4())
         self.data_adapter = self.resolve_adapter()
-        if self.data_adapter == 'FILE':
+        if self.data_adapter == DataAdapter.FILE:
             self.enrich_from_file()
-        elif self.data_adapter == 'ORACLE':
+        elif self.data_adapter == DataAdapter.ORACLE:
             self.enrich_from_oracle()
+        elif self.data_adapter == DataAdapter.DUCKDB_GEOPARQUET:
+            self.enrich_from_duckdb_geoparquet()
         else:
             raise ValueError('Datasource data adapter could not be resolved')    
     def _resolve_unique_id(self, authored: Optional[str]) -> Optional[str]:
