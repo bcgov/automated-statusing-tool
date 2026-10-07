@@ -2,8 +2,9 @@
   "compilerOptions": {
     "allowSyntheticDefaultImports": true,
     "noImplicitAny": true,
-    "module": "es6",
-    "target": "es2025",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
     "allowJs": true,
     "jsx": "react-jsx",
     "esModuleInterop": true,
@@ -11,3 +12,4 @@
   "files": ["src/main.tsx"],
   "include": ["src"]
 }
+
