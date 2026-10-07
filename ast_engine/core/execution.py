@@ -37,6 +37,7 @@ import geopandas as gpd
 from .aoi import AreaOfInterest
 from .data_adapters.base import BaseSpatialAdapter
 from .data_adapters.file.adapter import FileSpatialAdapter
+from .data_adapters.duckdb.adapter import DuckDBAdapter, DuckDBConfig
 from .data_adapters.oracle import OracleAdapter, OracleConnection
 from .operator import adjacent, overlay, proximity
 from .results import AstResults, DatasetResultGroup, OperatorOutcome
@@ -55,6 +56,7 @@ ADJACENCY = "adjacency"
 # Source types, from the registry data_adapter value (lower-cased).
 ORACLE = "oracle"
 FILE = "file"
+DUCKDB_GEOPARQUET = "duckdb_geoparquet"
 
 
 @dataclass
@@ -199,13 +201,17 @@ def run_analysis(
     tasks = list(tasks)
     tracker = tracker or DiagnosticTracker()
     settings = settings or Settings()
+    duckdb_config = DuckDBConfig(s3_endpoint_url=settings.results_s3_endpoint_url,
+                                 s3_access_key=settings.results_s3_access_id,
+                                 s3_secret_key=settings.results_s3_key,s3_use_ssl=settings.s3_use_ssl)
     file_adapter = FileSpatialAdapter()
     oracle_adapter = _oracle_adapter(tasks, oracle_connection)
+    duckdb_geoparquet_adapter = DuckDBAdapter(config=duckdb_config)
 
     timings: list[tuple[str, float]] = []
     tracker.log("run_start", job_id=job_id, aoi_id=aoi.aoi_id, task_count=len(tasks))
     groups = [
-        _run_one_task(task, aoi, file_adapter, oracle_adapter, tracker, timings, settings)
+        _run_one_task(task, aoi, file_adapter, oracle_adapter, duckdb_geoparquet_adapter, tracker, timings, settings)
         for task in tasks
     ]
     _log_timing_summary(timings, tracker)
@@ -238,6 +244,7 @@ def _run_one_task(
     aoi: AreaOfInterest,
     file_adapter: FileSpatialAdapter,
     oracle_adapter: Optional[OracleAdapter],
+    duckdb_geoparquet_adapter: Optional[DuckDBAdapter],
     tracker: DiagnosticTracker,
     timings: list[tuple[str, float]],
     settings: Settings,
@@ -255,7 +262,7 @@ def _run_one_task(
     """
     start = time.perf_counter()
     try:
-        adapter = _pick_adapter(task, file_adapter, oracle_adapter)
+        adapter = _pick_adapter(task, file_adapter, oracle_adapter, duckdb_geoparquet_adapter)
         outcome = _run_operator(task, aoi, adapter)
         result = outcome.result
 
@@ -325,6 +332,7 @@ def _pick_adapter(
     task: AnalysisTask,
     file_adapter: FileSpatialAdapter,
     oracle_adapter: Optional[OracleAdapter],
+    duckdb_geoparquet_adapter: Optional[DuckDBAdapter]
 ) -> BaseSpatialAdapter:
     """Pick the reused adapter for a task's source type."""
     if task.source_type == FILE:
@@ -335,6 +343,11 @@ def _pick_adapter(
                 f"dataset {task.dataset_name!r} needs an Oracle connection but none is available"
             )
         return oracle_adapter
+    if task.source_type == DUCKDB_GEOPARQUET:
+        if duckdb_geoparquet_adapter is None:
+            raise RuntimeError(
+                f"dataset {task.dataset_name!r} needs an S3 connection but none is available"
+            )
     raise ValueError(
         f"unknown source type {task.source_type!r} for dataset {task.dataset_name!r}"
     )
