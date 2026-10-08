@@ -18,6 +18,8 @@ class OperatorArtifact:
     operator: str
     dataset_name: str
     path: Path
+    # the AOI part the file belongs to: a dataset saves one file per AOI part
+    part_id: str
 
 @dataclass(frozen=True)
 class StorageConfig:

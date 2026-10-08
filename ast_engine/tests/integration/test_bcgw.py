@@ -234,11 +234,11 @@ def test_run_analysis_over_bcgw(aoi, data_dir, bcgw_connection):
 
     assert len(results.results) == 2
     bcgw_group, file_group = results.results
-    assert bcgw_group.results, "the BCGW dataset produced no result - the read failed"
-    assert file_group.results, "the file dataset produced no result - the read failed"
+    assert bcgw_group.parts, "the BCGW dataset produced no result - the read failed"
+    assert file_group.parts, "the file dataset produced no result - the read failed"
 
-    from_bcgw = bcgw_group.results[0]
-    from_file = file_group.results[0]
+    from_bcgw = bcgw_group.parts[0].result
+    from_file = file_group.parts[0].result
 
     assert isinstance(from_bcgw, PolyOverlayResult)
     assert from_bcgw.feature_count > 0

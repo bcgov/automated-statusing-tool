@@ -12,6 +12,8 @@ attributes for polygon, line, and point inputs.
 COVERAGE
 --------
 - Calculate intersections with the AOI and exclude non-overlapping features.
+- With an AOI of two parts, give each part its own result; a feature spanning
+  both is listed under each with its own share.
 - Return the appropriate polygon, line, or point overlay result.
 - Calculate per-feature overlap measurements and aggregate totals.
 - Sort measured features from largest to smallest overlap.
@@ -141,7 +143,7 @@ def test_polygon_overlap_exact_values():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         keep_properties=["Name"],
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -162,7 +164,7 @@ def test_line_overlap_exact_values():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_line_features(aoi)),
         keep_properties=["Name"],
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -185,7 +187,7 @@ def test_point_overlay_count():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_point_features(aoi)),
         keep_properties=["Name"],
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert result.measure_value == 2
@@ -206,7 +208,7 @@ def test_sorted_descending_by_overlap():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         feature_id_field="Id",
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert [feature.measure for feature in result.features] == pytest.approx(
@@ -224,7 +226,7 @@ def test_zero_overlap_removed():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         keep_properties=["Name"],
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -245,7 +247,7 @@ def test_properties_preserved():
         adapter=InMemorySpatialAdapter(_polygon_features(aoi)),
         feature_id_field="Id",
         keep_properties=["Name"],
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -266,7 +268,7 @@ def test_feature_id_fallback():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="NOT_REAL",
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     ids = [feature.feature_id for feature in result.features]
@@ -322,7 +324,7 @@ def test_keep_properties_accepts_reusable_and_one_shot_iterables(
         adapter=adapter,
         feature_id_field="Id",
         keep_properties=make_keep_properties(["Name"]),
-    ).result
+    ).parts[0].result
 
     assert adapter.last_options is not None
     assert set(adapter.last_options.keep_columns) == {"Id", "Name"}
@@ -358,7 +360,7 @@ def test_build_results():
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="FID",
         keep_properties=["Name"],
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert len(result.features) == 2
@@ -478,7 +480,7 @@ def test_empty_dataset_returns_typed_zero_result(
         aoi=projected_operator_aoi(),
         adapter=InMemorySpatialAdapter(),
         geom_type=geom_type,
-    ).result
+    ).parts[0].result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == 0
@@ -514,7 +516,7 @@ def test_all_outside_features_return_typed_zero_result(
     assert len(source) == 1  # Keep this distinct from the empty-input case.
 
     # Infer the type from the geometry before the outside row is removed.
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).parts[0].result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == 0
@@ -533,7 +535,7 @@ def test_polygon_sharing_only_aoi_edge_has_zero_overlap_area():
         crs=aoi.gdf.crs,
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).parts[0].result
 
     assert isinstance(result, PolyOverlayResult)
     assert result.feature_count == 0
@@ -551,7 +553,7 @@ def test_line_touching_aoi_at_endpoint_has_zero_overlap_length():
         crs=aoi.gdf.crs,
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).parts[0].result
 
     assert isinstance(result, LineOverlayResult)
     assert result.feature_count == 0
@@ -569,7 +571,7 @@ def test_line_along_aoi_boundary_contributes_its_overlap_length():
         crs=aoi.gdf.crs,
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
+    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).parts[0].result
 
     assert result.feature_count == 1
     assert result.total_length == pytest.approx(100.0)
@@ -598,15 +600,16 @@ def test_unknown_geom_type_falls_back_to_geometry_inference(
         aoi=aoi,
         adapter=InMemorySpatialAdapter(make_features(aoi)),
         geom_type="unknown",  # Deliberately exercise the documented fallback.
-    ).result
+    ).parts[0].result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == 2
     assert result.measure_value == pytest.approx(expected_measure)
 
 
-def test_overlay_includes_both_aoi_parts_but_excludes_the_gap():
-    """A spanning feature overlaps two 100 x 100 m AOI parts: 20,000 m2."""
+def test_overlay_counts_each_aoi_part_but_not_the_gap():
+    """A spanning feature overlaps two 100 x 100 m AOI parts. Each part gets its
+    own result: 10,000 m2 in each, nothing for the gap, 20,000 m2 together."""
 
     x, y = 1_000_000, 1_000_000
     aoi = AOIStub(
@@ -624,13 +627,14 @@ def test_overlay_includes_both_aoi_parts_but_excludes_the_gap():
         Name=["spanning"],
     )
 
-    result = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source)).result
+    outcome = intersection(aoi=aoi, adapter=InMemorySpatialAdapter(source))
 
-    assert result.feature_count == 1
-    assert result.total_area == pytest.approx(20_000.0)
-    assert [feature.measure for feature in result.features] == pytest.approx(
-        [20_000.0]
-    )
+    # the AOI has two rows, so two results; the feature is listed under both
+    first, second = (part.result for part in outcome.parts)
+    assert [first.feature_count, second.feature_count] == [1, 1]
+    assert first.total_area == pytest.approx(10_000.0)
+    assert second.total_area == pytest.approx(10_000.0)
+    assert first.total_area + second.total_area == pytest.approx(20_000.0)
 
 
 def test_pnt_geom_type():
@@ -710,7 +714,7 @@ def test_geom_type_override_returns_correct_result_types(
         aoi=aoi,
         adapter=InMemorySpatialAdapter(make_features(aoi)),
         geom_type=geom_type,
-    ).result
+    ).parts[0].result
 
     assert isinstance(result, expected_type)
     assert result.feature_count == expected_count
