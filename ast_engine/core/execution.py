@@ -43,6 +43,7 @@ from .operator import adjacent, overlay, proximity
 from .results import AstResults, DatasetResultGroup, OperatorOutcome
 from ..utils.diagnostics import DiagnosticTracker
 from ..config.settings import Settings
+from ..config.registry.models import DataAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +151,7 @@ def _task_from_dataset(dataset: Any, source_registry: Optional[str]) -> Analysis
     return AnalysisTask(
         dataset_id=str(dataset.id),
         dataset_name=dataset.name,
-        source_type=str(dataset.data_adapter).lower(),
+        source_type=dataset.data_adapter,
         datasource=dataset.datasource,
         operator=op.type,
         geom_type=(str(dataset.geometry_type).lower() or None) if dataset.geometry_type else None,
@@ -335,19 +336,20 @@ def _pick_adapter(
     duckdb_geoparquet_adapter: Optional[DuckDBAdapter]
 ) -> BaseSpatialAdapter:
     """Pick the reused adapter for a task's source type."""
-    if task.source_type == FILE:
+    if task.source_type == DataAdapter.FILE:
         return file_adapter
-    if task.source_type == ORACLE:
+    if task.source_type == DataAdapter.ORACLE:
         if oracle_adapter is None:
             raise RuntimeError(
                 f"dataset {task.dataset_name!r} needs an Oracle connection but none is available"
             )
         return oracle_adapter
-    if task.source_type == DUCKDB_GEOPARQUET:
+    if task.source_type == DataAdapter.DUCKDB_GEOPARQUET:
         if duckdb_geoparquet_adapter is None:
             raise RuntimeError(
                 f"dataset {task.dataset_name!r} needs an S3 connection but none is available"
             )
+        return duckdb_geoparquet_adapter
     raise ValueError(
         f"unknown source type {task.source_type!r} for dataset {task.dataset_name!r}"
     )
