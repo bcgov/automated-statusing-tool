@@ -232,7 +232,7 @@ def _oracle_adapter(
     """
     if oracle_connection is not None:
         return OracleAdapter(oracle_connection.connection, oracle_connection.cursor)
-    if any(task.source_type == ORACLE for task in tasks):
+    if any(task.source_type == DataAdapter.ORACLE for task in tasks):
         raise RuntimeError(
             "Oracle-backed tasks need an open connection; pass oracle_connection= "
             "to run_analysis (open one with OracleConnection)."
@@ -357,8 +357,10 @@ def _pick_adapter(
 
 def _source_kwargs(task: AnalysisTask) -> dict[str, str]:
     """Dataset identity for the adapter read: table for Oracle, path for files."""
-    if task.source_type == ORACLE:
+    if task.source_type == DataAdapter.ORACLE:
         return {"table": task.datasource}
+    if task.source_type == DataAdapter.DUCKDB_GEOPARQUET:
+        return {"source": task.datasource}
     return {"path": task.datasource}
 
 
