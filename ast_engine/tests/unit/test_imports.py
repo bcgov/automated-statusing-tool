@@ -47,6 +47,7 @@ AST_MODULES = [
     "ast_engine.storage.publisher",
     "ast_engine.storage.s3_writer",
     "ast_engine.storage.writer",
+    "ast_engine.workers.worker",
 ]
 
 @pytest.mark.parametrize("module_name", AST_MODULES)
