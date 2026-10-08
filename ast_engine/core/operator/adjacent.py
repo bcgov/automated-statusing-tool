@@ -6,10 +6,10 @@ reports the total shared border length.
 
 Returns ONE AdjacencyResult per AOI part (one row of the AOI - a multipart row
 stays one part), all from one read of the dataset. Each adjacent feature is one
-feature record carrying the length of the
-boundary it shares with the part, in metres; the result's measure_value is the
-total shared border length (the sum) and is_adjacent is true when that total is
-above zero. Features are reported with the longest shared border first.
+feature record carrying the length of the boundary it shares with the part, in
+metres; the result's measure_value is the total shared border length (the sum)
+and is_adjacent is true when that total is above zero. Features are reported
+with the longest shared border first.
 
 Notes:
 

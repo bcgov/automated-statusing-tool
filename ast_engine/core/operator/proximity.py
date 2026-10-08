@@ -7,7 +7,7 @@ Proximity analysis Operator. Two analyses covered in this operator:
                    with an optional distance cap).
 
 Both return ProximityResults holding the matched features, sorted nearest
-first. Each feature's `measure` is its distance to the AOI in metres; the
+first. Each feature's `measure` is its distance to the AOI part in metres; the
 result's headline measure_value is the nearest (smallest) distance.
 
 Both return one result per AOI part (one row of the AOI - a multipart row stays
