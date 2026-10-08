@@ -35,8 +35,6 @@ import pyogrio
 from shapely.geometry import MultiPolygon, box
 from uuid import UUID
 
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
-from ast_engine.core.data_adapters.base import BaseSpatialAdapter, DatasetInfo
 from ast_engine.core.execution import (
     AnalysisTask,
     _pick_adapter,
@@ -57,6 +55,12 @@ from ast_engine.core.results import (
 from ast_engine.config.registry.models import Registry, RegistryDataset
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
 from ast_engine.utils.diagnostics import DiagnosticTracker
+from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
+from ast_engine.tests.helpers.aoi_cases import (
+    AOIStub,
+    projected_execution_aoi,
+)
+from ast_engine.tests.helpers.spatial_adapters import InMemorySpatialAdapter
 
 pytestmark = pytest.mark.unit
 
@@ -69,27 +73,20 @@ POLYGONS = DATA_DIR / "Test_Overlay" / "polygons.shp"
 
 
 # --- Helpers ----------------------------------------------------------------
-def _valid_aoi() -> AreaOfInterest:
-    """A normal AOI in BC Albers (metres) - what the operators expect."""
-    gdf = gpd.read_file(SHP)
-    return AOIBuilder().from_gdf(AOIRequest(aoi_id="test_aoi", name="Test AOI"), gdf)
-
-
 def _west_and_east_halves(gap_m=0.0):
     """The Test_Shape_A box cut into a west and an east half, gap_m apart."""
-    minx, miny, maxx, maxy = _valid_aoi().gdf.total_bounds
+    minx, miny, maxx, maxy = projected_execution_aoi().gdf.total_bounds
     mid = (minx + maxx) / 2
     west = box(minx, miny, mid - gap_m / 2, maxy)
     east = box(mid + gap_m / 2, miny, maxx, maxy)
     return west, east
 
 
-def _two_row_aoi() -> AreaOfInterest:
-    """An AOI of two rows (west and east halves) kept as they are, each with a label."""
+def _two_row_aoi() -> AOIStub:
+    """An AOI of two rows (west and east halves), each with a label: two parts."""
     west, east = _west_and_east_halves()
     gdf = gpd.GeoDataFrame({"label": ["west", "east"]}, geometry=[west, east], crs="EPSG:3005")
-    request = AOIRequest(aoi_id="test_aoi", name="Two rows", dissolve_mode="preserve_features")
-    return AOIBuilder().from_gdf(request, gdf)
+    return AOIStub(gdf=gdf)
 
 
 def _file_task(dataset_id, name, datasource, operator, **kwargs) -> AnalysisTask:
@@ -102,29 +99,6 @@ def _file_task(dataset_id, name, datasource, operator, **kwargs) -> AnalysisTask
         operator=operator,
         **kwargs,
     )
-
-
-class RecordingAdapter(BaseSpatialAdapter):
-    """A stand-in data source that records what it was asked for and returns nothing.
-
-    Lets us confirm the orchestrator hands the adapter the right dataset identity
-    (table vs path) and the attribute filter, without touching a file or a DB.
-    """
-
-    def __init__(self):
-        self.last_options = None
-        self.last_source_kwargs = None
-
-    def read(self, *, read_options=None, target_crs=None, **source_kwargs):
-        self.last_options = read_options
-        self.last_source_kwargs = source_kwargs
-        return gpd.GeoDataFrame(geometry=[], crs="EPSG:3005")
-
-    def _read_impl(self, *, read_options, **source_kwargs):
-        return gpd.GeoDataFrame(geometry=[], crs="EPSG:3005")
-
-    def describe(self, **source_kwargs) -> DatasetInfo:
-        raise NotImplementedError
 
 
 def _registry_dataset(name, datasource, data_adapter, operator, geometry_type="POLYGON", **extra):
@@ -165,7 +139,7 @@ def _registry(datasets):
 # --- End-to-end (file-based, no DB) -----------------------------------------
 def test_end_to_end_file_run_assembles_results():
     """Three file datasets, one per operator -> one AstResults with three groups."""
-    aoi = _valid_aoi()
+    aoi = projected_execution_aoi()
     tasks = [
         _file_task("1", "polys", POLYGONS, "overlay", geom_type="polygon", keep_properties=["Name"]),
         _file_task("2", "points", POINTS, "within_distance", distance_m=100_000),
@@ -193,7 +167,7 @@ def test_end_to_end_file_run_assembles_results():
 
 def test_per_task_error_isolation():
     """A bad-path dataset comes back as an empty group; the run still produces results."""
-    aoi = _valid_aoi()
+    aoi = projected_execution_aoi()
     tasks = [
         _file_task("bad", "missing", DATA_DIR / "does_not_exist.shp", "overlay", geom_type="polygon"),
         _file_task("good", "polys", POLYGONS, "overlay", geom_type="polygon"),
@@ -218,7 +192,8 @@ def test_a_dataset_with_no_matches_is_a_success_not_a_failure():
     far_point = DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
     task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
     job_id = UUID("72345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id=job_id)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[task], job_id=job_id)
 
     group = result.results[0]
     assert group.status == "success"               # the read worked
@@ -240,7 +215,8 @@ def test_record_spatial_off_writes_nothing(tmp_path):
     """The default: no files, and spatial_link stays empty."""
     settings = Settings(record_spatial=False, temp_dir=str(tmp_path))
     job_id = UUID("32345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     assert result.results[0].parts[0].result.spatial_link is None
     assert list(tmp_path.iterdir()) == []
@@ -250,7 +226,8 @@ def test_record_spatial_writes_a_gpkg_and_records_the_path(tmp_path):
     """One GeoPackage per AOI part, named <dataset>_<part id>, under the analysis."""
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("42345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     # the space in "test polys" is replaced so the name works as a file name;
     # the AOI is one row, so there is one part file
@@ -277,7 +254,8 @@ def test_record_spatial_skips_a_dataset_with_no_matches(tmp_path):
     task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("52345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[task], job_id=job_id, settings=settings)
 
     assert result.results[0].parts[0].result.feature_count == 0
     assert result.results[0].parts[0].result.spatial_link is None
@@ -292,7 +270,8 @@ def test_a_failed_write_keeps_the_analysis_result(tmp_path, monkeypatch):
     monkeypatch.setattr(gpd.GeoDataFrame, "to_file", boom)
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("62345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     saved = result.results[0].parts[0].result
     assert saved.feature_count == 2        # the analysis still came through
@@ -314,7 +293,8 @@ def test_same_dataset_name_in_two_registries_writes_two_files(tmp_path):
     ]
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("72345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=tasks, job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=tasks, job_id=job_id, settings=settings)
 
     from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest_test_aoi_part_1.gpkg"
     from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest_test_aoi_part_1.gpkg"
@@ -343,7 +323,7 @@ def test_two_row_aoi_gives_one_labelled_result_per_row():
     """Two rows -> two results per dataset, each labelled from its row. The halves
     don't overlap, so the per-part areas add up to the one-row answer."""
     job_id = UUID("82345678-1234-5678-1234-567812345678")
-    whole = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id).results[0].parts[0]
+    whole = run_analysis(aoi=projected_execution_aoi(), tasks=[_overlay_task()], job_id=job_id).results[0].parts[0]
     parts = run_analysis(aoi=_two_row_aoi(), tasks=[_overlay_task()], job_id=job_id).results[0].parts
 
     assert [p.aoi_part_id for p in parts] == ["test_aoi_part_1", "test_aoi_part_2"]
@@ -356,14 +336,13 @@ def test_two_row_aoi_gives_one_labelled_result_per_row():
 def test_a_multipart_row_is_one_part():
     """One row made of two separate pieces is still one part, measured as one area."""
     west, east = _west_and_east_halves(gap_m=100)
-    gdf = gpd.GeoDataFrame(geometry=[MultiPolygon([west, east])], crs="EPSG:3005")
-    aoi = AOIBuilder().from_gdf(AOIRequest(aoi_id="test_aoi", name="Two pieces"), gdf)
+    aoi = AOIStub(gdf=gpd.GeoDataFrame(geometry=[MultiPolygon([west, east])], crs="EPSG:3005"))
     job_id = UUID("92345678-1234-5678-1234-567812345678")
     parts = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id).results[0].parts
 
     assert len(parts) == 1
     assert parts[0].part_area_ha == pytest.approx((west.area + east.area) / 10_000)
-    assert parts[0].part_attributes == {}          # full_union keeps no attributes
+    assert parts[0].part_attributes == {}          # a row with no attributes has no label
 
 
 def test_rows_with_the_same_field_value_are_reported_together():
@@ -372,7 +351,7 @@ def test_rows_with_the_same_field_value_are_reported_together():
     whole overlap."""
     polygons = gpd.read_file(POLYGONS).to_crs("EPSG:3005")
     first = polygons.loc[polygons["Name"] == "First"].geometry.iloc[0]
-    minx, miny, maxx, maxy = _valid_aoi().gdf.total_bounds
+    minx, miny, maxx, maxy = projected_execution_aoi().gdf.total_bounds
     mid = (minx + maxx) / 2
     cut = first.centroid.x                          # the two A rows are 2 m apart, right through "First"
     a1, a2 = box(minx, miny, cut - 1, maxy), box(cut + 1, miny, mid, maxy)
@@ -381,7 +360,9 @@ def test_rows_with_the_same_field_value_are_reported_together():
     task = _file_task("1", "test polys", POLYGONS, "overlay", geom_type="polygon", keep_properties=["Name"])
     job_id = UUID("c2345678-1234-5678-1234-567812345678")
 
-    parts = run_analysis(aoi=AOIBuilder().from_gdf(request, rows), tasks=[task], job_id=job_id).results[0].parts
+    # the AOI builder does the grouping (dissolving rows by the field)
+    aoi = AOIBuilder().build_from_request(AOIBuildRequest(spec=request, raw_gdf=rows)).aoi
+    parts = run_analysis(aoi=aoi, tasks=[task], job_id=job_id).results[0].parts
 
     assert [p.part_attributes for p in parts] == [{"group": "A"}, {"group": "B"}]
     first_in_a = [f for f in parts[0].result.features if f.properties["Name"] == "First"]
@@ -409,7 +390,7 @@ def test_run_events_are_written_to_jsonl(tmp_path):
     including run_start, whose job_id is a UUID that plain JSON cannot hold."""
     path = tmp_path / "run.jsonl"
     job_id = UUID("b2345678-1234-5678-1234-567812345678")
-    run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id,
+    run_analysis(aoi=projected_execution_aoi(), tasks=[_overlay_task()], job_id=job_id,
                  tracker=DiagnosticTracker(jsonl_path=path))
 
     events = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
@@ -427,7 +408,7 @@ def test_source_kwargs_oracle_vs_file():
 
 def test_pick_adapter_routes_by_source_type():
     file_adapter = FileSpatialAdapter()
-    oracle_adapter = RecordingAdapter()  # stand-in object
+    oracle_adapter = InMemorySpatialAdapter()  # stand-in object
     file_task = AnalysisTask("1", "t", "file", "x.shp", "overlay")
     oracle_task = AnalysisTask("2", "t", "oracle", "WHSE.ABC", "overlay")
 
@@ -444,12 +425,13 @@ def test_pick_adapter_oracle_without_connection_raises():
 
 def test_run_operator_passes_table_and_where_for_oracle():
     """An Oracle task hands the adapter table=... and the attribute filter."""
-    adapter = RecordingAdapter()
+    adapter = InMemorySpatialAdapter()
     task = AnalysisTask(
         "1", "t", "oracle", "WHSE.ABC", "overlay",
         geom_type="polygon", where={"conditions": [{"field": "FCODE", "op": "=", "value": "RG90"}]},
     )
-    _run_operator(task, _valid_aoi(), adapter)
+    aoi = projected_execution_aoi()
+    _run_operator(task, aoi, adapter)
     assert adapter.last_source_kwargs["table"] == "WHSE.ABC"
     assert adapter.last_options.where == task.where
 

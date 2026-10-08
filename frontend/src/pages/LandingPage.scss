@@ -1,20 +1,79 @@
+// Layout for the landing page
+// The whole page area.
+// Uses a grid with two columns
 .landing-page {
     font-family: "BC Sans";
-    background-image: url("../assets/bc_background.png");
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    background: #f4f6f8;
 
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    gap: 20px;
+    display: grid; // Lay the page out as a grid
+    // Two columns:
+    // 1. Form: one third of the screen width, but never narrower than 320px.
+    // 2. Map: takes up all the remaining space. The 0 lets it shrink if needed.
+    grid-template-columns: minmax(320px, 33.333vw) minmax(0, 1fr);
+
+    width: 100%;
+    // These three lines stretch the page to fill the space between the banner and the footer.
+    // Without them, the page shrinks to fit its contents and leaves a gap under the footer.
+    height: 100%; 
+    min-height: 0; // Shrink to fit, instead of pushing past the screen
+    flex: 1 1 auto; // Grow to fill any spare space left by the header and footer
+    overflow: hidden; // Hide anything that spills outside the page area
 }
 
-.map-container {
-    border: 2px solid #003366;
-    box-shadow: 15px 10px 10px rgba(0, 0, 0, 0.2);
-    width: 600px;
-    height: 500px;
-    margin-top: 25px;
+// Form column
+// The form sits flat against the page, with a thin line between it and the map.
+.landing-page > .form-container {
+    width: 100%;
+    min-height: 100%;
+    padding: 24px 32px 20px;
+    border-right: 1px solid #dfe5eb; // Thin grey line between the form and the map
+    overflow: auto; // Add a scroll bar if the form is taller than the page
+}
+
+// Font for the form and everything inside it.
+// The * means "every element inside". !important overrides the design system's own
+// font sizes, so all form text is 12px. This only affects the form, not the map.
+.landing-page > .form-container,
+.landing-page > .form-container * {
+    font-family: "BC Sans", Arial, sans-serif !important; // BC Sans, or Arial if BC Sans isn't available
+    font-size: 12px !important;
+}
+
+// Map column
+// The outer box that holds the map. It stacks its contents from top to bottom.
+.landing-page > .map-shell {
+    width: 100%;
+    max-width: none;
+    min-width: 0; // Shrink map when the window gets narrower
+    height: 100%;
+    min-height: 0; // Lets it shrink to fit, instead of pushing past the screen
+    margin: 0; // No space around the outside
+
+    border: none;
+    box-shadow: none;
+    background: #dbeaf7; // Light blue, shown only while the map tiles are loading
+
+    display: flex; // Stack the contents
+    flex-direction: column; // from top to bottom
+    overflow: hidden; // Hide anything that spills outside
+}
+
+// Map, toolbar and messages all sit here
+.landing-page > .map-shell > .map-frame {
+    position: relative; // Lets the toolbar and messages be placed on top of the map
+    flex: 1 1 auto; // Grow to fill the map column
+    width: 100%;
+    height: 100%;
+    min-height: 420px; // Never shorter than 420px, so the map stays usable on small screens
+    overflow: hidden; // Hide anything that spills outside the frame
+}
+
+// The <div> OpenLayers draws the map inside.
+.landing-page .map-container {
+    width: 100%; // Fill the frame
+    height: 100%;
+    min-height: 0; // Lets it shrink with the frame
+    margin: 0; // No space around the outside
+    border: none; // No border
+    box-shadow: none; // No shadow
 }

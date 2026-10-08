@@ -1,0 +1,358 @@
+"""
+Unit tests for the adjacency operator.
+
+PURPOSE
+-------
+Verify adjacency using small polygons with known shared boundary lengths.
+
+The operator measures the boundary length shared between dataset features
+and the AOI, and reports per-feature lengths and their total.
+
+Tests use controlled Shapely geometries and an in-memory data source without
+reading shapefiles. The AOI is a rectangle in BC Albers (EPSG:3005).
+
+COVERAGE
+--------
+- Identify polygons sharing a full AOI edge and measure the shared length.
+- Exclude corner-only contacts, which have no shared line length.
+- Exclude polygons separated by a gap when using exact adjacency.
+- Include polygons within the specified gap tolerance.
+- Return an empty result for an empty dataset.
+- Sort adjacent features from longest to shortest shared boundary.
+- Preserve feature IDs and requested properties after sorting.
+- Report the total shared boundary length.
+- Reject negative tolerance values and geographic AOIs.
+- Request the appropriate source predicate: touches for exact adjacency
+  or within_distance when using a tolerance.
+- With an AOI of two parts, count only each part's outer edge: an edge the
+  parts share lies inside the AOI.
+- With a tolerance, keep the band's corners on a many-sided AOI.
+
+HOW TO EXTEND
+-------------f
+1. Add a descriptively named test for each new behaviour or edge case.
+2. Use small polygons with independently calculable shared-edge lengths.
+3. Create fresh AOI stubs, GeoDataFrames, and in-memory adapters for each
+   test; avoid depending on the production AOI builder.
+4. Keep specialised geometry close to the test that uses it. Reuse shared
+   helpers when multiple tests need the same scenario.
+5. Check per-feature lengths and totals together, using pytest.approx()
+   for floating-point comparisons.
+6. Verify that IDs and properties remain associated with the correct
+   features after sorting.
+7. Check source requests through adapter recordings. Keep actual file
+   access and source-adapter integration tests separate.
+"""
+
+import pytest
+from shapely.geometry import Point, Polygon
+import geopandas as gpd
+
+from ast_engine.tests.helpers.aoi_cases import (
+    AOIStub,
+    geographic_operator_aoi,
+    projected_operator_aoi,
+)
+from ast_engine.core.operator.adjacent import adjacency
+from ast_engine.tests.helpers.aoi_geometry import rect, aoi_gdf
+from ast_engine.tests.helpers.spatial_adapters import InMemorySpatialAdapter
+
+
+pytestmark = pytest.mark.unit
+
+# Repeated scenarios stay local to this test module. Every call creates
+# fresh geometries and a fresh GeoDataFrame; IDs are supplied explicitly.
+def _polygon_features(aoi) -> gpd.GeoDataFrame:
+    """Partial, outside, inside: deliberately not sorted by overlap area."""
+
+    minx, miny, maxx, _ = aoi.gdf.total_bounds
+
+    # Full rectangle: 200 m wide by 100 m high, entirely inside the AOI.
+    inside = rect(minx + 100, miny + 100, minx + 300, miny + 200)
+
+    # Half of this 200 m by 100 m rectangle lies inside the AOI.
+    partial = rect(maxx - 100, miny + 100, maxx + 100, miny + 200)
+
+    outside = rect(maxx + 300, miny + 100, maxx + 400, miny + 200)
+
+    return aoi_gdf(
+        [partial, outside, inside],
+        crs=aoi.gdf.crs,
+        Id=[22, 33, 11],
+        Name=["partial", "outside", "inside"],
+    )
+
+
+# # --- shared a boundary ------------------------------------------------------
+def test_shares_full_edge_is_adjacent():
+    """A box sharing the AOI's right edge is adjacent, and the shared length is correct."""
+
+    aoi = projected_operator_aoi()
+
+    minx, miny, maxx, maxy = aoi.gdf.total_bounds
+    polygon = Polygon(
+        [
+            (maxx, miny),
+            (maxx + 500, miny),
+            (maxx + 500, maxy),
+            (maxx, maxy),
+        ]
+    )
+
+    result = adjacency(
+        aoi=aoi,
+        adapter=InMemorySpatialAdapter(aoi_gdf([polygon])),
+        tolerance_m=0,
+    ).parts[0].result
+
+    assert result.is_adjacent is True
+    assert result.measure_value == pytest.approx(maxy - miny)
+
+
+def test_corner_touch_not_adjacent():
+    """A box sitting on the AOI's top-right corner touches at a point only - no shared line."""
+
+    aoi = projected_operator_aoi()
+
+    minx, miny, maxx, maxy = aoi.gdf.total_bounds
+    poly = Polygon(
+        [(maxx, maxy),
+         (maxx + 500, maxy),
+         (maxx + 500, maxy + 500),
+         (maxx, maxy + 500)]
+    )
+
+    result = adjacency(
+        aoi=aoi,
+        adapter=InMemorySpatialAdapter(aoi_gdf([poly])),
+        tolerance_m=0
+    ).parts[0].result
+
+    assert result.is_adjacent is False
+    assert result.measure_value == 0.0
+
+
+@pytest.mark.parametrize(
+    ("gap_m", "expected_adjacent"),
+    [
+        pytest.param(0.25, True, id="gap-below-tolerance"),
+        pytest.param(0.75, False, id="gap-above-tolerance"),
+    ],
+)
+def test_positive_tolerance_accepts_only_nearby_polygons(
+    gap_m,
+    expected_adjacent,
+):
+    """A 0.5 m tolerance accepts 0.25 m and rejects 0.75 m."""
+
+    aoi = projected_operator_aoi()
+    _, miny, maxx, _ = aoi.gdf.total_bounds
+
+    source = aoi_gdf(
+        [
+            rect(
+                maxx + gap_m,
+                miny + 100,
+                maxx + gap_m + 20,
+                miny + 200,
+            )
+        ],
+        crs=aoi.gdf.crs,
+        Id=["candidate"],
+    )
+
+    result = adjacency(
+        aoi=aoi,
+        adapter=InMemorySpatialAdapter(source),
+        tolerance_m=0.5,
+        feature_id_field="Id",
+    ).parts[0].result
+
+    assert result.is_adjacent is expected_adjacent
+    assert result.feature_count == (1 if expected_adjacent else 0)
+
+    if expected_adjacent:
+        assert [f.feature_id for f in result.features] == ["candidate"]
+        assert result.features[0].measure > 0
+        assert result.measure_value == pytest.approx(
+            result.features[0].measure
+        )
+    else:
+        assert result.features == []
+        assert result.measure_value == 0.0
+
+
+def test_empty_dataset_not_adjacent():
+    """Nothing comes back from the source -> not adjacent."""
+
+    aoi = projected_operator_aoi()
+
+    result = adjacency(
+        aoi=aoi,
+        adapter=InMemorySpatialAdapter(),
+        tolerance_m=0
+        ).parts[0].result
+    
+    assert result.is_adjacent is False
+    assert result.feature_count == 0
+
+
+def test_multiple_adjacent_sorted_longest_first():
+    """Two adjacent polygons come back longest-shared-border first, with IDs + columns."""
+
+    aoi = projected_operator_aoi()
+
+    minx, miny, maxx, maxy = aoi.gdf.total_bounds
+    top = Polygon([(minx, maxy), (maxx, maxy), (maxx, maxy + 300), (minx, maxy + 300)])   # full top edge
+    left = Polygon([(minx - 300, miny), (minx, miny), (minx, miny + 1000), (minx - 300, miny + 1000)])  # 1000 m of left edge
+    gdf = aoi_gdf([left, top], Id=[11, 10], Name=["left", "top"])
+
+    result = adjacency(
+        aoi=aoi, adapter=InMemorySpatialAdapter(gdf), tolerance_m=0,
+        feature_id_field="Id", keep_properties=["Name"],
+    ).parts[0].result
+    assert result.feature_count == 2
+    measures = [f.measure for f in result.features]
+    assert measures[0] > measures[1]                     # longest shared border first
+    assert measures[0] == pytest.approx(maxx - minx)     # full top edge = AOI width
+    assert measures[1] == pytest.approx(1000.0)          # 1000 m of the left edge
+    assert result.measure_value == pytest.approx((maxx - minx) + 1000.0)  # total = sum
+    assert [f.feature_id for f in result.features] == ["10", "11"]
+    assert [f.properties["Name"] for f in result.features] == ["top", "left"]
+    assert [f.measure for f in result.features] == pytest.approx(
+        [2000.0, 1000.0]
+    )
+
+
+def test_negative_tolerance_raises():
+    """A negative tolerance is rejected with a ValueError."""
+
+    aoi = projected_operator_aoi()
+    
+    with pytest.raises(ValueError):
+        adjacency(aoi=aoi, adapter=InMemorySpatialAdapter(), tolerance_m=-1)
+
+
+def test_non_valid_aoi_rejected():
+    """A lat/long AOI (degrees) is refused - shared length must be in metres."""
+
+    aoi = geographic_operator_aoi()
+
+    with pytest.raises(ValueError):
+        adjacency(aoi=aoi, adapter=InMemorySpatialAdapter(), tolerance_m=0)
+
+
+def test_exact_match_asks_for_touches_search():
+    """A zero-tolerance adjacency search asks the source for a "touches" search."""
+    
+    aoi = projected_operator_aoi()
+
+    adapter = InMemorySpatialAdapter()
+    adjacency(aoi=aoi, adapter=adapter, tolerance_m=0)
+
+    assert adapter.last_options.spatial_filter.predicate == "touches"
+
+
+def test_tolerant_match_asks_for_within_distance_search():
+    """A tolerant adjacency search asks the source for a "within_distance" search."""
+
+    aoi = projected_operator_aoi()
+
+    tolerance = 5
+
+    adapter = InMemorySpatialAdapter()
+    adjacency(aoi=aoi, adapter=adapter, tolerance_m=tolerance)
+    sf = adapter.last_options.spatial_filter
+
+    assert sf.predicate == "within_distance"
+    assert sf.distance == tolerance
+
+
+@pytest.mark.parametrize(
+    "make_keep_properties",
+    [
+        pytest.param(list, id="list"),
+        pytest.param(iter, id="iterator"),
+    ],
+)
+def test_keep_properties_accepts_reusable_and_one_shot_iterables(
+    make_keep_properties,
+):
+    """Column selection must not consume the properties needed by results."""
+    aoi = projected_operator_aoi()
+
+    _, miny, maxx, maxy = aoi.gdf.total_bounds
+    polygon = Polygon(
+        [
+            (maxx, miny),
+            (maxx + 500, miny),
+            (maxx + 500, maxy),
+            (maxx, maxy),
+        ]
+    )
+
+    adapter = InMemorySpatialAdapter(aoi_gdf([polygon]))
+
+    result = adjacency(
+        aoi=aoi,
+        adapter=adapter,
+        tolerance_m=0,
+        feature_id_field="Id",
+        keep_properties=make_keep_properties(["Name"]),
+    ).parts[0].result
+
+    assert result.is_adjacent is True
+    assert set(adapter.last_options.keep_columns) == {"Id", "Name"}
+    assert result.feature_count == 1
+
+
+def test_edge_between_two_aoi_parts_does_not_count():
+    """An AOI of two parts (blocks A and B) sharing an edge. A polygon inside B,
+    along the A|B edge, is adjacent to neither: that edge is inside the AOI. A
+    polygon across the top touches both parts' outer edges, and each part reports
+    the length it shares."""
+    minx, miny, maxx, maxy = projected_operator_aoi().gdf.total_bounds
+    mid = (minx + maxx) / 2
+    aoi = AOIStub(
+        gdf=aoi_gdf(
+            [rect(minx, miny, mid, maxy), rect(mid, miny, maxx, maxy)],
+            block=["A", "B"],
+        )
+    )
+    inside_b = rect(mid, miny + 100, mid + 300, maxy - 100)
+    across_top = rect(mid - 400, maxy, mid + 600, maxy + 200)
+    adapter = InMemorySpatialAdapter(
+        aoi_gdf([inside_b, across_top], Name=["inside_b", "across_top"])
+    )
+
+    outcome = adjacency(aoi=aoi, adapter=adapter, tolerance_m=0, keep_properties=["Name"])
+
+    block_a, block_b = outcome.parts
+    assert [block_a.part_attributes, block_b.part_attributes] == [{"block": "A"}, {"block": "B"}]
+    assert [f.properties["Name"] for f in block_a.result.features] == ["across_top"]
+    assert [f.properties["Name"] for f in block_b.result.features] == ["across_top"]
+    assert block_a.result.measure_value == pytest.approx(400.0)   # 400 m along A's top edge
+    assert block_b.result.measure_value == pytest.approx(600.0)   # 600 m along B's top edge
+
+
+def test_tolerance_band_keeps_its_corners_on_a_many_sided_aoi():
+    """With a tolerance, the shared border is measured inside a band around the
+    AOI's edge. Real parcels have hundreds of vertices, and the band must still
+    follow the whole edge, corners included: a feature just outside a 64-sided
+    AOI gets the same shared border as measuring against the full AOI boundary."""
+    minx, miny, maxx, maxy = projected_operator_aoi().gdf.total_bounds
+    centre = Point((minx + maxx) / 2, (miny + maxy) / 2)
+    aoi = AOIStub(gdf=aoi_gdf([centre.buffer(500, quad_segs=16)]))   # a 64-sided polygon
+    # a half ring 3 to 10 m outside the AOI, on its east side
+    ring = centre.buffer(510, quad_segs=16).difference(centre.buffer(503, quad_segs=16))
+    half_ring = ring.intersection(rect(centre.x, miny - 1000, maxx + 1000, maxy + 1000))
+
+    tolerance = 5
+    band = aoi.gdf.geometry.union_all().boundary.buffer(tolerance, cap_style="flat", join_style="mitre")
+    expected = half_ring.boundary.intersection(band).length
+
+    result = adjacency(
+        aoi=aoi, adapter=InMemorySpatialAdapter(aoi_gdf([half_ring])), tolerance_m=tolerance
+    ).parts[0].result
+
+    assert result.measure_value == pytest.approx(expected, rel=1e-9)

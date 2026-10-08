@@ -1,52 +1,100 @@
-.form-container {
-  margin: 25px;
-  padding: 30px;
-  border: 2px solid #003366;
-  border-radius: 15px;
-  box-shadow: 15px 10px 10px rgba(0, 0, 0, 0.2);
-  background-color: rgba(250, 250, 250, 1);
-  width: 400px;
-  box-sizing: border-box;
+// Styles for the AST form
+
+// Stretch the Name and Email fields to the full width of the form.
+// .bcds-react-aria-TextField is the class the design system gives its text fields.
+.full-width-field .bcds-react-aria-TextField {
+  width: 100%;
 }
 
+// Box around the Source section (the radio buttons and their fields).
 .source-container {
-  margin: 10px 0;
-  border: 1px solid #003366;
-  border-radius: 4px;
-  padding: 10px;
+  margin: 10px 0; // 10px of space above and below
+  padding: 10px; // Space inside the box
+  border: 1px solid #003366; // Thin BC blue border
+  border-radius: 4px; // Slightly rounded corners
 }
 
+// The TANTALIS and Upload sections that slide open and closed.
+// They use a grid with one row. The row's height animates between
+// 0fr (closed, no height) and 1fr (open, full height).
 .source-details {
   display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 300ms ease;
-  overflow: hidden;
+  grid-template-rows: 0fr; // Closed by default
+  transition: grid-template-rows 300ms ease; // Slide open or closed over 0.3 seconds
+  overflow: hidden; // Hide the contents while closed
 
+  // The contents inside. min-height: 0 lets the row shrink all the way to nothing.
   .source-details-inner {
     min-height: 0;
   }
 
+  // Open when the section has the expanded class (set in ast-form.tsx).
   &.expanded {
     grid-template-rows: 1fr;
   }
 }
 
-.upload-inputs p {
-  font-size: 14px;
+// Row with the "View shape on map" link, centred.
+.tantalis-preview-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 12px;
 }
 
-.full-width-field .bcds-react-aria-TextField {
-  width: 100%;
+// "View shape on map" is a button, but styled to look like a link,
+// so it doesn't look like a main action such as Submit.
+.tantalis-preview-link {
+  padding: 0;
+  margin: 0;
+  border: none; 
+  background: transparent; 
+  color: #0053a4;
+  font-weight: 600; // Semi-bold
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+  cursor: pointer; 
+  transition: color 0.2s ease, opacity 0.2s ease; // Fade the colour change
+
+  // Darker blue when hovered over
+  &:hover,
+  &:focus-visible {
+    color: #003366;
+    opacity: 0.9;
+  }
 }
 
+// Message next to "View shape on map" (for example, when a field is empty).
+.tantalis-preview-message {
+  margin: 8px 0 0; // 8px of space above only
+  color: #313132;
+}
+
+// File picker and the chosen file's name, side by side.
+.upload-input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+// Name of the chosen file.
+.upload-file-name {
+  color: #003366;
+  font-weight: 600; // Semi-bold
+  overflow-wrap: anywhere; // Break very long file names so they don't spill out
+}
+
+// Generate Maps and Export Overlap Results switches, stacked.
 .switch-container {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 5px;
+  flex-direction: column; // Stack top to bottom
+  gap: 5px; 
   margin-top: 10px;
 }
 
+// Submit and Clear Form buttons, centred side by side.
 .button-container {
   display: flex;
   justify-content: center;

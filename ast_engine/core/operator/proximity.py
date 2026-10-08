@@ -68,8 +68,8 @@ def within_distance(
     filter. Pass your own read_options to override. Dataset identity travels in
     source_kwargs.
     """
-    if distance_m < 0:
-        raise ValueError("distance_m must be non-negative")
+    if distance_m <= 0:
+        raise ValueError("distance_m must be positive")
     _require_projected(aoi)
 
     # convert keep_properties to reusable tuple so properties can be read more than once.
@@ -273,7 +273,7 @@ def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str
     """
     if feature_id_field and feature_id_field in row.index:
         value = row[feature_id_field]
-        if value is not None:
+        if pd.notna(value):
             return str(value)
     return str(idx)
 

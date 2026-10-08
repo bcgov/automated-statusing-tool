@@ -263,7 +263,7 @@ def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str
     """
     if feature_id_field and feature_id_field in row.index:
         value = row[feature_id_field]
-        if value is not None:
+        if pd.notna(value):
             return str(value)
     return str(idx)
 
