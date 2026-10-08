@@ -16,7 +16,8 @@ from uuid import uuid4
 import geopandas as gpd
 
 from ast_engine.config.logging_config import setup_logging
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
+from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.exceptions import AOIValidationError
 from ast_engine.core.execution import AnalysisTask, run_analysis
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -30,7 +31,10 @@ def build_aoi():
     """Build an AreaOfInterest from the Test_Shape_A box (BC Albers / EPSG:3005)."""
     gdf = gpd.read_file(SHP)
     request = AOIRequest(aoi_id="demo_aoi", name="Demo AOI", target_crs="EPSG:3005")
-    return AOIBuilder().from_gdf(request, gdf)
+    built = AOIBuilder().build_from_request(AOIBuildRequest(spec=request, raw_gdf=gdf))
+    if built.has_errors:
+        raise AOIValidationError("; ".join(f"{issue.code}: {issue.message}" for issue in built.errors))
+    return built.aoi
 
 
 def demo_tasks() -> list[AnalysisTask]:

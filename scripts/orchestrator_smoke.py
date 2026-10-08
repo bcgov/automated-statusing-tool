@@ -59,7 +59,8 @@ import yaml
 from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.settings import Settings
 from ast_engine.config.registry import utils as registry_utils
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
+from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.exceptions import AOIValidationError
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter
 from ast_engine.core.data_adapters.oracle import OracleAdapter, OracleConnection, fetch_tantalis_aoi
 from ast_engine.core.execution import build_tasks, run_analysis
@@ -218,7 +219,13 @@ def build_aoi(args, connection):
         name = "Smoke AOI"
 
     request = AOIRequest(aoi_id=aoi_id, name=name, target_crs="EPSG:3005")
-    aoi = AOIBuilder().from_gdf(request, gdf)
+    built = AOIBuilder().build_from_request(AOIBuildRequest(spec=request, raw_gdf=gdf))
+    # Stop on AOI validation errors, as the old from_gdf did; show the warnings.
+    for issue in built.warnings:
+        print(f"AOI warning {issue.code}: {issue.message}")
+    if built.has_errors:
+        raise AOIValidationError("; ".join(f"{issue.code}: {issue.message}" for issue in built.errors))
+    aoi = built.aoi
     print(f"AOI built: {aoi.footprint_area_ha:.1f} ha, {len(aoi.gdf)} part(s) (one per AOI row), EPSG:{aoi.crs_epsg}")
     return aoi
 

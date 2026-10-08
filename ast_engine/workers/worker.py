@@ -8,7 +8,8 @@ from enum import StrEnum
 from typing import Optional, Any, Iterable
 from pydantic import BaseModel
 
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
+from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.exceptions import AOIValidationError
 from ast_engine.core.execution import run_analysis, build_tasks
 from ast_engine.core.results import AstResults
 from ast_engine.core.data_adapters.oracle import OracleConnection
@@ -110,7 +111,14 @@ def run_worker(job: AstJob, publish: bool = False):
         logger.debug("AOI GeoDataFrame has crs %s", str(gdf.crs))
         
         request = AOIRequest(aoi_id=job.aoi_id, name=job.aoi_name, target_crs= settings.system_crs)
-        aoi = AOIBuilder().from_gdf(request, gdf)
+        built = AOIBuilder().build_from_request(AOIBuildRequest(spec=request, raw_gdf=gdf))
+        # Stop on AOI validation errors, as the old from_gdf did; log the warnings.
+        # TODO: agree the worker's rule for AOI validation issues with the team
+        for issue in built.warnings:
+            logger.warning("AOI warning %s: %s", issue.code, issue.message)
+        if built.has_errors:
+            raise AOIValidationError("; ".join(f"{issue.code}: {issue.message}" for issue in built.errors))
+        aoi = built.aoi
 
         tasks = build_tasks(job.registries)
         tracker = DiagnosticTracker()
