@@ -1,0 +1,55 @@
+name: version numbering
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - 'documentation/**'
+
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Manual override for image tag/version to deploy"
+        type: string
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+
+permissions:
+  contents: write
+
+jobs:
+  vars:
+    name: Set Variables
+    outputs:
+      tag: ${{ inputs.tag || steps.version.outputs.new_tag }}
+      pr: ${{ steps.pr.outputs.pr }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 1
+    permissions:
+      contents: write
+      pull-requests: read # Needed to fetch PR info
+    steps:
+      - name: Checkout Code
+        if: ${{ ! inputs.tag }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: '0'
+          
+      - name: Get PR number
+        if: ${{ ! inputs.tag }}
+        id: pr
+        uses: bcgov-nr/action-get-pr@v0.0.1
+
+      - name: Bump version and push tag
+        if: ${{ ! inputs.tag }}
+        id: version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          default_bump: patch
