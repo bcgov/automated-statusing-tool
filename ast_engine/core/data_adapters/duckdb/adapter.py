@@ -145,17 +145,18 @@ class DuckDBAdapter(BaseSpatialAdapter):
             # use bbox index
             if use_bbox_index:
                 logger.debug('Using DuckDBAdaper row_bbox_index')
-                minx, miny, maxx, maxy = sf.aoi.total_bounds
+                minx, miny, maxx, maxy = (float(v) for v in sf.aoi.total_bounds)
                 
                 # if a search distance is provided go bigger
                 # could use aoi.buffer but this is probably faster
                 if pred == "within_distance" and sf.distance is not None:
-                    minx -= sf.distance
-                    miny -= sf.distance
-                    maxx += sf.distance
-                    maxy += sf.distance
+                    dist = float(sf.distance)
+                    minx -= dist
+                    miny -= dist
+                    maxx += dist
+                    maxy += dist
                 query += " AND xmin <= ? AND xmax >= ? AND ymin <= ? AND ymax >= ?"
-                params.extend(row_bbox_index)
+                params.extend([maxx, minx, maxy, miny])
             if pred == "intersects":
                 query += f" AND ST_Intersects({geom_col}, ST_GeomFromText(?))"
                 params.append(aoi_wkt)
