@@ -1,4 +1,7 @@
 from copy import deepcopy
+import sys
+import os
+import getpass
 from .models import Registry, BaseDataset, SkippedDataset
 from pydantic import ValidationError
 import pandas as pd
@@ -7,6 +10,17 @@ import yaml
 
 import logging
 logger = logging.getLogger(__name__)
+
+def get_credentials() -> tuple[str, str, str]:
+    '''BCGW credentials from the environment, falling back to a prompt.'''
+    user = os.environ.get("BCGW_USER") or input("BCGW username: ").strip()
+    password = os.environ.get("BCGW_PASSWORD") or getpass.getpass("BCGW password: ")
+    host = os.environ.get("BCGW_HOST") or input(
+        "BCGW host/DSN (e.g. bcgw.bcgov:1521/idwprod1.bcgov): "
+    ).strip()
+    if not (user and password and host):
+        sys.exit("Missing BCGW credentials; aborting.")
+    return user, password, host
 
 def load_yaml(file_path: Path, os_name:str|None = None) -> Registry:
     from os import name

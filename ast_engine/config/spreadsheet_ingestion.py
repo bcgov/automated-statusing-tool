@@ -27,17 +27,6 @@ from ast_engine.config.registry import enrichment, utils, models
 from ast_engine.core.data_adapters.oracle import OracleConnection
 from ast_engine.core.data_adapters.exceptions import DataAdapterError
 
-def get_credentials() -> tuple[str, str, str]:
-    '''BCGW credentials from the environment, falling back to a prompt.'''
-    user = os.environ.get("BCGW_USER") or input("BCGW username: ").strip()
-    password = os.environ.get("BCGW_PASSWORD") or getpass.getpass("BCGW password: ")
-    host = os.environ.get("BCGW_HOST") or input(
-        "BCGW host/DSN (e.g. bcgw.bcgov:1521/idwprod1.bcgov): "
-    ).strip()
-    if not (user and password and host):
-        sys.exit("Missing BCGW credentials; aborting.")
-    return user, password, host
-
 setup_logging()
 logger = logging.getLogger(__name__)
 
@@ -109,7 +98,7 @@ def main() -> None:
     }
 
     # One BCGW connection, reused to enrich every Oracle dataset in the build.
-    user, password, host = get_credentials()
+    user, password, host = utils.get_credentials()
 
     # Get drive mappings for linux
     path_lookup = utils.drive_map_loader(path_lookup_conf)
