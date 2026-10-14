@@ -25,7 +25,10 @@ def dump_yaml(registry: Registry, file_path: Path):
         # by_alias=True so a where LogicalGroup is written with its 'and' / 'or'
         # keys (not the Python field names 'and_' / 'or_'); otherwise load_yaml
         # cannot parse the where back. Matches enrichment.build()'s dump.
-        yaml.dump(registry.model_dump(by_alias=True), f, sort_keys=False)
+        yaml.dump(registry.model_dump(mode="json",
+                                      by_alias=True),
+                                      f,
+                                      sort_keys=False)
 
 def short_reason(exc: Exception) -> str:
     '''Turn an error into one readable line for the build report.
