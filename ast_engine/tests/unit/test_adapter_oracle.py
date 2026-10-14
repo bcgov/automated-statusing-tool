@@ -9,10 +9,10 @@ OracleAdapter unit tests (mock-test, no live Oracle connection)
 - The mock cursor returns an empty result set, so the adapter exits cleanly
   after the SQL string and bind variables have been captured.
 
-This test does NOT prove the SDO-SQL works against BCGW. 
-For that see we need BCGW coredentials and a real table. 
-That is tested in this seperate script (not a pytest test) that we run manually:
-  scripts/oracle_smoke.py
+This test does NOT prove the SDO-SQL works against BCGW.
+For that we need BCGW credentials and a real table. That is covered by the
+integration tests, which run the same queries against the live warehouse:
+  ast_engine/tests/integration/test_bcgw.py
 
 """
 from unittest.mock import MagicMock
@@ -20,6 +20,7 @@ from unittest.mock import MagicMock
 import oracledb
 import pytest
 import geopandas as gpd
+from shapely import wkb
 from shapely.geometry import Polygon
 
 from ast_engine.core.data_adapters.oracle.adapter import OracleAdapter
@@ -63,7 +64,10 @@ def _mock_adapter(monkeypatch):
     What monkeypatch patches for the test:
       - utils.get_geometry_column -> always returns "SHAPE"
       - utils.get_srid            -> always returns 3005
-      - utils.get_columns         -> always returns ["OBJECTID", "SHAPE"]
+      - utils.get_columns         -> always returns ["OBJECTID"], the attribute
+                                     columns only (get_columns leaves the
+                                     geometry column out - see
+                                     test_oracle_get_columns_excludes_geometry)
 
     Returns (adapter, cursor) so tests can inspect what the cursor was
     called with after driving the adapter.
@@ -75,7 +79,7 @@ def _mock_adapter(monkeypatch):
 
     monkeypatch.setattr(utils, "get_geometry_column", lambda *a, **k: "SHAPE")
     monkeypatch.setattr(utils, "get_srid", lambda *a, **k: 3005)
-    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID", "SHAPE"])
+    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID"])
 
     return OracleAdapter(connection=connection, cursor=cursor), cursor
 
@@ -164,35 +168,28 @@ def test_oracle_adapter_passes_k_for_nearest(_mock_adapter, _aoi):
     assert bind_vars.get("k") == 5
 
 
-def test_oracle_adapter_binds_aoi_as_wkt_clob(_mock_adapter, _aoi):
+def test_oracle_adapter_binds_aoi_as_blob(_mock_adapter, _aoi):
+    """The AOI must reach Oracle as a real BLOB holding its WKB.
+
+    Plain bytes are sent as RAW, which SDO_GEOMETRY parses as WKT text, so
+    the query fails with ORA-13198. python-oracledb 26 no longer turns bytes
+    into a BLOB through setinputsizes, so the adapter builds the LOB itself
+    with connection.createlob().
+    """
     adapter, cursor = _mock_adapter
     opts = ReadOptions(
         spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects")
     )
     adapter._read_impl(read_options=opts, table=TABLE)
 
+    createlob = adapter.connection.createlob
+    lob_type, wkb_bytes = createlob.call_args.args
+    assert lob_type is oracledb.DB_TYPE_BLOB
+    assert wkb.loads(wkb_bytes).equals(_aoi.geometry.iloc[0])
+
     bind_vars = cursor.execute.call_args.args[1]
-    assert bind_vars["wkt_aoi"].startswith("POLYGON")
+    assert bind_vars["wkb_aoi"] is createlob.return_value
     assert bind_vars["srid"] == 3005
-    assert "SDO_GEOMETRY(:wkt_aoi, :srid)" in cursor.execute.call_args.args[0]
-    assert "wkb_aoi" not in bind_vars
-    cursor.setinputsizes.assert_called_once_with(wkt_aoi=oracledb.DB_TYPE_CLOB)
-
-
-def test_oracle_adapter_transforms_wkt_aoi_when_srids_differ(
-    _mock_adapter, _aoi, monkeypatch
-):
-    adapter, cursor = _mock_adapter
-    monkeypatch.setattr(utils, "get_srid", lambda *args, **kwargs: 4326)
-    opts = ReadOptions(
-        spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects")
-    )
-    adapter._read_impl(read_options=opts, table=TABLE)
-
-    sql = cursor.execute.call_args.args[0]
-    bind_vars = cursor.execute.call_args.args[1]
-    assert "SDO_CS.TRANSFORM(SDO_GEOMETRY(:wkt_aoi, :srid), :srid_t)" in sql
-    assert bind_vars["srid_t"] == 4326
 
 
 # ---------------------------------------------------------------------------
@@ -240,7 +237,7 @@ def test_oracle_adapter_describe(monkeypatch):
     monkeypatch.setattr(utils, "get_geometry_column", lambda *a, **k: "SHAPE")
     monkeypatch.setattr(utils, "get_srid", lambda *a, **k: 3005)
     monkeypatch.setattr(utils, "get_geometry_type", lambda *a, **k: "polygon")
-    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID", "SHAPE"])
+    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID"])
     monkeypatch.setattr(utils, "get_row_count", lambda *a, **k: 42)
 
     adapter = OracleAdapter(connection=MagicMock(), cursor=MagicMock())
@@ -249,7 +246,7 @@ def test_oracle_adapter_describe(monkeypatch):
     assert info.geom_column == "SHAPE"
     assert info.crs == "EPSG:3005"
     assert info.geometry_type == "polygon"
-    assert info.columns == ["OBJECTID", "SHAPE"]
+    assert info.columns == ["OBJECTID"]      # attribute columns only
     assert info.row_count == 42
 
 
@@ -259,7 +256,7 @@ def test_oracle_adapter_describe_empty_table_geometry_unknown(monkeypatch):
     monkeypatch.setattr(utils, "get_geometry_column", lambda *a, **k: "SHAPE")
     monkeypatch.setattr(utils, "get_srid", lambda *a, **k: 3005)
     monkeypatch.setattr(utils, "get_geometry_type", lambda *a, **k: None)
-    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID", "SHAPE"])
+    monkeypatch.setattr(utils, "get_columns", lambda *a, **k: ["OBJECTID"])
     monkeypatch.setattr(utils, "get_row_count", lambda *a, **k: 0)
 
     adapter = OracleAdapter(connection=MagicMock(), cursor=MagicMock())
@@ -268,6 +265,50 @@ def test_oracle_adapter_describe_empty_table_geometry_unknown(monkeypatch):
     assert info.crs == "EPSG:3005"
     assert info.geometry_type == "unknown"
     assert info.row_count == 0
+
+
+# ---------------------------------------------------------------------------
+# get_columns - the attribute columns, without the geometry column
+# (the SDO templates select the geometry themselves, as WKT named SHAPE. If the
+# geometry column were in the SELECT list too, the query would return two
+# columns called SHAPE and the result could not be read as a GeoDataFrame.
+# _read_query is faked so no Oracle is touched.)
+# ---------------------------------------------------------------------------
+
+def test_oracle_get_columns_excludes_geometry(monkeypatch):
+    """Given the geometry column name, get_columns leaves it out."""
+    import pandas as pd
+
+    monkeypatch.setattr(
+        utils,
+        "_read_query",
+        lambda *a, **k: pd.DataFrame({"COLUMN_NAME": ["OBJECTID", "STATUS", "SHAPE"]}),
+    )
+
+    columns = utils.get_columns(MagicMock(), MagicMock(), TABLE, geom_col="SHAPE")
+
+    assert columns == ["OBJECTID", "STATUS"]
+
+
+def test_oracle_adapter_never_selects_the_geometry_column(monkeypatch):
+    """Reading every column must not put the geometry column in the SELECT.
+
+    This is the read that used to fail: with no keep_columns the adapter asked
+    for every column, geometry included, so the query came back with two
+    columns named SHAPE.
+    """
+    import pandas as pd
+
+    monkeypatch.setattr(
+        utils,
+        "_read_query",
+        lambda *a, **k: pd.DataFrame({"COLUMN_NAME": ["OBJECTID", "STATUS", "SHAPE"]}),
+    )
+    adapter = OracleAdapter(connection=MagicMock(), cursor=MagicMock())
+
+    cols = adapter._resolve_columns(TABLE, None, "SHAPE")
+
+    assert cols.split(",") == ["OBJECTID", "STATUS"]
 
 
 # ---------------------------------------------------------------------------

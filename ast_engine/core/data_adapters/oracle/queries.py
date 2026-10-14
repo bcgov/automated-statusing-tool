@@ -2,7 +2,7 @@
 
 One template per spatial predicate. The adapter formats placeholders
 (`{cols}`, `{tab}`, `{geom_col}`, `{def_query}`, `{distance}`) and
-binds AOI geometry via `:wkt_aoi`, `:srid`, optional `:srid_t` (when
+binds AOI geometry via `:wkb_aoi`, `:srid`, optional `:srid_t` (when
 applying a coordinate transform), and `:k` (for nearest).
 
 SDO syntax stays in this module by design; the Overlay Engine never
@@ -76,10 +76,10 @@ OVERLAY_INTERSECTS = """
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_FILTER({geom_col},
-                     SDO_GEOMETRY(:wkt_aoi, :srid),
+                     SDO_GEOMETRY(:wkb_aoi, :srid),
                      'querytype=WINDOW') = 'TRUE'
       AND SDO_RELATE({geom_col},
-                     SDO_GEOMETRY(:wkt_aoi, :srid),
+                     SDO_GEOMETRY(:wkb_aoi, :srid),
                      'mask=ANYINTERACT') = 'TRUE'
         {def_query}
 """
@@ -89,7 +89,7 @@ OVERLAY_WITHIN_DISTANCE = """
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_WITHIN_DISTANCE({geom_col},
-                              SDO_GEOMETRY(:wkt_aoi, :srid),
+                              SDO_GEOMETRY(:wkb_aoi, :srid),
                               'distance={distance}') = 'TRUE'
         {def_query}
 """
@@ -99,7 +99,7 @@ OVERLAY_TOUCHES = """
            SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
     FROM {tab}
     WHERE SDO_RELATE({geom_col},
-                     SDO_GEOMETRY(:wkt_aoi, :srid),
+                     SDO_GEOMETRY(:wkb_aoi, :srid),
                      'mask=TOUCH') = 'TRUE'
         {def_query}
 """
@@ -110,7 +110,7 @@ OVERLAY_NEAREST = """
                SDO_UTIL.TO_WKTGEOMETRY({geom_col}) SHAPE
         FROM {tab}
         WHERE SDO_NN({geom_col},
-                     SDO_GEOMETRY(:wkt_aoi, :srid),
+                     SDO_GEOMETRY(:wkb_aoi, :srid),
                      'sdo_num_res=' || :k, 1) = 'TRUE'
             {def_query}
         ORDER BY SDO_NN_DISTANCE(1)

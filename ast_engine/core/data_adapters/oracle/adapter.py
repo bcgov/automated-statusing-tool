@@ -13,7 +13,7 @@ from ..exceptions import DataCrsError, DataReadError
 from ..where_compiler import compile_where
 
 from . import queries, utils
-from .geometry import aoi_to_wkt_srid, df_to_gdf
+from .geometry import aoi_to_wkb_srid, df_to_gdf
 
 logger = logging.getLogger(__name__)
 
@@ -81,8 +81,8 @@ class OracleAdapter(BaseSpatialAdapter):
         read_options.where = None
         read_options.definition_query = None
 
-        # 2. AOI -> WKT + SRID for bind variables
-        wkt_aoi, srid = aoi_to_wkt_srid(aoi)
+        # 2. AOI -> WKB + SRID for bind variables
+        wkb_aoi, srid = aoi_to_wkb_srid(aoi)
 
         # 3. Inspect table metadata - Review this later. Will be handled upstream by Data inventory module!
         geom_col = utils.get_geometry_column(self.connection, self.cursor, table)
@@ -97,7 +97,7 @@ class OracleAdapter(BaseSpatialAdapter):
         # requested columns (plus SHAPE), so the base class post-filter's
         # keep_columns slice keeps the same set the SQL already returned.
         keep = list(read_options.keep_columns) if read_options.keep_columns else None
-        cols_csv = self._resolve_columns(table, keep)
+        cols_csv = self._resolve_columns(table, keep, geom_col)
 
         # 5. Pick + format SQL template
         template = queries.PREDICATE_TEMPLATES.get(predicate)
@@ -127,7 +127,13 @@ class OracleAdapter(BaseSpatialAdapter):
         sql = utils.apply_geometry_fix(sql, table, geom_col)
 
         # 7. Coordinate transform if AOI SRID != table SRID
-        bind_vars: dict[str, Any] = {"wkt_aoi": wkt_aoi, "srid": srid}
+        # The AOI is bound as a real BLOB. Plain bytes go to Oracle as RAW,
+        # which SDO_GEOMETRY parses as WKT text and rejects with ORA-13198.
+        # python-oracledb v26 stopped turning bytes into a BLOB through
+        # setinputsizes, so the LOB is built here. Unlike RAW, it has no size
+        # limit, so large AOIs bind too.
+        aoi_blob = self.connection.createlob(oracledb.DB_TYPE_BLOB, wkb_aoi)
+        bind_vars: dict[str, Any] = {"wkb_aoi": aoi_blob, "srid": srid}
         if srid_t != srid:
             sql = utils.apply_coordinate_transform(sql, geom_col, srid_t)
             bind_vars["srid_t"] = srid_t
@@ -136,7 +142,6 @@ class OracleAdapter(BaseSpatialAdapter):
 
         # 8. Execute
         logger.debug("Executing Oracle overlay query against %s", table)
-        self.cursor.setinputsizes(wkt_aoi=oracledb.DB_TYPE_CLOB)
         self.cursor.execute(sql, bind_vars)
         names = [d[0] for d in self.cursor.description]
         rows = self.cursor.fetchall()
@@ -187,13 +192,13 @@ class OracleAdapter(BaseSpatialAdapter):
             geom_column=geom_col,
             crs=f"EPSG:{srid}",
             geometry_type=geometry_type,
-            columns=utils.get_columns(self.connection, self.cursor, table),
+            columns=utils.get_columns(self.connection, self.cursor, table, geom_col),
             row_count=utils.get_row_count(self.connection, self.cursor, table),
         )
 
     # Resolve columns discrepancies between requested columns (from xlxs) and actual table columns - Review this later: will be handled upstream by Data inventory module!
     def _resolve_columns(
-        self, table: str, requested: list[str] | None
+        self, table: str, requested: list[str] | None, geom_col: str | None = None
     ) -> str:
         """Return a comma-separated column list for the SELECT clause.
 
@@ -201,8 +206,11 @@ class OracleAdapter(BaseSpatialAdapter):
         - given -> intersect with available; fall back to OBJECTID if
                    none of the requested columns exist (preserves the
                    previous tool's behaviour)
+
+        geom_col is left out either way - the SDO templates already select the
+        geometry themselves, as WKT named SHAPE.
         """
-        available = utils.get_columns(self.connection, self.cursor, table)
+        available = utils.get_columns(self.connection, self.cursor, table, geom_col)
         if not available:
             raise DataReadError(f"Could not list columns for {table}")
 
