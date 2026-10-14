@@ -44,6 +44,9 @@ class Enrich():
         ds = self.base.datasource.strip()
         if ds.startswith("http:") and ds.lower().endswith('.parquet'):
             return DataAdapter.DUCKDB_GEOPARQUET
+        if ds.lower().endswith('.parquet'):
+            # this case could be completed with the file adapter as well
+            return DataAdapter.DUCKDB_GEOPARQUET
         if "/" in ds or "\\" in ds or ds.lower().endswith(self.GEO_EXTENSIONS):
             return DataAdapter.FILE
         if "." in ds:
