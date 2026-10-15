@@ -18,8 +18,6 @@ each query runs, comes back in the expected CRS, and hands over geometry that
 is usable.
 """
 
-from uuid import uuid4
-
 import geopandas as gpd
 import pytest
 
@@ -228,7 +226,7 @@ def test_run_analysis_over_bcgw(aoi, data_dir, bcgw_connection):
     results = run_analysis(
         aoi=aoi,
         tasks=tasks,
-        job_id=uuid4(),
+        job_id="it-bcgw",
         oracle_connection=bcgw_connection,
     )
 

@@ -31,7 +31,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Optional
 from pathlib import Path
-from uuid import UUID
 import geopandas as gpd
 
 from .aoi import AreaOfInterest
@@ -171,17 +170,12 @@ def run_analysis(
     *,
     aoi: AreaOfInterest,
     tasks: Iterable[AnalysisTask],
-    job_id: UUID,
+    job_id: str,
     oracle_connection: Optional[OracleConnection] = None,
     tracker: Optional[DiagnosticTracker] = None,
     settings: Optional[Settings] = None,
 ) -> AstResults:
     """Run every task for one AOI and return the assembled AstResults.
-
-    job_id is a UUID, not a free-text label - it is the job's identity all the way
-    through: AstResults.job_id, JobManifest.job_id, and the job_id=... folder the
-    results are published under. The worker builds it with uuid4(); a demo or a
-    test does the same.
 
     A task that reads from Oracle needs an open connection: pass one as
     oracle_connection (open it with OracleConnection). The engine never resolves

@@ -10,7 +10,6 @@ from typing import Any
 import pandas as pd
 
 from . import queries
-from ..exceptions import DataReadError
 
 logger = logging.getLogger(__name__)
 
@@ -44,12 +43,8 @@ def get_geometry_column(connection: Any, cursor: Any, table: str) -> str:
     owner, tab_name = _split_table(table)
     df = _read_query(cursor, queries.GEOM_COL, {"owner": owner, "tab_name": tab_name})
     if df.empty:
-        # ALL_SDO_GEOM_METADATA only lists tables this account can access, so a
-        # table without read permission looks the same as one that does not exist.
-        raise DataReadError(
-            f"No geometry information found for {table}. The table may not exist, "
-            f"or your BCGW account may not have access to it "
-            f"(no entry in ALL_SDO_GEOM_METADATA)."
+        raise ValueError(
+            f"No SDO geometry metadata found for {table} in ALL_SDO_GEOM_METADATA"
         )
     return df["GEOM_NAME"].iloc[0]
 
