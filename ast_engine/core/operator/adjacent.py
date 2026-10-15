@@ -75,6 +75,9 @@ def adjacency(
         raise ValueError("tolerance_m must be non-negative")
     _require_projected(aoi)
 
+    if keep_properties is not None:
+        keep_properties = tuple(keep_properties)
+
     # Ask the adapter for the candidate features (touches / within_distance pushed down).
     gdf = adapter.read(
         read_options=read_options or _default_read_options(
@@ -270,7 +273,7 @@ def _extract_feature_id(row: Any, idx: Any, feature_id_field: str | None) -> str
     """
     if feature_id_field and feature_id_field in row.index:
         value = row[feature_id_field]
-        if value is not None:
+        if pd.notna(value):
             return str(value)
     return str(idx)
 

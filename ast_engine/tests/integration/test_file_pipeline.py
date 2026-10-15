@@ -11,11 +11,13 @@ registry yaml, so these tests check the run itself, not the registry format.
 """
 
 from pathlib import Path
+from uuid import uuid4
 
 import geopandas as gpd
 import pytest
 
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
+from ast_engine.core.aoi.models import AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.aoi_builder import AOIBuilder
 from ast_engine.core.execution import AnalysisTask, run_analysis
 from ast_engine.core.results import (
     AdjacencyResult,
@@ -88,7 +90,7 @@ def test_gdb_layer_reads(aoi):
     """
     task = _file_task("parcels", PARCELS_GDB, "overlay", geom_type="polygon")
 
-    results = run_analysis(aoi=aoi, tasks=[task], job_id="it-parcels")
+    results = run_analysis(aoi=aoi, tasks=[task], job_id=uuid4())
     result = _only_result(results.results[0])
 
     assert isinstance(result, PolyOverlayResult)
@@ -117,7 +119,7 @@ def test_run_analysis_over_three_operators(aoi):
         _file_task("parcel_edges", PARCELS_GDB, "adjacency", tolerance_m=1.0),
     ]
 
-    results = run_analysis(aoi=aoi, tasks=tasks, job_id="it-three-operators")
+    results = run_analysis(aoi=aoi, tasks=tasks, job_id=uuid4())
 
     assert isinstance(results, AstResults)
     assert len(results.results) == 3
@@ -151,7 +153,7 @@ def test_failed_dataset_is_isolated(aoi):
         _file_task("roads", ROADS_SHP, "overlay", geom_type="line"),
     ]
 
-    results = run_analysis(aoi=aoi, tasks=tasks, job_id="it-failed-dataset")
+    results = run_analysis(aoi=aoi, tasks=tasks, job_id=uuid4())
 
     # one group per dataset, still in task order
     assert [group.dataset_name for group in results.results] == ["parcels", "missing", "roads"]
@@ -176,11 +178,15 @@ def test_kml_aoi_reprojects():
         name="Integration AOI from KML",
         target_crs="EPSG:3005",
     )
-    kml_aoi = AOIBuilder().from_gdf(request, kml_gdf)
+    build_request = AOIBuildRequest(
+        spec=request,
+        raw_gdf=kml_gdf,
+    )
+    kml_aoi = AOIBuilder().build_from_request(build_request).aoi
     assert kml_aoi.crs_epsg == 3005
 
     task = _file_task("parcels", PARCELS_GDB, "overlay", geom_type="polygon")
-    results = run_analysis(aoi=kml_aoi, tasks=[task], job_id="it-kml-aoi")
+    results = run_analysis(aoi=kml_aoi, tasks=[task], job_id=uuid4())
     result = _only_result(results.results[0])
 
     assert result.feature_count == PARCELS_IN_AOI

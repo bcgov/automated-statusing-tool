@@ -28,8 +28,6 @@ from pathlib import Path
 import geopandas as gpd
 from uuid import UUID
 
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest, AreaOfInterest
-from ast_engine.core.data_adapters.base import BaseSpatialAdapter, DatasetInfo
 from ast_engine.core.execution import (
     AnalysisTask,
     _pick_adapter,
@@ -49,6 +47,10 @@ from ast_engine.core.results import (
 )
 from ast_engine.config.registry.models import Registry, RegistryDataset
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
+from ast_engine.tests.helpers.aoi_cases import (
+    projected_execution_aoi,
+)
+from ast_engine.tests.helpers.spatial_adapters import InMemorySpatialAdapter
 
 pytestmark = pytest.mark.unit
 
@@ -58,13 +60,6 @@ DATA_DIR = Path(__file__).parents[1] / "data"
 SHP = DATA_DIR / "Test_Shape_A" / "Test_Shape_A_shp" / "Test_Shape_A.shp"  # the AOI box
 POINTS = DATA_DIR / "Test_Overlay" / "points.shp"
 POLYGONS = DATA_DIR / "Test_Overlay" / "polygons.shp"
-
-
-# --- Helpers ----------------------------------------------------------------
-def _valid_aoi() -> AreaOfInterest:
-    """A normal AOI in BC Albers (metres) - what the operators expect."""
-    gdf = gpd.read_file(SHP)
-    return AOIBuilder().from_gdf(AOIRequest(aoi_id="test_aoi", name="Test AOI"), gdf)
 
 
 def _file_task(dataset_id, name, datasource, operator, **kwargs) -> AnalysisTask:
@@ -77,29 +72,6 @@ def _file_task(dataset_id, name, datasource, operator, **kwargs) -> AnalysisTask
         operator=operator,
         **kwargs,
     )
-
-
-class RecordingAdapter(BaseSpatialAdapter):
-    """A stand-in data source that records what it was asked for and returns nothing.
-
-    Lets us confirm the orchestrator hands the adapter the right dataset identity
-    (table vs path) and the attribute filter, without touching a file or a DB.
-    """
-
-    def __init__(self):
-        self.last_options = None
-        self.last_source_kwargs = None
-
-    def read(self, *, read_options=None, target_crs=None, **source_kwargs):
-        self.last_options = read_options
-        self.last_source_kwargs = source_kwargs
-        return gpd.GeoDataFrame(geometry=[], crs="EPSG:3005")
-
-    def _read_impl(self, *, read_options, **source_kwargs):
-        return gpd.GeoDataFrame(geometry=[], crs="EPSG:3005")
-
-    def describe(self, **source_kwargs) -> DatasetInfo:
-        raise NotImplementedError
 
 
 def _registry_dataset(name, datasource, data_adapter, operator, geometry_type="POLYGON", **extra):
@@ -140,7 +112,7 @@ def _registry(datasets):
 # --- End-to-end (file-based, no DB) -----------------------------------------
 def test_end_to_end_file_run_assembles_results():
     """Three file datasets, one per operator -> one AstResults with three groups."""
-    aoi = _valid_aoi()
+    aoi = projected_execution_aoi()
     tasks = [
         _file_task("1", "polys", POLYGONS, "overlay", geom_type="polygon", keep_properties=["Name"]),
         _file_task("2", "points", POINTS, "within_distance", distance_m=100_000),
@@ -167,7 +139,7 @@ def test_end_to_end_file_run_assembles_results():
 
 def test_per_task_error_isolation():
     """A bad-path dataset comes back as an empty group; the run still produces results."""
-    aoi = _valid_aoi()
+    aoi = projected_execution_aoi()
     tasks = [
         _file_task("bad", "missing", DATA_DIR / "does_not_exist.shp", "overlay", geom_type="polygon"),
         _file_task("good", "polys", POLYGONS, "overlay", geom_type="polygon"),
@@ -192,7 +164,8 @@ def test_a_dataset_with_no_matches_is_a_success_not_a_failure():
     far_point = DATA_DIR / "Test_Proximity" / "proximity_2_km.shp"
     task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
     job_id = UUID("72345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id=job_id)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[task], job_id=job_id)
 
     group = result.results[0]
     assert group.status == "success"               # the read worked
@@ -214,7 +187,8 @@ def test_record_spatial_off_writes_nothing(tmp_path):
     """The default: no files, and spatial_link stays empty."""
     settings = Settings(record_spatial=False, temp_dir=str(tmp_path))
     job_id = UUID("32345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     assert result.results[0].results[0].spatial_link is None
     assert list(tmp_path.iterdir()) == []
@@ -224,7 +198,8 @@ def test_record_spatial_writes_a_gpkg_and_records_the_path(tmp_path):
     """One GeoPackage per dataset, in a folder named after the analysis."""
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("42345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     # the space in "test polys" is replaced so the name works as a file name
     written = tmp_path / "overlay" / "test_polys.gpkg"
@@ -248,7 +223,8 @@ def test_record_spatial_skips_a_dataset_with_no_matches(tmp_path):
     task = _file_task("1", "far", far_point, "within_distance", distance_m=100)
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("52345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[task], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[task], job_id=job_id, settings=settings)
 
     assert result.results[0].results[0].feature_count == 0
     assert result.results[0].results[0].spatial_link is None
@@ -263,7 +239,8 @@ def test_a_failed_write_keeps_the_analysis_result(tmp_path, monkeypatch):
     monkeypatch.setattr(gpd.GeoDataFrame, "to_file", boom)
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("62345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=[_overlay_task()], job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=[_overlay_task()], job_id=job_id, settings=settings)
 
     saved = result.results[0].results[0]
     assert saved.feature_count == 2        # the analysis still came through
@@ -285,7 +262,8 @@ def test_same_dataset_name_in_two_registries_writes_two_files(tmp_path):
     ]
     settings = Settings(record_spatial=True, temp_dir=str(tmp_path))
     job_id = UUID("72345678-1234-5678-1234-567812345678")
-    result = run_analysis(aoi=_valid_aoi(), tasks=tasks, job_id=job_id, settings=settings)
+    aoi = projected_execution_aoi()
+    result = run_analysis(aoi=aoi, tasks=tasks, job_id=job_id, settings=settings)
 
     from_tab1 = tmp_path / "tab1" / "overlay" / "Provincial_Forest.gpkg"
     from_provincial = tmp_path / "provincial" / "overlay" / "Provincial_Forest.gpkg"
@@ -313,7 +291,7 @@ def test_source_kwargs_oracle_vs_file():
 
 def test_pick_adapter_routes_by_source_type():
     file_adapter = FileSpatialAdapter()
-    oracle_adapter = RecordingAdapter()  # stand-in object
+    oracle_adapter = InMemorySpatialAdapter()  # stand-in object
     file_task = AnalysisTask("1", "t", "file", "x.shp", "overlay")
     oracle_task = AnalysisTask("2", "t", "oracle", "WHSE.ABC", "overlay")
 
@@ -330,12 +308,13 @@ def test_pick_adapter_oracle_without_connection_raises():
 
 def test_run_operator_passes_table_and_where_for_oracle():
     """An Oracle task hands the adapter table=... and the attribute filter."""
-    adapter = RecordingAdapter()
+    adapter = InMemorySpatialAdapter()
     task = AnalysisTask(
         "1", "t", "oracle", "WHSE.ABC", "overlay",
         geom_type="polygon", where={"conditions": [{"field": "FCODE", "op": "=", "value": "RG90"}]},
     )
-    _run_operator(task, _valid_aoi(), adapter)
+    aoi = projected_execution_aoi()
+    _run_operator(task, aoi, adapter)
     assert adapter.last_source_kwargs["table"] == "WHSE.ABC"
     assert adapter.last_options.where == task.where
 

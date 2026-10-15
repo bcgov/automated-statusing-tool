@@ -29,14 +29,23 @@ ast_engine/config
 Registry builds are OS specific. filesystem pathing will not work across OS types. Use the instructions below to build test registries for your OS.
 
 ### Linux
-```
-You must provide your own `drive_map.conf`.
-```
+
+> #### Note
+> You must provide your own `drive_map.conf`.
+
 Be sure to run `drive_mapper.sh` first to ensure the network drives are correctly mapped.
 If you do not, then enrichment will not work correctly.
 
 ### Windows and Linux
 run `spreadsheet_ingestion.py`. This will run through the test spreadsheets and generate data registries appropriate for your operating system.
+
+To run `spreadsheet_ingestion.py` in demo mode, run the script without any arguments. This will convert the sample spreadsheets in the repository.
+To run on production datasets you can use the following arguments:
+
+> -i or --input: Specify a directory containing .xlsx files.\
+> -f or --file: Specify a single .xlsx file.\
+> -o or --output: Specify the folder to save the registry to.
+
 
 ## How it works
 
