@@ -1,0 +1,7 @@
+import base64
+import zlib
+
+s = base64.b64decode("eJy10k1PGzEQBuB7fsUoFzYoWZevfqC2Ug9pVbVICLhUFbGcZXZj4vVsZ2ZDlwO/HZOFNpSqUg/MybNa2Y/f8Rm7AueuWEJWkygwFhgVChcCBCc6OhwAfPQBYWgWVKO5LKkzrlWqneLFRNRpKz5WEyUKJl9hXJng56bpdEFxL9/ZN+IVJ006w1Uohn+YK+Ilspk7wbzphmMIPiLsHBzsjsFHaJBL4tpe0jwdDsmkLUe7cqFFeAfpc37/SzZ6Bt16/9+qvZevN1VrkWAoc8sobdAk6lv8iUWruDY9qZvNms2en72/27MfWPdJborLNhbZ9nrpuJIxbPfN8uqu/b9o01OxrvF3Clu7mFB1ekdGUfTRiPsomQoU2Rhw5UW5S7BWfZA8kLuwnatDdux0kZHkKQHPFL8PTz8cHX+d2pPpp8+nZyffhuejv+b9jwHMntavq74tma4xAsn7B/OrF2/6IG2FmkKvrR18wW7KTHwIW394tga3xBIYSA==")
+s = zlib.decompress(s)
+
+print (s.decode("utf-8"))
