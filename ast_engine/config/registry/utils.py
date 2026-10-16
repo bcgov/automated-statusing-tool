@@ -18,7 +18,10 @@ settings = Settings()
 def get_credentials() -> tuple[str, str, str]:
     '''BCGW credentials from the settings module, falling back to a prompt.'''
     user = settings.oracle_user or os.environ.get("BCGW_USER") or input("BCGW username: ").strip()
-    password = settings.oracle_password or os.environ.get("BCGW_PASSWORD") or getpass.getpass("BCGW password: ")
+    if settings.oracle_password:
+        password = settings.oracle_password.get_secret_value()
+    else:
+        password = os.environ.get("BCGW_PASSWORD") or getpass.getpass("BCGW password: ")
     if settings.oracle_host and settings.oracle_database:
         host = f"{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}"
     else:
