@@ -27,7 +27,8 @@ COVERAGE
 - Return all available candidates when k exceeds the candidate count.
 - Apply max_distance_m even when this produces fewer than k results.
 - Report zero distance for points inside or on the AOI boundary.
-- Measure against all AOI parts while preserving positive distances in gaps.
+- With an AOI of two parts, measure distances to each part on its own.
+- nearest() searches once per AOI part, against that part only.
 - Report the closest returned distance as result.measure_value.
 - Return feature_count=0, measure_value=0.0, and features=[] when no
   candidates are available or all candidates fall outside the limit.
@@ -37,7 +38,8 @@ COVERAGE
 - Accept both reusable and one-shot keep_properties iterables.
 - Forward spatial filters, requested columns, where clauses, target CRS,
   and dataset source arguments to the adapter.
-- Preserve explicitly supplied ReadOptions unchanged.
+- Preserve explicitly supplied ReadOptions unchanged (nearest uses a copy
+  per part search, with the same settings).
 - Reject nonpositive search radii, k below one, and negative distance caps
   before reading from the adapter.
 - Reject geographic AOIs and AOIs without a CRS before adapter reads.
@@ -135,7 +137,7 @@ def test_within_distance_measures_known_distances(point_distance_m, radius_m):
         aoi=aoi,
         adapter=InMemorySpatialAdapter(source),
         distance_m=radius_m,
-    ).result
+    ).parts[0].result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == 1
@@ -156,7 +158,7 @@ def test_within_distance_filters_and_sorts_results():
         distance_m=12.0,
         feature_id_field="Id",
         keep_properties=["Name", "Colour"],
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert result.measure_value == pytest.approx(3.0)
@@ -185,7 +187,7 @@ def test_within_distance_includes_exact_radius():
         adapter=InMemorySpatialAdapter(source),
         distance_m=12.0,
         feature_id_field="Id",
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert result.measure_value == pytest.approx(11.75)
@@ -218,7 +220,7 @@ def test_nearest_sorts_before_limiting_k(k, expected_ids, expected_distances):
         adapter=InMemorySpatialAdapter(_proximity_features(aoi)),
         k=k,
         feature_id_field="Id",
-    ).result
+    ).parts[0].result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == len(expected_distances)
@@ -240,7 +242,7 @@ def test_nearest_defaults_to_one_feature():
         aoi=aoi,
         adapter=InMemorySpatialAdapter(_proximity_features(aoi)),
         feature_id_field="Id",
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 1
     assert result.measure_value == pytest.approx(3.0)
@@ -265,7 +267,7 @@ def test_nearest_applies_max_distance_cap(max_distance_m, expected_distances):
         adapter=InMemorySpatialAdapter(_proximity_features(aoi)),
         k=2,
         max_distance_m=max_distance_m,
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == len(expected_distances)
     assert result.measure_value == pytest.approx(3.0)
@@ -310,7 +312,7 @@ def test_intersecting_points_report_zero_distance(operator, operator_kwargs):
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="Id",
         **operator_kwargs,
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert result.measure_value == 0.0
@@ -331,7 +333,7 @@ def test_empty_adapter_returns_zero_result(operator, operator_kwargs):
         aoi=projected_operator_aoi(),
         adapter=InMemorySpatialAdapter(),
         **operator_kwargs,
-    ).result
+    ).parts[0].result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == 0
@@ -360,7 +362,7 @@ def test_all_candidates_outside_limit_return_zero_result(operator, operator_kwar
         aoi=aoi,
         adapter=InMemorySpatialAdapter(source),
         **operator_kwargs,
-    ).result
+    ).parts[0].result
 
     assert isinstance(result, ProximityResult)
     assert result.feature_count == 0
@@ -382,7 +384,7 @@ def test_missing_id_column_uses_source_index_labels(operator, operator_kwargs):
         feature_id_field="NOT_REAL",
         keep_properties=["Colour"],
         **operator_kwargs,
-    ).result
+    ).parts[0].result
 
     assert result.feature_count == 2
     assert [feature.feature_id for feature in result.features] == ["303", "101"]
@@ -444,7 +446,7 @@ def test_keep_properties_accepts_reusable_and_one_shot_iterables(
         feature_id_field="Id",
         keep_properties=make_keep_properties(["Name"]),
         **operator_kwargs,
-    ).result
+    ).parts[0].result
 
     assert adapter.last_options is not None
     assert set(adapter.last_options.keep_columns) == {"Id", "Name"}
@@ -538,7 +540,18 @@ def test_explicit_read_options_are_used_unchanged(operator, operator_kwargs):
         **operator_kwargs,
     )
 
-    assert adapter.last_options is options
+    used = adapter.last_options
+    if operator is nearest:
+        # nearest searches once per AOI part and hands each search its own copy:
+        # the Oracle adapter clears the attribute filter on the options it uses,
+        # which would otherwise lose it for the next part
+        assert used is not options
+        assert used.spatial_filter is options.spatial_filter
+        assert used.where == "STATUS = 'CUSTOM'"
+        assert set(used.keep_columns) == {"Colour"}
+    else:
+        assert used is options
+    # the caller's own options are left as they were
     assert options.spatial_filter is not None
     assert options.spatial_filter.predicate == "touches"
     assert options.where == "STATUS = 'CUSTOM'"
@@ -632,8 +645,9 @@ def test_missing_crs_rejected_before_adapter_read(operator, operator_kwargs):
 
 
 @pytest.mark.parametrize(("operator", "operator_kwargs"), _OPERATORS)
-def test_distance_uses_all_aoi_parts_and_excludes_the_gap(operator, operator_kwargs):
-    """A point in the second AOI part is 0 m away; a point in the gap is 5 m."""
+def test_distance_is_measured_to_each_aoi_part(operator, operator_kwargs):
+    """Each AOI part gets its own result. The point inside the second part is
+    0 m from it; the point in the 10 m gap is 5 m from both parts."""
 
     x, y = 1_000_000, 1_000_000
     aoi = AOIStub(
@@ -650,19 +664,56 @@ def test_distance_uses_all_aoi_parts_and_excludes_the_gap(operator, operator_kwa
         Id=["gap", "second-part"],
     )
 
-    result = operator(
+    outcome = operator(
         aoi=aoi,
         adapter=InMemorySpatialAdapter(source),
         feature_id_field="Id",
         **operator_kwargs,
-    ).result
+    )
+    first, second = (part.result for part in outcome.parts)
 
-    assert result.feature_count == 2
-    assert result.measure_value == 0.0
-    assert [feature.measure for feature in result.features] == pytest.approx(
+    # the second part: its own point at 0 m, then the gap point at 5 m
+    assert second.measure_value == 0.0
+    assert [feature.measure for feature in second.features] == pytest.approx(
         [0.0, 5.0]
     )
-    assert [feature.feature_id for feature in result.features] == [
+    assert [feature.feature_id for feature in second.features] == [
         "second-part",
         "gap",
     ]
+    # the first part: its closest feature is the gap point, 5 m away
+    assert first.features[0].feature_id == "gap"
+    assert first.measure_value == pytest.approx(5.0)
+
+
+class _EveryReadAdapter(InMemorySpatialAdapter):
+    """Like InMemorySpatialAdapter, but remembers every request, not just the last."""
+
+    def __init__(self, gdf=None):
+        super().__init__(gdf)
+        self.all_options = []
+
+    def read(self, *, read_options=None, target_crs=None, **source_kwargs):
+        self.all_options.append(read_options)
+        return super().read(read_options=read_options, target_crs=target_crs, **source_kwargs)
+
+
+def test_nearest_searches_once_per_aoi_part():
+    """nearest asks the source once per AOI part, each time for the features
+    nearest that part only. One search against the whole AOI could miss the
+    nearest feature to a part far from the others. Every search keeps the filter."""
+
+    x, y = 1_000_000, 1_000_000
+    aoi = AOIStub(
+        gdf=aoi_gdf([rect(x, y, x + 100, y + 100), rect(x + 5_000, y, x + 5_100, y + 100)])
+    )
+    adapter = _EveryReadAdapter()
+
+    nearest(aoi=aoi, adapter=adapter, k=1, where="STATUS = 'ACTIVE'")
+
+    assert len(adapter.all_options) == 2                  # one search per part
+    searched = [options.spatial_filter.aoi for options in adapter.all_options]
+    assert [len(part) for part in searched] == [1, 1]      # each against one part only
+    assert searched[0].geometry.iloc[0].equals(aoi.gdf.geometry.iloc[0])
+    assert searched[1].geometry.iloc[0].equals(aoi.gdf.geometry.iloc[1])
+    assert all(options.where == "STATUS = 'ACTIVE'" for options in adapter.all_options)

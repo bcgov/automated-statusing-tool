@@ -1,3 +1,4 @@
+import json
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -6,7 +7,7 @@ from ast_engine.storage.checksums import sha256_file, write_sha256_sidecar
 from ast_engine.storage.key_builder import ResultsKeyBuilder
 from ast_engine.storage.local_writer import LocalResultsStorageWriter
 from ast_engine.storage.manifest import ArtifactRecord, JobManifest
-from ast_engine.storage.models import JobStorageContext, StorageConfig
+from ast_engine.storage.models import JobStorageContext, OperatorArtifact, StorageConfig
 from ast_engine.storage.publisher import ResultsPublisher
 
 
@@ -182,3 +183,49 @@ def test_publisher_publishes_required_and_optional_artifacts(tmp_path: Path):
     assert manifest_uri == "s3://test-bucket/manifest.yaml"
     assert mock_writer.put_file.called
     assert mock_writer.put_text.called
+
+
+@pytest.mark.unit
+def test_publisher_gives_each_aoi_part_its_own_file(tmp_path: Path):
+    """A dataset saves one GeoPackage per AOI part. Each part must get its own
+    key and its own manifest entry - otherwise the parts overwrite each other
+    and the manifest keeps only one."""
+    mock_writer = MagicMock()
+    mock_writer.put_file.return_value = "s3://test-bucket/mocked-path"
+    mock_writer.put_text.return_value = "s3://test-bucket/manifest.json"
+    publisher = ResultsPublisher(writer=mock_writer)
+
+    raw_results = tmp_path / "raw.json"
+    raw_results.write_text("{}", encoding="utf-8")
+    part_files = []
+    for part_id in ("aoi_part_1", "aoi_part_2"):
+        gpkg = tmp_path / f"{part_id}.gpkg"
+        gpkg.write_bytes(b"gpkg")
+        part_files.append(OperatorArtifact(
+            registry="provincial", operator="polygon_overlay",
+            dataset_name="Parks", path=gpkg, part_id=part_id,
+        ))
+
+    publisher.publish_job_results(
+        job_id=UUID("12345678-1234-5678-1234-567812345678"),
+        user="tester",
+        created_at="2026-09-25T10:00:00Z",
+        completed_at="2026-09-25T10:01:00Z",
+        execution_time=60,
+        status="COMPLETED",
+        engine_version="0.1.0",
+        raw_results_json=raw_results,
+        operator_outputs=part_files,
+    )
+
+    # put_file(path, relative_key, ...): one upload per part, each to its own key,
+    # named after the dataset and the part
+    keys = [call.args[1] for call in mock_writer.put_file.call_args_list]
+    assert [key for key in keys if key.endswith(".gpkg")] == [
+        "data/provincial/polygon_overlay/Parks_aoi_part_1.gpkg",
+        "data/provincial/polygon_overlay/Parks_aoi_part_2.gpkg",
+    ]
+    # and one manifest entry per part
+    manifest = json.loads(mock_writer.put_text.call_args.args[0])
+    gpkg_entries = [name for name in manifest["artifacts"] if name.startswith("gpkg_")]
+    assert len(gpkg_entries) == 2
