@@ -55,18 +55,20 @@ def main() -> None:
         required=False,
     )
     args = parser.parse_args()
-    print(args)
+    # logger.info(f"Command line arguments: {args}")
     if args.output is not None:
+        logger.info(f"Using output folder from command line: {args.output}")
         output_dir = args.output
     elif settings.registry_output_path is not None:
+        logger.info(f"Using registry output path from settings: {settings.registry_output_path}")
         output_dir = settings.registry_output_path
     else:
         output_dir = "ast_engine/tests/registry"
-        print(f"No output folder specified, defaulting to {output_dir}")
+        logger.info(f"No output folder specified, defaulting to {output_dir}")
     folder_path = None
     folder_path = args.input if args.input is not None else settings.registry_spreadsheet_path
     if folder_path is not None:
-        print(f"Using folder path: {folder_path}")
+        logger.info(f"Using folder path: {folder_path}")
         spreadsheet_io = {
             f"{folder_path}/{xlsx}": f"{output_dir}/{xlsx.replace('.xlsx', '.yaml')}"
             for xlsx in os.listdir(folder_path)
@@ -83,12 +85,13 @@ def main() -> None:
             args.file: f"{output_dir}/{Path(args.file).stem}.yaml"
         }
     else: # demo mode
-        print("No parameters provided. Running in demo mode")
+        logger.info("No parameters provided. Running in demo mode")
         spreadsheet_io = {
             "ast_engine/tests/registry/Test_Registry.xlsx":"ast_engine/tests/registry/Test_Registry.yaml",
             "ast_engine/tests/registry/Test_Registry_2.xlsx":"ast_engine/tests/registry/Test_Registry_2.yaml",
         }
-    print(f"Spreadsheet I/O mapping: {spreadsheet_io}")
+    logger.info(f"Spreadsheet I/O mapping: {spreadsheet_io}")
+    print("\n")
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
