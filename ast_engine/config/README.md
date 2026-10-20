@@ -40,16 +40,32 @@ If you do not, then enrichment will not work correctly.
 run `spreadsheet_ingestion.py`. This will run through the test spreadsheets and generate data registries appropriate for your operating system.
 
 To run `spreadsheet_ingestion.py` in demo mode, run the script without any arguments. This will convert the sample spreadsheets in the repository.
+
+#### Running with arguments
 To run on production datasets you can use the following arguments:
 
 > -i or --input: Specify a directory containing .xlsx files.\
 > -f or --file: Specify a single .xlsx file.\
 > -o or --output: Specify the folder to save the registry to.
 
+#### Running with an env file
+Create an `.env` file in the project root (NOT ast_engine). spreadsheet_ingestion will use the following settings:
+
+```
+oracle_host=****
+oracle_database=****
+oracle_port=****
+oracle_user=****
+oracle_password=****
+
+registry_spreadsheet_path=****
+registry_output_path=****
+```
 
 ## How it works
 
 ### Configuration
+* `.env` contains oracle and registry related methods
 * `drive_map.conf` contains the drive mappings required for linux
 
 ### Inputs
