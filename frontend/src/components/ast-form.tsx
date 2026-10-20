@@ -8,15 +8,9 @@ import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FC } from "react";
 // Ready-made form pieces from the BC Government design system.
 import { Button, Switch, Select, Radio, RadioGroup, TextField } from "@bcgov/design-system-react-components";
+import type { TantalisIdentifiers } from "../types/tantalis";
 // Styles for this form.
 import "./ast-form.scss";
-
-// The three TANTALIS identifiers. All values are kept as text (strings) in the app.
-interface TantalisIdentifiers {
-  fileNumber: string;
-  dispositionId: string;
-  parcelId: string;
-}
 
 // A shape clicked on the map, passed down from LandingPage.
 // clickedAt makes each click count as new, even if the same shape is clicked twice.
@@ -231,19 +225,15 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
             />
 
             <div className="tantalis-preview-row">
-              {/* Sends the three identifiers to the map. type="button" so it never submits the form. */}
               <button type="button" className="tantalis-preview-link" onClick={handleViewTantalisInMap}>
                 View shape on map
               </button>
-
-              {/* Message under the button. Only shown when there is one.
-                  role="status" lets screen readers announce it. */}
-              {previewMessage && (
-                <p className="tantalis-preview-message" role="status" aria-live="polite">
-                  {previewMessage}
-                </p>
-              )}
             </div>
+            {previewMessage && (
+              <p className="tantalis-preview-message" role="status" aria-live="polite">
+                {previewMessage}
+              </p>
+            )}
           </div>
         </div>
 
@@ -263,7 +253,6 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
               {/* Name of the chosen file. Only shown once a file is picked. */}
               {inputs.uploadFile && <span className="upload-file-name">{inputs.uploadFile.name}</span>}
             </div>
-
             {/* Remove button. Only shown once a file is picked. */}
             {inputs.uploadFile && (
               <button type="button" onClick={handleRemoveFile}>
