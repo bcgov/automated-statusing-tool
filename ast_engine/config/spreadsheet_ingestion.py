@@ -24,6 +24,7 @@ import logging
 
 from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.registry import enrichment, utils, models
+from ast_engine.config.settings import Settings
 from ast_engine.core.data_adapters.oracle import OracleConnection
 from ast_engine.core.data_adapters.exceptions import DataAdapterError
 
@@ -31,6 +32,8 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 def main() -> None:
+
+    settings = Settings()
     parser = argparse.ArgumentParser(
         description="Build a dataset registry from an input spreadsheet."
     )
@@ -55,17 +58,22 @@ def main() -> None:
     print(args)
     if args.output is not None:
         output_dir = args.output
+    elif settings.registry_output_path is not None:
+        output_dir = settings.registry_output_path
     else:
         output_dir = "ast_engine/tests/registry"
         print(f"No output folder specified, defaulting to {output_dir}")
-    if args.input is not None:
+    folder_path = None
+    folder_path = args.input if args.input is not None else settings.registry_spreadsheet_path
+    if folder_path is not None:
+        print(f"Using folder path: {folder_path}")
         spreadsheet_io = {
-            f"{args.input}/{xlsx}": f"{output_dir}/{xlsx.replace('.xlsx', '.yaml')}"
-            for xlsx in os.listdir(args.input)
+            f"{folder_path}/{xlsx}": f"{output_dir}/{xlsx.replace('.xlsx', '.yaml')}"
+            for xlsx in os.listdir(folder_path)
             if xlsx.endswith(".xlsx")
         }
         if len(spreadsheet_io) == 0:
-            raise FileNotFoundError(f"No .xlsx files found in {args.input}")
+            raise FileNotFoundError(f"No .xlsx files found in {folder_path}")
     elif args.file is not None:
         if not os.path.isfile(args.file):
             raise FileNotFoundError(f"File not found: {args.file}")
