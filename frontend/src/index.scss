@@ -418,23 +418,23 @@ select {
 }
 
 .map-basemap-wrap,
-.map-layers-wrap,
-.map-layer-query-wrap {
+.map-layers-wrap {
   display: contents;
 }
 
 // Popups connect to the ribbon and stay inside the map on narrow or short views.
 .basemap-panel,
-.map-layer-panel,
-.map-query-panel {
+.map-layer-panel {
   position: absolute;
   z-index: 1;
   top: 100%;
   left: 0;
-  width: min(320px, calc(100cqw - 20px));
+  width: min(360px, calc(100vw - 20px));
   max-width: calc(100vw - 20px);
-  max-height: min(62vh, 300px, calc(100cqh - 100px));
-  overflow: auto;
+  max-height: min(70vh, 380px, calc(100dvh - 120px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 9px;
   border: 2px solid var(--bc-blue);
   border-top: 0;
@@ -540,27 +540,20 @@ select {
 }
 
 .map-layer-style-select {
-  flex: 0 1 126px;
-  width: 126px;
-  min-width: 80px;
-  padding: 3px 18px 3px 5px;
-  border: 1px solid rgba(15, 23, 42, 0.28);
-  border-radius: 4px;
-  background: var(--white);
-  color: var(--text);
-  font: inherit;
-  font-size: 9px;
+  grid-column: 1;
 }
 
 .map-layer-filter-row {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
-  margin: 0 0 5px 24px;
+  margin: 4px 0 6px 24px;
 }
 
 .map-layer-filter-row select,
 .map-layer-filter-row input {
+  width: 100%;
+  height: 26px;
   min-width: 0;
   padding: 3px 5px;
   border: 1px solid rgba(15, 23, 42, 0.28);
@@ -571,40 +564,43 @@ select {
   font-size: 9px;
 }
 
-.map-layer-filter-row select {
-  flex: 1 1 auto;
-}
-
-.map-layer-filter-row input {
-  flex: 0 1 78px;
-  width: 78px;
+.map-layer-filter-row input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .map-layer-filter-submit {
-  flex: 0 0 auto;
-  padding: 3px 5px;
-  border: 1px solid rgba(15, 23, 42, 0.28);
-  border-radius: 4px;
-  background: var(--white);
-  color: var(--text);
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #0053a4;
   font: inherit;
   font-size: 9px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease;
+}
+
+.map-layer-filter-submit:hover:not(:disabled),
+.map-layer-filter-submit:focus-visible {
+  background: transparent;
+  color: #003366;
+  opacity: 0.9;
 }
 
 .map-layer-filter-submit:disabled {
   cursor: not-allowed;
   opacity: 0.5;
-}
-
-.map-query-panel {
-  font-size: 11px;
-}
-
-.map-query-panel > strong {
-  display: block;
-  margin-bottom: 10px;
-  font-size: 12px;
 }
 
 .map-layer-control {
@@ -853,8 +849,8 @@ select {
   }
 
   .basemap-panel,
-  .map-layer-panel,
-  .map-query-panel {
-    max-height: min(40vh, 240px);
+  .map-layer-panel {
+    width: min(360px, calc(100vw - 20px));
+    max-height: min(70dvh, 380px, calc(100dvh - 100px));
   }
 }
