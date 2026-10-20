@@ -1,0 +1,8205 @@
+version: '0.1'
+os: posix
+date: '2026-09-25 10:30:22'
+id: 0a902de4-a372-4700-9376-db2128113cf5
+datasets:
+- name: Crossed by River or Creek FWA
+  datasource: whse_basemapping.fwa_stream_networks_sp
+  definition_query: null
+  aggregate_columns:
+  - GNIS_NAME
+  - STREAM_ORDER
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 82acd126-57a8-47e4-9173-b82d56330bcf
+  columns:
+  - BLUE_LINE_KEY
+  - WATERSHED_KEY
+  - FWA_WATERSHED_CODE
+  - LOCAL_WATERSHED_CODE
+  - WATERSHED_GROUP_CODE
+  - DOWNSTREAM_ROUTE_MEASURE
+  - LENGTH_METRE
+  - FEATURE_SOURCE
+  - GNIS_ID
+  - GNIS_NAME
+  - LEFT_RIGHT_TRIBUTARY
+  - STREAM_ORDER
+  - STREAM_MAGNITUDE
+  - WATERBODY_KEY
+  - BLUE_LINE_KEY_50K
+  - WATERSHED_CODE_50K
+  - WATERSHED_KEY_50K
+  - WATERSHED_GROUP_CODE_50K
+  - GRADIENT
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  - LINEAR_FEATURE_ID
+  - WATERSHED_GROUP_ID
+  - EDGE_TYPE
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 4911340
+- name: Crossed by River or Creek TRIM
+  datasource: whse_basemapping.trim_water_lines
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 003966dd-f267-4257-8d0b-7524d8203495
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  - FCODE
+  - ELEVATION
+  - ADMIT_YEAR
+  - ADMIT_MNTH
+  - ADMIT_DAY
+  - ASRC_YEAR
+  - ASRC_MNTH
+  - ASRC_DAY
+  - ADMIT_RFC
+  - ADMIT_SREL
+  - ADMIT_RKEY
+  - RETIR_YEAR
+  - RETIR_MNTH
+  - RETIR_DAY
+  - RSRC_YEAR
+  - RSRC_MNTH
+  - RSRC_DAY
+  - RETIR_RFC
+  - RETIR_SREL
+  - RETIR_RKEY
+  - X_LEVEL
+  - X_REASON
+  - X_SUPPLIER
+  - X_CAPTURE
+  - X_ACCURACY
+  - BCGS_TILE
+  - SOURCE_ID
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 12823050
+- name: Crossed by Road or Highway DRA
+  datasource: whse_basemapping.dra_dgtl_road_atlas_mpar_sp
+  definition_query: null
+  aggregate_columns:
+  - ROAD_NAME_FULL
+  - FEATURE_TYPE
+  - ROAD_NAME_ALIAS1
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2413fefe-7c44-49eb-b396-a553cea5b65e
+  columns:
+  - DIGITAL_ROAD_ATLAS_LINE_ID
+  - FEATURE_TYPE
+  - HIGHWAY_EXIT_NUMBER
+  - HIGHWAY_ROUTE_NUMBER
+  - SEGMENT_LENGTH_2D
+  - SEGMENT_LENGTH_3D
+  - ROAD_NAME_ALIAS1
+  - ROAD_NAME_ALIAS2
+  - ROAD_NAME_ALIAS3
+  - ROAD_NAME_ALIAS4
+  - ROAD_NAME_FULL
+  - ROAD_SURFACE
+  - ROAD_CLASS
+  - NUMBER_OF_LANES
+  - DATA_CAPTURE_DATE
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2048780
+- name: Crossed by FSR or Permit Roads
+  datasource: whse_forest_tenure.ften_road_section_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - ROAD_SECTION_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2720cd28-b391-43ae-8e77-365d16a66b1a
+  columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - FEATURE_CLASS_SKEY
+  - ROAD_SECTION_NAME
+  - ROAD_SECTION_LENGTH
+  - RETIREMENT_DATE
+  - SECTION_WIDTH
+  - FEATURE_LENGTH
+  - AMENDMENT_ID
+  - FILE_STATUS_CODE
+  - FILE_TYPE_CODE
+  - FILE_TYPE_DESCRIPTION
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - AWARD_DATE
+  - EXPIRY_DATE
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - LOCATION
+  - LIFE_CYCLE_STATUS_CODE
+  - MAP_LABEL
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 285829
+- name: Crossed by FSR or Permit Roads within right of way allowance
+  datasource: whse_forest_tenure.ften_road_section_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - ROAD_SECTION_NAME
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 38.0
+  unique_id: OBJECTID
+  id: 764e446c-eca7-4ca7-8ffa-667b6657adf7
+  columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - FEATURE_CLASS_SKEY
+  - ROAD_SECTION_NAME
+  - ROAD_SECTION_LENGTH
+  - RETIREMENT_DATE
+  - SECTION_WIDTH
+  - FEATURE_LENGTH
+  - AMENDMENT_ID
+  - FILE_STATUS_CODE
+  - FILE_TYPE_CODE
+  - FILE_TYPE_DESCRIPTION
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - AWARD_DATE
+  - EXPIRY_DATE
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - LOCATION
+  - LIFE_CYCLE_STATUS_CODE
+  - MAP_LABEL
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 285829
+- name: Crossed by Surveyed Right of way
+  datasource: whse_tantalis.ta_surveyed_row_parcels_svw
+  definition_query: null
+  aggregate_columns:
+  - PARCEL_LEGAL_DESCRIPTION
+  - PIN_SID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: d8b9b31e-6a05-45cf-bcef-c81fe4e8c83a
+  columns:
+  - PIN_SID
+  - SURVPARC_TYPE_CDE
+  - LAND_TITLE_OFFICE_IDENTIFIER
+  - PARCEL_TYPE
+  - ACT_GOVERNING_PARCEL_SURVEY
+  - PARCEL_SHORT_DESCRIPTION
+  - PARCEL_LEGAL_DESCRIPTION
+  - PRIMARY_PARCEL_OF_SUBDIV
+  - SURVEYOR_GENERAL_PLAN_NO
+  - PARCEL_AREA_DERIVATION
+  - PARCEL_AREA_IN_HECTARES
+  - STATE_OF_PARCEL_SURVEY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 20890
+- name: Crossed by Right of way
+  datasource: whse_tantalis.ta_crown_rights_of_way_svw
+  definition_query: null
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_PURPOSE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 1a3b2c72-2d26-4df0-b6d2-51e6141a9e35
+  columns:
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - INTRID_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - DISPOSITION_TRANSACTION_SID
+  - CODE_CHR_STAGE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 29712
+- name: Crossed by Railway Tracks
+  datasource: whse_basemapping.gba_railway_tracks_sp
+  definition_query: null
+  aggregate_columns:
+  - OWNER_NAME
+  - TRACK_USER1_ENGLISH_NAME
+  - TRACK_USER2_ENGLISH_NAME
+  - TRACK_USER3_ENGLISH_NAME
+  - TRACK_CLASSIFICATION
+  - USE_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6bcdb2f5-00f4-478f-a710-44a9c4660ec4
+  columns:
+  - TRANSPORT_TYPE
+  - USE_TYPE
+  - GAUGE
+  - NUMBER_OF_TRACKS
+  - ELECTRIFICATION
+  - STATUS
+  - DESIGN_SPEED_FREIGHT
+  - DESIGN_SPEED_PASSENGER
+  - SOURCE_ID
+  - OPERATOR_ENGLISH_NAME
+  - OPERATOR_SUBDIV_PORTION_START
+  - OPERATOR_SUBDIV_PORTION_END
+  - OWNER_NAME
+  - TRACK_USER1_ENGLISH_NAME
+  - TRACK_USER2_ENGLISH_NAME
+  - TRACK_USER3_ENGLISH_NAME
+  - TRACK_USER4_ENGLISH_NAME
+  - SUBDIVISION1_NID
+  - SUBDIVISION1_NAME
+  - SUBDIVISION1_START
+  - SUBDIVISION1_END
+  - SUBDIVISION2_NID
+  - SUBDIVISION2_NAME
+  - SUBDIVISION2_START
+  - SUBDIVISION2_END
+  - ADMINISTRATIVE_AREA
+  - STANDARDS_VERSION
+  - SECURITY_CLASSIFICATION
+  - GEOMETRY_CREATION_DATE
+  - GEOMETRY_REVISION_DATE
+  - GEOMETRY_ACQUISITION_TECHNQUE
+  - GEOMETRY_PLANIMETRIC_ACCURACY
+  - GEOMETRY_PROVIDER
+  - ATTRIBUTE_CREATION_DATE
+  - ATTRIBUTE_REVISION_DATE
+  - ATTRIBUTE_ACQUISITION_TECHNQUE
+  - ATTRIBUTE_PROVIDER
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  - RAILWAY_TRACK_ID
+  - NID
+  - TRACK_SEGMENT_ID
+  - TRACK_NAME
+  - TRACK_CLASSIFICATION
+  - REGULATOR
+  geom_column: SHAPE
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 10050
+- name: Crossed by Railway Crossings
+  datasource: whse_basemapping.gba_railway_crossings_sp
+  definition_query: null
+  aggregate_columns:
+  - LEVEL_OF_CROSSING
+  - CROSSING_TYPE
+  - WARNING_SYSTEM
+  - FUNCTIONAL_ROAD_CLASSIFICATION
+  - CROSSING_TYPE_NAME
+  - CROSSING_ACCESSIBILITY
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 44be0c64-2798-4062-93ee-536dfdc81d35
+  columns:
+  - RAILWAY_CROSSING_ID
+  - NID
+  - CROSSING_ID
+  - LEVEL_OF_CROSSING
+  - CROSSING_TYPE
+  - WARNING_SYSTEM
+  - FUNCTIONAL_ROAD_CLASSIFICATION
+  - CROSSING_TYPE_NAME
+  - ROUTE_NUMBER
+  - CROSSING_ACCESSIBILITY
+  - TCID
+  - TRACK_NID
+  - TRACK_NAME
+  - TRACK_CLASSIFICATION
+  - SUBDIVISION1_NID
+  - SUBDIVISION1_NAME
+  - SUBDIVISION1_DISTANCE
+  - SUBDIVISION1_DISTANCE_TYPE
+  - SUBDIVISION2_NID
+  - SUBDIVISION2_NAME
+  - SUBDIVISION2_DISTANCE
+  - SUBDIVISION2_DISTANCE_TYPE
+  - ADMINISTRATIVE_AREA
+  - STANDARDS_VERSION
+  - SECURITY_CLASSIFICATION
+  - GEOMETRY_CREATION_DATE
+  - GEOMETRY_REVISION_DATE
+  - GEOMETRY_ACQUISITION_TECHNQUE
+  - GEOMETRY_PLANIMETRIC_ACCURACY
+  - GEOMETRY_PROVIDER
+  - ATTRIBUTE_CREATION_DATE
+  - ATTRIBUTE_REVISION_DATE
+  - ATTRIBUTE_ACQUISITION_TECHNQUE
+  - ATTRIBUTE_PROVIDER
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 6524
+- name: Adjoined by River or Creek FWA
+  datasource: whse_basemapping.fwa_stream_networks_sp
+  definition_query: null
+  aggregate_columns:
+  - GNIS_NAME
+  - STREAM_ORDER
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 5abe23a3-1e4e-461b-b8be-08e44c8080ec
+  columns:
+  - BLUE_LINE_KEY
+  - WATERSHED_KEY
+  - FWA_WATERSHED_CODE
+  - LOCAL_WATERSHED_CODE
+  - WATERSHED_GROUP_CODE
+  - DOWNSTREAM_ROUTE_MEASURE
+  - LENGTH_METRE
+  - FEATURE_SOURCE
+  - GNIS_ID
+  - GNIS_NAME
+  - LEFT_RIGHT_TRIBUTARY
+  - STREAM_ORDER
+  - STREAM_MAGNITUDE
+  - WATERBODY_KEY
+  - BLUE_LINE_KEY_50K
+  - WATERSHED_CODE_50K
+  - WATERSHED_KEY_50K
+  - WATERSHED_GROUP_CODE_50K
+  - GRADIENT
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  - LINEAR_FEATURE_ID
+  - WATERSHED_GROUP_ID
+  - EDGE_TYPE
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 4911340
+- name: Adjoined by River or Creek TRIM
+  datasource: whse_basemapping.trim_water_lines
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 334d63d3-634b-489b-b28f-ba8f696333e2
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  - FCODE
+  - ELEVATION
+  - ADMIT_YEAR
+  - ADMIT_MNTH
+  - ADMIT_DAY
+  - ASRC_YEAR
+  - ASRC_MNTH
+  - ASRC_DAY
+  - ADMIT_RFC
+  - ADMIT_SREL
+  - ADMIT_RKEY
+  - RETIR_YEAR
+  - RETIR_MNTH
+  - RETIR_DAY
+  - RSRC_YEAR
+  - RSRC_MNTH
+  - RSRC_DAY
+  - RETIR_RFC
+  - RETIR_SREL
+  - RETIR_RKEY
+  - X_LEVEL
+  - X_REASON
+  - X_SUPPLIER
+  - X_CAPTURE
+  - X_ACCURACY
+  - BCGS_TILE
+  - SOURCE_ID
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 12823050
+- name: Adjoined by Highway DRA
+  datasource: whse_basemapping.dra_dgtl_road_atlas_mpar_sp
+  definition_query: HIGHWAY_ROUTE_NUMBER IS NOT NULL
+  aggregate_columns:
+  - ROAD_NAME_FULL
+  - ROAD_NAME_ALIAS1
+  where:
+    conditions:
+    - field: HIGHWAY_ROUTE_NUMBER
+      op: is_not_null
+      value: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: c8cd2d46-36f2-418f-9350-ded7cc9441b6
+  columns:
+  - DIGITAL_ROAD_ATLAS_LINE_ID
+  - FEATURE_TYPE
+  - HIGHWAY_EXIT_NUMBER
+  - HIGHWAY_ROUTE_NUMBER
+  - SEGMENT_LENGTH_2D
+  - SEGMENT_LENGTH_3D
+  - ROAD_NAME_ALIAS1
+  - ROAD_NAME_ALIAS2
+  - ROAD_NAME_ALIAS3
+  - ROAD_NAME_ALIAS4
+  - ROAD_NAME_FULL
+  - ROAD_SURFACE
+  - ROAD_CLASS
+  - NUMBER_OF_LANES
+  - DATA_CAPTURE_DATE
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2048780
+- name: Adjoined by Road DRA
+  datasource: whse_basemapping.dra_dgtl_road_atlas_mpar_sp
+  definition_query: HIGHWAY_ROUTE_NUMBER IS NULL
+  aggregate_columns:
+  - FEATURE_TYPE
+  - ROAD_NAME_FULL
+  - ROAD_NAME_ALIAS1
+  where:
+    conditions:
+    - field: HIGHWAY_ROUTE_NUMBER
+      op: is_null
+      value: null
+  operator:
+    type: within_distance
+    distance_m: 35.0
+  unique_id: OBJECTID
+  id: db38ef32-f9ba-4129-a116-3e9c9f94cb55
+  columns:
+  - DIGITAL_ROAD_ATLAS_LINE_ID
+  - FEATURE_TYPE
+  - HIGHWAY_EXIT_NUMBER
+  - HIGHWAY_ROUTE_NUMBER
+  - SEGMENT_LENGTH_2D
+  - SEGMENT_LENGTH_3D
+  - ROAD_NAME_ALIAS1
+  - ROAD_NAME_ALIAS2
+  - ROAD_NAME_ALIAS3
+  - ROAD_NAME_ALIAS4
+  - ROAD_NAME_FULL
+  - ROAD_SURFACE
+  - ROAD_CLASS
+  - NUMBER_OF_LANES
+  - DATA_CAPTURE_DATE
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2048780
+- name: Adjoined by FSR or Permit Roads
+  datasource: whse_forest_tenure.ften_road_section_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - ROAD_SECTION_NAME
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: a9a89adf-2337-48c8-aa5c-01be613c0629
+  columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - FEATURE_CLASS_SKEY
+  - ROAD_SECTION_NAME
+  - ROAD_SECTION_LENGTH
+  - RETIREMENT_DATE
+  - SECTION_WIDTH
+  - FEATURE_LENGTH
+  - AMENDMENT_ID
+  - FILE_STATUS_CODE
+  - FILE_TYPE_CODE
+  - FILE_TYPE_DESCRIPTION
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - AWARD_DATE
+  - EXPIRY_DATE
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - LOCATION
+  - LIFE_CYCLE_STATUS_CODE
+  - MAP_LABEL
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 285829
+- name: Adjoined by Surveyed Right of way
+  datasource: whse_tantalis.ta_surveyed_row_parcels_svw
+  definition_query: null
+  aggregate_columns:
+  - PARCEL_LEGAL_DESCRIPTION
+  - PIN_SID
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 017b5640-a6f7-4f13-8f3e-fdb50fa1be71
+  columns:
+  - PIN_SID
+  - SURVPARC_TYPE_CDE
+  - LAND_TITLE_OFFICE_IDENTIFIER
+  - PARCEL_TYPE
+  - ACT_GOVERNING_PARCEL_SURVEY
+  - PARCEL_SHORT_DESCRIPTION
+  - PARCEL_LEGAL_DESCRIPTION
+  - PRIMARY_PARCEL_OF_SUBDIV
+  - SURVEYOR_GENERAL_PLAN_NO
+  - PARCEL_AREA_DERIVATION
+  - PARCEL_AREA_IN_HECTARES
+  - STATE_OF_PARCEL_SURVEY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 20890
+- name: Adjoined by Right of way
+  datasource: whse_tantalis.ta_crown_rights_of_way_svw
+  definition_query: null
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_PURPOSE
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: d84b8a66-b982-41b8-8217-49f6d1e965fd
+  columns:
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - INTRID_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - DISPOSITION_TRANSACTION_SID
+  - CODE_CHR_STAGE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 29712
+- name: Adjoined by Transportation Corridors
+  datasource: whse_tantalis.temp_transport
+  definition_query: null
+  aggregate_columns:
+  - SYMBOL_TYPE
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 6014ad91-8c32-4a0c-825f-d0d381726826
+  columns:
+  - SURV_RW_SID
+  - TRANSACTION_SID
+  - SPATIAL_LOCK_NUM
+  - SPATIAL_CAPT_CDE
+  - TMP_PIN_CHR
+  - TMP_FILE_CHR
+  - TMP_DESCRIPT_CHR
+  - CCOG_CHR
+  - SYMBOL_TYPE
+  - SDGW_SRC_FID
+  - SDGW_REPL_TIME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 11200
+- name: Adjoined by Railway Tracks
+  datasource: whse_basemapping.gba_railway_tracks_sp
+  definition_query: null
+  aggregate_columns:
+  - OWNER_NAME
+  - TRACK_USER1_ENGLISH_NAME
+  - TRACK_USER2_ENGLISH_NAME
+  - TRACK_USER3_ENGLISH_NAME
+  - TRACK_CLASSIFICATION
+  - USE_TYPE
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 4b96196b-8fdf-4567-ab8f-e3118a6fa9b4
+  columns:
+  - TRANSPORT_TYPE
+  - USE_TYPE
+  - GAUGE
+  - NUMBER_OF_TRACKS
+  - ELECTRIFICATION
+  - STATUS
+  - DESIGN_SPEED_FREIGHT
+  - DESIGN_SPEED_PASSENGER
+  - SOURCE_ID
+  - OPERATOR_ENGLISH_NAME
+  - OPERATOR_SUBDIV_PORTION_START
+  - OPERATOR_SUBDIV_PORTION_END
+  - OWNER_NAME
+  - TRACK_USER1_ENGLISH_NAME
+  - TRACK_USER2_ENGLISH_NAME
+  - TRACK_USER3_ENGLISH_NAME
+  - TRACK_USER4_ENGLISH_NAME
+  - SUBDIVISION1_NID
+  - SUBDIVISION1_NAME
+  - SUBDIVISION1_START
+  - SUBDIVISION1_END
+  - SUBDIVISION2_NID
+  - SUBDIVISION2_NAME
+  - SUBDIVISION2_START
+  - SUBDIVISION2_END
+  - ADMINISTRATIVE_AREA
+  - STANDARDS_VERSION
+  - SECURITY_CLASSIFICATION
+  - GEOMETRY_CREATION_DATE
+  - GEOMETRY_REVISION_DATE
+  - GEOMETRY_ACQUISITION_TECHNQUE
+  - GEOMETRY_PLANIMETRIC_ACCURACY
+  - GEOMETRY_PROVIDER
+  - ATTRIBUTE_CREATION_DATE
+  - ATTRIBUTE_REVISION_DATE
+  - ATTRIBUTE_ACQUISITION_TECHNQUE
+  - ATTRIBUTE_PROVIDER
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  - RAILWAY_TRACK_ID
+  - NID
+  - TRACK_SEGMENT_ID
+  - TRACK_NAME
+  - TRACK_CLASSIFICATION
+  - REGULATOR
+  geom_column: SHAPE
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 10050
+- name: Adjoined by Railway Crossings
+  datasource: whse_basemapping.gba_railway_crossings_sp
+  definition_query: null
+  aggregate_columns:
+  - LEVEL_OF_CROSSING
+  - CROSSING_TYPE
+  - WARNING_SYSTEM
+  - FUNCTIONAL_ROAD_CLASSIFICATION
+  - CROSSING_TYPE_NAME
+  - CROSSING_ACCESSIBILITY
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 1119c8f6-62ec-448c-9009-26a751c50ed9
+  columns:
+  - RAILWAY_CROSSING_ID
+  - NID
+  - CROSSING_ID
+  - LEVEL_OF_CROSSING
+  - CROSSING_TYPE
+  - WARNING_SYSTEM
+  - FUNCTIONAL_ROAD_CLASSIFICATION
+  - CROSSING_TYPE_NAME
+  - ROUTE_NUMBER
+  - CROSSING_ACCESSIBILITY
+  - TCID
+  - TRACK_NID
+  - TRACK_NAME
+  - TRACK_CLASSIFICATION
+  - SUBDIVISION1_NID
+  - SUBDIVISION1_NAME
+  - SUBDIVISION1_DISTANCE
+  - SUBDIVISION1_DISTANCE_TYPE
+  - SUBDIVISION2_NID
+  - SUBDIVISION2_NAME
+  - SUBDIVISION2_DISTANCE
+  - SUBDIVISION2_DISTANCE_TYPE
+  - ADMINISTRATIVE_AREA
+  - STANDARDS_VERSION
+  - SECURITY_CLASSIFICATION
+  - GEOMETRY_CREATION_DATE
+  - GEOMETRY_REVISION_DATE
+  - GEOMETRY_ACQUISITION_TECHNQUE
+  - GEOMETRY_PLANIMETRIC_ACCURACY
+  - GEOMETRY_PROVIDER
+  - ATTRIBUTE_CREATION_DATE
+  - ATTRIBUTE_REVISION_DATE
+  - ATTRIBUTE_ACQUISITION_TECHNQUE
+  - ATTRIBUTE_PROVIDER
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 6524
+- name: Indian Reserves
+  datasource: whse_admin_boundaries.clab_indian_reserves
+  definition_query: null
+  aggregate_columns:
+  - ENGLISH_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2a86d635-9a66-4edd-bcbf-ac3b55326ced
+  columns:
+  - CLAB_ID
+  - ABSOLUTE_ACCURACY
+  - ENGLISH_NAME
+  - FRENCH_NAME
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1588
+- name: IR within 2 km
+  datasource: whse_admin_boundaries.adm_indian_reserves_bands_sp
+  definition_query: null
+  aggregate_columns:
+  - ENGLISH_NAME
+  - BAND_NAME
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 2000.0
+  unique_id: OBJECTID
+  id: 70f931ec-192d-4fbb-a122-6b4a790275b4
+  columns:
+  - CLAB_ID
+  - ENGLISH_NAME
+  - FRENCH_NAME
+  - ABSOLUTE_ACCURACY
+  - BAND_NUMBER
+  - BAND_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1652
+- name: National Park
+  datasource: whse_admin_boundaries.clab_national_parks
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 23221d0c-4c98-4651-a5c5-68e4748c04ac
+  columns:
+  - NATIONAL_PARK_ID
+  - CLAB_ID
+  - ENGLISH_NAME
+  - FRENCH_NAME
+  - LOCAL_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 102
+- name: Park and Protected Areas
+  datasource: whse_tantalis.ta_park_ecores_pa_svw
+  definition_query: null
+  aggregate_columns:
+  - PROTECTED_LANDS_DESIGNATION
+  - PROTECTED_LANDS_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: d2543383-94b8-429d-bbfd-bdbf9c3293c2
+  columns:
+  - ADMIN_AREA_SID
+  - PROTECTED_LANDS_NAME
+  - PROTECTED_LANDS_CODE
+  - PROTECTED_LANDS_DESIGNATION
+  - PARK_CLASS
+  - SURVEYOR_GENERAL_PLAN_NO
+  - ORCS_PRIMARY
+  - ORCS_SECONDARY
+  - ESTABLISHMENT_DATE
+  - OFFICIAL_AREA_HA
+  - PARK_MANAGEMENT_PLAN_URL
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 930
+- name: Conservancy Areas
+  datasource: whse_tantalis.ta_conservancy_areas_svw
+  definition_query: null
+  aggregate_columns:
+  - CONSERVANCY_AREA_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 7cca82ce-4af7-4c55-917d-b6ae06ecb5fd
+  columns:
+  - ADMIN_AREA_SID
+  - CONSERVANCY_AREA_NAME
+  - ORCS_PRIMARY
+  - ORCS_SECONDARY
+  - ESTABLISHMENT_DATE
+  - OFFICIAL_AREA_HA
+  - PARK_MANAGEMENT_PLAN_URL
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 169
+- name: Conservation Lands including Wildlife Managment Areas
+  datasource: whse_legal_admin_boundaries.wcl_conservation_lands_sp
+  definition_query: null
+  aggregate_columns:
+  - SITE_NAME
+  - CONSERVATION_LAND_TYPE
+  - TENURE_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 5d452667-e491-4065-a8d6-981f105a1312
+  columns:
+  - CONSERVATION_LAND_ID
+  - SITE_NAME
+  - SITE_NUMBER
+  - CONSERVATION_LAND_TYPE
+  - TENURE_TYPE
+  - TENURE_DESCRIPTION
+  - LEGAL_DESCRIPTION
+  - TANTALIS_LANDS_FILE_NUMBER
+  - TENURE_AREA_IN_HECTARES
+  - PID
+  - LAND_TITLE
+  - PIN
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1040
+- name: NGO Conservation Areas
+  datasource: whse_legal_admin_boundaries.wcl_conservation_areas_ngo_sp
+  definition_query: null
+  aggregate_columns:
+  - CID_PCL
+  - PROJECT_NAME
+  - LEAD_SECUREMENT_ORG
+  - GENERAL_SECUREMENT_TYPE
+  - SPECIFIC_SECUREMENT_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 40393ca0-2846-4e7e-b7ee-caf8a931a7a0
+  columns:
+  - CONSERVATION_AREAS_NGO_ID
+  - CID_PCL
+  - PROJECT_NAME
+  - DATA_SOURCE
+  - SOURCE_DATE
+  - ACCURACY
+  - LEAD_SECUREMENT_ORG
+  - GENERAL_SECUREMENT_TYPE
+  - SPECIFIC_SECUREMENT_TYPE
+  - SECUREMENT_DATE
+  - PUBLIC_ACCESS_INSTRUCTION
+  - AREA_HECTARES
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1260
+- name: Consultative Areas
+  datasource: whse_admin_boundaries.pip_consultation_areas_sp
+  definition_query: null
+  aggregate_columns:
+  - CNSLTN_AREA_NAME
+  - CONTACT_ORGANIZATION_NAME
+  - CONTACT_TYPE
+  - CONTACT_TITLE
+  - CONTACT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: a070ca91-3266-43e5-8d56-1853b591cefd
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - CNSLTN_AREA_GUID
+  - CNSLTN_AREA_LABEL
+  - CNSLTN_AREA_NAME
+  - ORGANIZATION_GUID
+  - ORGANIZATION_TYPE
+  - CNSLTN_AREA_MAPSOURCE
+  - CNSLTN_AREA_VERIFIED_IND
+  - CNSLTN_AREA_LOW_CONFIDENCE_IND
+  - CNSLTN_AREA_SENSITIVITY
+  - CNSLTN_AREA_ASSERTED_AGG_IND
+  - CNSLTN_AREA_UPDATE_DATE
+  - CONTACT_GUID
+  - CONTACT_UPDATE_DATE
+  - CONTACT_TYPE
+  - CONTACT_NAME
+  - CONTACT_TITLE
+  - CONTACT_ORGANIZATION_NAME
+  - CONTACT_ADDRESS
+  - CONTACT_CITY
+  - CONTACT_PROVINCE
+  - CONTACT_POSTAL_CODE
+  - CONTACT_FAX_NUMBER
+  - CONTACT_PHONE_NUMBER
+  - CONTACT_EMAIL_ADDRESS
+  - PUBLIC_CONTACT_COMMENT
+  - PRIVATE_CONTACT_COMMENT
+  - CONTACT_METADATA
+  - CONTACT_ADDITIONAL_INFORMATION
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 305
+- name: 'First Nation Statement of Intent Boundaries '
+  datasource: reg_legal_and_admin_boundaries.qsoi_bc_regions
+  definition_query: null
+  aggregate_columns:
+  - NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 744477e2-3498-42bc-ae9a-a389e258d5c1
+  columns:
+  - SOI_ID
+  - NAME
+  - SCALE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 59
+- name: MFR First Nation Agreement Boundaries
+  datasource: whse_human_cultural_economic.fnirs_agreement_boundary_svw
+  definition_query: null
+  aggregate_columns:
+  - AGREEMENT_NAME
+  - FN_AGREEMENT_STATUS_CODE
+  - END_DATE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: fcd86b57-405c-455b-85ff-ac0cd607d8af
+  columns:
+  - EXECUTION_SIGNING_DATE
+  - END_DATE
+  - FILE_NAME_URL
+  - FEATURE_CODE
+  - FEATURE_AREA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - ACCOMMODATION_AGREEMENT_ID
+  - AGREEMENT_REFERENCE_KEY
+  - AGREEMENT_NAME
+  - AGREEMENT_TYPE_DESCRIPTION
+  - FN_AGREEMENT_STATUS_CODE
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 936
+- name: First Nation Traditional Use Study Area
+  datasource: whse_human_cultural_economic.tus_trad_use_study_poly_mvw
+  definition_query: null
+  aggregate_columns:
+  - TRADITIONAL_USE_STUDY_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: null
+  id: 38e7714b-aaf0-4dbc-b52a-783afaee9104
+  columns:
+  - TUS_GEOMETRY_ID
+  - TRADITIONAL_USE_STUDY_ID
+  - TRADITIONAL_USE_STUDY_CODE
+  - TRADITIONAL_USE_STUDY_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 60
+- name: Traditional Use Points
+  datasource: whse_human_cultural_economic.tus_trd_use_std_site_point_mvw
+  definition_query: null
+  aggregate_columns:
+  - TRADITIONAL_USE_STUDY_SITE_ID
+  - TRADITIONAL_USE_STUDY_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 80560268-6b7a-4cbb-89cb-32916a45d994
+  columns:
+  - TUS_SITE_GEOMETRY_ID
+  - TRADITIONAL_USE_STUDY_ID
+  - TRADITIONAL_USE_STUDY_SITE_ID
+  - TRADITIONAL_USE_STUDY_CODE
+  - TRADITIONAL_USE_STUDY_NAME
+  - TUS_SITE_USE_ID
+  - TUS_SITE_USE_DESCRIPTION
+  - TUS_SITE_NAME
+  - NAME_TRANSLATION
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 65840
+- name: Traditional Use Lines
+  datasource: whse_human_cultural_economic.tus_trd_use_std_site_line_mvw
+  definition_query: null
+  aggregate_columns:
+  - TRADITIONAL_USE_STUDY_SITE_ID
+  - TRADITIONAL_USE_STUDY_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 515c17e5-74c1-474c-87e0-0985edd21eae
+  columns:
+  - TUS_SITE_GEOMETRY_ID
+  - TRADITIONAL_USE_STUDY_ID
+  - TRADITIONAL_USE_STUDY_SITE_ID
+  - TRADITIONAL_USE_STUDY_CODE
+  - TRADITIONAL_USE_STUDY_NAME
+  - TUS_SITE_USE_ID
+  - TUS_SITE_USE_DESCRIPTION
+  - TUS_SITE_NAME
+  - NAME_TRANSLATION
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 103280
+- name: Traditional Use Polygons
+  datasource: whse_human_cultural_economic.tus_trd_use_std_site_poly_mvw
+  definition_query: null
+  aggregate_columns:
+  - TRADITIONAL_USE_STUDY_SITE_ID
+  - TRADITIONAL_USE_STUDY_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9581e0ee-0c04-4b1e-8e1f-8d014e887c3f
+  columns:
+  - TUS_SITE_GEOMETRY_ID
+  - TRADITIONAL_USE_STUDY_ID
+  - TRADITIONAL_USE_STUDY_SITE_ID
+  - TRADITIONAL_USE_STUDY_CODE
+  - TRADITIONAL_USE_STUDY_NAME
+  - TUS_SITE_USE_ID
+  - TUS_SITE_USE_DESCRIPTION
+  - TUS_SITE_NAME
+  - NAME_TRANSLATION
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 35020
+- name: Timber Supply Area and Blocks
+  datasource: whse_admin_boundaries.fadm_tsa
+  definition_query: null
+  aggregate_columns:
+  - TSA_NUMBER_DESCRIPTION
+  - TSB_NUMBER_DESCRIPTION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 5a74ba12-8a01-405f-b728-9cce5e39eb16
+  columns:
+  - FEATURE_ID
+  - TSA_NUMBER
+  - TSA_NUMBER_DESCRIPTION
+  - TSB_NUMBER
+  - TSB_NUMBER_DESCRIPTION
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 444
+- name: Primary Survey Parcels Tantalis
+  datasource: whse_tantalis.ta_survey_parcels_svw
+  definition_query: '"SURVPARC_TYPE_CDE" = 1'
+  aggregate_columns:
+  - PARCEL_LEGAL_DESCRIPTION
+  - PIN_SID
+  where:
+    conditions:
+    - field: SURVPARC_TYPE_CDE
+      op: '='
+      value: 1
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 619fea49-551f-477a-aacf-03e53f9c947e
+  columns:
+  - STATE_OF_PARCEL_SURVEY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - PIN_SID
+  - SURVPARC_TYPE_CDE
+  - LAND_TITLE_OFFICE_IDENTIFIER
+  - PARCEL_TYPE
+  - ACT_GOVERNING_PARCEL_SURVEY
+  - PARCEL_SHORT_DESCRIPTION
+  - PARCEL_LEGAL_DESCRIPTION
+  - PRIMARY_PARCEL_OF_SUBDIV
+  - SURVEYOR_GENERAL_PLAN_NO
+  - CONFIRMED_DAT
+  - PARCEL_AREA_DERIVATION
+  - PARCEL_AREA_IN_HECTARES
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 275168
+- name: Land Act Subdivisions Tantalis
+  datasource: whse_tantalis.ta_survey_parcels_svw
+  definition_query: '"SURVPARC_TYPE_CDE" = 2'
+  aggregate_columns:
+  - PARCEL_LEGAL_DESCRIPTION
+  - PIN_SID
+  where:
+    conditions:
+    - field: SURVPARC_TYPE_CDE
+      op: '='
+      value: 2
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: cdd20398-3cdb-405e-8a43-18ceddb2b17b
+  columns:
+  - STATE_OF_PARCEL_SURVEY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - PIN_SID
+  - SURVPARC_TYPE_CDE
+  - LAND_TITLE_OFFICE_IDENTIFIER
+  - PARCEL_TYPE
+  - ACT_GOVERNING_PARCEL_SURVEY
+  - PARCEL_SHORT_DESCRIPTION
+  - PARCEL_LEGAL_DESCRIPTION
+  - PRIMARY_PARCEL_OF_SUBDIV
+  - SURVEYOR_GENERAL_PLAN_NO
+  - CONFIRMED_DAT
+  - PARCEL_AREA_DERIVATION
+  - PARCEL_AREA_IN_HECTARES
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 275168
+- name: ParcelMap BC
+  datasource: whse_cadastre.pmbc_parcel_fabric_poly_fa_svw
+  definition_query: null
+  aggregate_columns:
+  - LEGAL_DESCRIPTION
+  - PID
+  - OWNER_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6241c767-63d0-4e2a-8237-8f5437d5dbb6
+  columns:
+  - PARCEL_FABRIC_POLY_ID
+  - GLOBAL_UID
+  - PARCEL_NAME
+  - PLAN_ID
+  - PLAN_NUMBER
+  - PIN
+  - PID
+  - PID_FORMATTED
+  - PID_NUMBER
+  - SOURCE_PARCEL_ID
+  - PARCEL_STATUS
+  - PARCEL_CLASS
+  - OWNER_TYPE
+  - PARCEL_START_DATE
+  - SURVEY_DESIGNATION_1
+  - SE_ANNO_CAD_DATA
+  - SURVEY_DESIGNATION_2
+  - SURVEY_DESIGNATION_3
+  - LEGAL_DESCRIPTION
+  - MUNICIPALITY
+  - REGIONAL_DISTRICT
+  - IS_REMAINDER_IND
+  - GEOMETRY_SOURCE
+  - POSITIONAL_ERROR
+  - ERROR_REPORTED_BY
+  - CAPTURE_METHOD
+  - COMPILED_IND
+  - STATED_AREA
+  - WHEN_CREATED
+  - WHEN_UPDATED
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2497953
+- name: Crown Granted Mineral Claims
+  datasource: whse_mineral_tenure.mta_crown_grant_min_claim_svw
+  definition_query: null
+  aggregate_columns:
+  - CLAIM_NAME
+  - LOT_STATUS
+  - DISTRICT_LOT
+  - MINING_DIVISION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4f8e9f0e-987e-435d-953c-9d6fe67c1765
+  columns:
+  - SURV_LOT_STATUS_CDE
+  - LOT_STATUS
+  - SURV_LOT_METHOD_CDE
+  - LOT_METHOD
+  - DATE_OPENED
+  - FEATURE_LENGTH_M
+  - FEATURE_AREA_SQM
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - MTA_CGMC_SYSID
+  - PIN_SID
+  - DISTRICT_LOT
+  - LAND_DISTRICT_CHR
+  - LAND_DISTRICT
+  - MINING_DIVISION
+  - CLAIM_NAME
+  - LEGAL_DSC
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 14425
+- name: Crown Tenure Tantalis Application
+  datasource: whse_tantalis.ta_crown_tenures_svw
+  definition_query: '"TENURE_STAGE" = ''APPLICATION'''
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - TENURE_LEGAL_DESCRIPTION
+  where:
+    conditions:
+    - field: TENURE_STAGE
+      op: '='
+      value: APPLICATION
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 37117e9d-52ee-4c70-96e3-e16b0a7415b4
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - INTRID_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - FEATURE_LENGTH_M
+  - FEATURE_AREA_SQM
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - APPLICATION_TYPE_CDE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - DISPOSITION_TRANSACTION_SID
+  - CODE_CHR_STAGE
+  - FEATURE_CODE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 66792
+- name: Crown Tenure Tantalis Tenure
+  datasource: whse_tantalis.ta_crown_tenures_svw
+  definition_query: '"TENURE_STAGE" = ''TENURE'''
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - TENURE_LEGAL_DESCRIPTION
+  where:
+    conditions:
+    - field: TENURE_STAGE
+      op: '='
+      value: TENURE
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 673b14b7-03d8-4267-9944-b0ac7e3f9877
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - INTRID_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - FEATURE_LENGTH_M
+  - FEATURE_AREA_SQM
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - APPLICATION_TYPE_CDE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - DISPOSITION_TRANSACTION_SID
+  - CODE_CHR_STAGE
+  - FEATURE_CODE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 66792
+- name: Crown Tenure Inventory
+  datasource: whse_tantalis.ta_crown_tenures_svw
+  definition_query: '"TENURE_STAGE" = ''INVENTORY'''
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - TENURE_LEGAL_DESCRIPTION
+  where:
+    conditions:
+    - field: TENURE_STAGE
+      op: '='
+      value: INVENTORY
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c1a632b6-bcdd-4240-a6c9-f80385eb3b95
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - INTRID_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - FEATURE_LENGTH_M
+  - FEATURE_AREA_SQM
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - APPLICATION_TYPE_CDE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - DISPOSITION_TRANSACTION_SID
+  - CODE_CHR_STAGE
+  - FEATURE_CODE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 66792
+- name: Crown Tenure PreTantalis
+  datasource: whse_tantalis.ta_crown_tenures_svw
+  definition_query: '"TENURE_STAGE" = ''PRE-TANTALIS'''
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - TENURE_LEGAL_DESCRIPTION
+  where:
+    conditions:
+    - field: TENURE_STAGE
+      op: '='
+      value: PRE-TANTALIS
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6dfbb4ea-883e-4bc2-9ca6-e813cac7eec3
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - INTRID_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - FEATURE_LENGTH_M
+  - FEATURE_AREA_SQM
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - APPLICATION_TYPE_CDE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - DISPOSITION_TRANSACTION_SID
+  - CODE_CHR_STAGE
+  - FEATURE_CODE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 66792
+- name: 'Grazing Leases Tantalis '
+  datasource: whse_tantalis.ta_crown_leases_svw
+  definition_query: ' "TENURE_SUBPURPOSE" = ''GRAZING'''
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_STAGE
+  - TENURE_STATUS
+  where:
+    conditions:
+    - field: TENURE_SUBPURPOSE
+      op: '='
+      value: GRAZING
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 7646f094-81ed-489c-a62f-59c844613c05
+  columns:
+  - DISPOSITION_TRANSACTION_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - CODE_CHR_STAGE
+  - FEATURE_CODE
+  - INTRID_SID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 4573
+- name: Crown Acquisitions
+  datasource: whse_tantalis.ta_acquisitions_svw
+  definition_query: null
+  aggregate_columns:
+  - ACQUISITION_SID
+  - ACQUISITION_TYPE_CDE
+  - ACQUISITION_DAT
+  - LAND_REFERENCE_FILE_CHR
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 59c3cd80-9e6c-41b0-a6ae-c65c708600fd
+  columns:
+  - ACQUISITION_SID
+  - ACQUISITION_TYPE_CDE
+  - ACQUISITION_DAT
+  - LAND_REFERENCE_FILE_CHR
+  - NOTE_CHR
+  - SURFACE_OR_UNDER_CDE
+  - CONVEYANCE_CHR
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 34826
+- name: Crown Reversions
+  datasource: whse_tantalis.ta_reversions_svw
+  definition_query: null
+  aggregate_columns:
+  - REVERSION_SID
+  - WHEN_REVERSION_DAT
+  - WHEN_ABSOLUTE_DAT
+  - WHEN_REDEEMED_DAT
+  - NOTE_DSC
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: d56442a2-7dca-4490-94af-8a375ed2061a
+  columns:
+  - REVERSION_SID
+  - WHEN_REVERSION_DAT
+  - SURFACE_OR_UNDER_CDE
+  - FOLIO_CHR
+  - WHEN_ABSOLUTE_DAT
+  - WHEN_REDEEMED_DAT
+  - LTO_TITLE_CHR
+  - NOTE_DSC
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 90535
+- name: Land Act Transfer of Administration Control MTO
+  datasource: whse_mineral_tenure.mta_federal_transfer_lands_svw
+  definition_query: null
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_PURPOSE
+  - TENURE_SUBTYPE
+  - TENURE_SUBPURPOSE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 31a3a7db-283a-4ff2-af98-7751e16b8c30
+  columns:
+  - CROWN_LANDS_FILE
+  - DISPOSITION_TRANSACTION_SID
+  - RESPONSIBLE_BUSINESS_UNIT
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_PURPOSE
+  - TENURE_SUBTYPE
+  - TENURE_SUBPURPOSE
+  - TENURE_DOCUMENT
+  - TENURE_LEGAL_DESCRIPTION
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1635
+- name: Transfers of Admin and Control
+  datasource: whse_legal_admin_boundaries.ilrr_land_act_trnsfr_cntrl_svw
+  definition_query: '"INTEREST_STATUS" in (''ACTIVE'', ''REQUESTED'')'
+  aggregate_columns:
+  - INTEREST_TYPE_NAME
+  where:
+    conditions:
+    - field: INTEREST_STATUS
+      op: in
+      value:
+      - ACTIVE
+      - REQUESTED
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: b16e42fc-9e0f-4b41-9208-eff419193c2f
+  columns:
+  - ILRR_INTEREST_ID
+  - ISSUING_AGENCY_INTEREST_ID
+  - AGENCY_SHORT_NAME
+  - INTEREST_TYPE_NAME
+  - INTEREST_STATUS
+  - LOCATION_DESCRIPTION
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1912
+- name: Guide Outfitter
+  datasource: whse_wildlife_management.waa_guide_outfitter_area_svw
+  definition_query: null
+  aggregate_columns:
+  - GUIDE_FULL_NAME
+  - STATUS
+  - GUIDING_CERTIFICATE_NO
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2aa5c695-d451-4ed4-aa62-3c765e43804d
+  columns:
+  - GUIDING_CERTIFICATE_NO
+  - FEATURE_CODE
+  - GUIDE_FULL_NAME
+  - GUIDE_FIRST_NAME
+  - GUIDE_LAST_NAME
+  - STATUS
+  - TERRITORY
+  - CERTIFICATE_HOLDER_FULL_NAME
+  - ORGANIZATION_ID
+  - ORGANIZATION_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 249
+- name: Trapline
+  datasource: whse_wildlife_management.waa_trapline_areas_sp
+  definition_query: null
+  aggregate_columns:
+  - TRAPLINE_AREA_IDENTIFIER
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9afdba21-7c66-4eb9-8851-cb3f46ca9520
+  columns:
+  - TRAPLINE_AREAS_SP_ID
+  - FEATURE_CODE
+  - TRAPLINE_AREA_IDENTIFIER
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2628
+- name: FTEN Roads
+  datasource: whse_forest_tenure.ften_road_section_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - ROAD_SECTION_NAME
+  - CLIENT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: e858a648-893e-4a4e-926f-a1ecd7fb799b
+  columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - FEATURE_CLASS_SKEY
+  - ROAD_SECTION_NAME
+  - ROAD_SECTION_LENGTH
+  - RETIREMENT_DATE
+  - SECTION_WIDTH
+  - FEATURE_LENGTH
+  - AMENDMENT_ID
+  - FILE_STATUS_CODE
+  - FILE_TYPE_CODE
+  - FILE_TYPE_DESCRIPTION
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - AWARD_DATE
+  - EXPIRY_DATE
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - LOCATION
+  - LIFE_CYCLE_STATUS_CODE
+  - MAP_LABEL
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 285829
+- name: FTEN Roads within right of way allowance
+  datasource: whse_forest_tenure.ften_road_section_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - ROAD_SECTION_NAME
+  - CLIENT_NAME
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 38.0
+  unique_id: OBJECTID
+  id: 11ea3922-6b4b-4f0c-a782-e8622a64b91f
+  columns:
+  - FOREST_FILE_ID
+  - ROAD_SECTION_ID
+  - FEATURE_CLASS_SKEY
+  - ROAD_SECTION_NAME
+  - ROAD_SECTION_LENGTH
+  - RETIREMENT_DATE
+  - SECTION_WIDTH
+  - FEATURE_LENGTH
+  - AMENDMENT_ID
+  - FILE_STATUS_CODE
+  - FILE_TYPE_CODE
+  - FILE_TYPE_DESCRIPTION
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - AWARD_DATE
+  - EXPIRY_DATE
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - LOCATION
+  - LIFE_CYCLE_STATUS_CODE
+  - MAP_LABEL
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 285829
+- name: FTEN Special Access Roads Line
+  datasource: whse_forest_tenure.ften_spec_access_rd_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - ROAD_NAME_COMMON
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: cd69913b-fdb6-48ee-8ef9-202fbee8fdaa
+  columns:
+  - FOREST_FILE_ID
+  - SECTION_ID
+  - ROAD_NAME_LEGAL
+  - ROAD_NAME_COMMON
+  - COMMENTS
+  - WATERSHED_CODE
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_LENGTH
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2
+- name: FTEN Special Access Roads Poly
+  datasource: whse_forest_tenure.ften_spec_access_rd_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - ROAD_NAME_COMMON
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 05222c5f-0f29-4773-b168-128f1166b81c
+  columns:
+  - FOREST_FILE_ID
+  - DEDICATION_PLAN_ID
+  - GRAVEL_PIT_NUMBER
+  - ROAD_NAME_LEGAL
+  - ROAD_NAME_COMMON
+  - COMMENTS
+  - WATERSHED_CODE
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1626
+- name: 'FTEN Range Tenure '
+  datasource: whse_forest_tenure.ften_range_poly_svw
+  definition_query: ' FILE_STATUS_CODE in ( ''A'', ''P'', ''PE'')'
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - CLIENT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where:
+    conditions:
+    - field: FILE_STATUS_CODE
+      op: in
+      value:
+      - A
+      - P
+      - PE
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: a6e12515-8169-4f1f-b5c2-8b530f43e2c8
+  columns:
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  - MAP_LABEL
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - FILE_TYPE_CODE
+  - AUTHORIZED_USE
+  - TOTAL_ANNUAL_USE
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - AREA_HA
+  - SUM_TENURE_ACTIVE_AREA_HA
+  - FILE_STATUS_CODE
+  - LIFE_CYCLE_STATUS_CODE
+  - RETIREMENT_DATE
+  - CALENDAR_YEAR
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - FEATURE_CLASS_SKEY
+  - CHANGE_DATE_TENURE
+  - CHANGE_DATE_GEOMETRY
+  - CHANGE_DATE_PROV
+  - CHANGE_DATE_APPLICATION
+  - CHANGE_DATE_CLIENT
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 4334
+- name: FTEN Harvest Authority
+  datasource: 'whse_forest_tenure.ften_harvest_auth_poly_svw '
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - CLIENT_NAME
+  - FILE_TYPE_DESCRIPTION
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 8b294fd2-be40-4f73-a6df-499c0ee7030e
+  columns:
+  - SALVAGE_TYPE_DESCRIPTION
+  - CASCADE_SPLIT_CODE
+  - CATASTROPHIC_IND
+  - CROWN_GRANTED_IND
+  - CRUISE_BASED_IND
+  - DECIDUOUS_IND
+  - RETIREMENT_DATE
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - LOCATION
+  - TIMBER_MARK_PRIME
+  - MARKING_METHOD_CODE_PRIME
+  - MARKING_METHOD_DESC_PRIME
+  - MARKING_INSTRUMENT_CODE_PRIME
+  - MARKING_INSTRUMENT_DESC_PRIME
+  - OTHER_TIMBER_MARK_IND
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - FILE_TYPE_CODE
+  - FILE_TYPE_DESCRIPTION
+  - FILE_STATUS_CODE
+  - PFU_MGMT_UNIT_ID
+  - SB_FUNDED_IND
+  - BCTS_ORG_UNIT_CODE
+  - BCTS_ORG_UNIT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - MAP_LABEL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - HARVEST_AUTH_SKEY
+  - FOREST_FILE_ID
+  - CUTTING_PERMIT_ID
+  - FEATURE_CLASS_SKEY
+  - HARVESTING_AUTHORITY_ID
+  - HA_MGMT_UNIT_ID
+  - HA_MGMT_UNIT_TYPE_CODE
+  - HARVEST_TYPE_CODE
+  - HARVEST_TYPE_DESCRIPTION
+  - HARVEST_AUTH_STATUS_CODE
+  - ISSUE_DATE
+  - EXPIRY_DATE
+  - EXTEND_DATE
+  - CURRENT_EXPIRY_DATE_CALC
+  - QUOTA_TYPE_CODE
+  - QUOTA_TYPE_DESCRIPTION
+  - CROWN_LANDS_REGION_CODE
+  - CROWN_LANDS_REGION_DESCRIPTION
+  - SALVAGE_TYPE_CODE
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 71970
+- name: FTEN Cut Blocks Current and Application
+  datasource: whse_forest_tenure.ften_cut_block_poly_svw
+  definition_query: '"LIFE_CYCLE_STATUS_CODE" <> ''RETIRED'''
+  aggregate_columns:
+  - CUT_BLOCK_FOREST_FILE_ID
+  - CLIENT_NAME
+  - HARVEST_AUTH_CUTTING_PERMIT_ID
+  - CUT_BLOCK_ID
+  - LIFE_CYCLE_STATUS_CODE
+  where:
+    conditions:
+    - field: LIFE_CYCLE_STATUS_CODE
+      op: '!='
+      value: RETIRED
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: d4e06ed8-6f32-444c-b608-a8d9dcd73d05
+  columns:
+  - CUT_BLOCK_FOREST_FILE_ID
+  - TIMBER_MARK
+  - CUT_BLOCK_ID
+  - FEATURE_CLASS_SKEY
+  - BLOCK_STATUS_CODE
+  - BLOCK_STATUS_DATE
+  - CUT_BLOCK_DESCRIPTION
+  - CUT_BLOCK_SKEY
+  - CUT_REGULATION_CODE
+  - REFOREST_DECLARE_TYPE_CODE
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - PLANNED_HARVEST_DATE
+  - PLANNED_GROSS_BLOCK_AREA
+  - PLANNED_NET_BLOCK_AREA
+  - OPENING_ID
+  - DISTURBANCE_START_DATE
+  - DISTURBANCE_END_DATE
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - HARVEST_AUTH_SKEY
+  - HARVEST_AUTH_CUTTING_PERMIT_ID
+  - HARVEST_AUTH_FOREST_FILE_ID
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - HARVEST_AUTH_STATUS_CODE
+  - RETIREMENT_DATE
+  - LIFE_CYCLE_STATUS_CODE
+  - SP_EXEMPT_IND
+  - MAP_LABEL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 222877
+- name: FTEN Communication Sites
+  datasource: whse_forest_tenure.ften_comm_site_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - SITE_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: fe2539bd-cff3-43c5-a113-0dd2989461cf
+  columns:
+  - FOREST_FILE_ID
+  - SITE_NAME
+  - PRIMARY_TENURE_HOLDER
+  - OCCUPANCY_DATE
+  - EXPIRY_DATE
+  - TOWER_ELEVATION
+  - OFFICIAL_DESCRIPTION
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 329
+- name: FTEN Real Property Projects
+  datasource: whse_forest_tenure.ften_real_property_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - PROJECT_NUMBER
+  - PROJECT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 5fe79110-5eb7-4b91-bc9e-8a5a074784d5
+  columns:
+  - FOREST_FILE_ID
+  - PROJECT_TYPE_CODE
+  - PROJECT_NUMBER
+  - PROJECT_START_DATE
+  - PROJECT_END_DATE
+  - AGENCY_ID
+  - PROJECT_NAME
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 945
+- name: FTEN Special Use Permits
+  datasource: whse_forest_tenure.ften_spec_use_permit_poly_svw
+  definition_query: '"LIFE_CYCLE_STATUS_CODE" <> ''RETIRED'''
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - SPECIAL_USE_DESCRIPTION
+  where:
+    conditions:
+    - field: LIFE_CYCLE_STATUS_CODE
+      op: '!='
+      value: RETIRED
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 11f2d815-f0fc-40bb-ac1f-f349579658fe
+  columns:
+  - FOREST_FILE_ID
+  - SPECIAL_USE_CODE
+  - SPECIAL_USE_DESCRIPTION
+  - PERMIT_BLOCK_AREA
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3857
+- name: FTEN Timber Licence Polygons
+  datasource: whse_forest_tenure.ften_timber_licence_poly_svw
+  definition_query: '"LIFE_CYCLE_STATUS_CODE" <> ''RETIRED'''
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  - CLIENT_NAME
+  where:
+    conditions:
+    - field: LIFE_CYCLE_STATUS_CODE
+      op: '!='
+      value: RETIRED
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 085e8765-7335-4a0e-afa3-7acd215c2bc5
+  columns:
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - BLOCK_GROSS_HA
+  - BLOCK_ELIMINATED_HA
+  - BLOCK_NET_HA
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - EFFECTIVE_DATE
+  - EXPIRY_DATE
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - REGION_CODE
+  - REGION_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2274
+- name: FTEN Timber Licence Remaining Polygons
+  datasource: whse_forest_tenure.ften_tl_remaining_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: eb874806-c4c8-4aa3-a1d9-76b1c3d7c3f5
+  columns:
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  - BLOCK_NET_HA
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - REGION_CODE
+  - REGION_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2
+- name: FTEN Timber Licence Elimination Polygons
+  datasource: whse_forest_tenure.ften_tl_elimination_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  - CLIENT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 1bfb1677-0b41-4e89-979e-c0972fcb28d8
+  columns:
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - REGION_CODE
+  - REGION_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - CLIENT_NAME
+  - BLOCK_GROSS_HA
+  - BLOCK_ELIMINATED_HA
+  - BLOCK_NET_HA
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2104
+- name: FTEN Managed Licenses
+  datasource: whse_forest_tenure.ften_managed_licence_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - MAP_LABEL
+  - CLIENT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 8b8ae5ff-7fd0-490f-87fe-c5f028ebc333
+  columns:
+  - MAP_BLOCK_ID
+  - ML_TYPE_CODE
+  - ML_COMMENT
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - CLIENT_NUMBER
+  - CLIENT_NAME
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FOREST_FILE_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3632
+- name: FTEN Free Use Permits
+  datasource: whse_forest_tenure.ften_free_use_permit_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 1829a8f7-2e33-4fd7-ab4c-f1cc592da053
+  columns:
+  - FOREST_FILE_ID
+  - FUP_COMMENT
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 914
+- name: FTEN Map Notation Lines
+  datasource: whse_forest_tenure.ften_map_notatn_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - TRAIL_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 8e05a401-9f33-496b-acc8-fa91c185d810
+  columns:
+  - FOREST_FILE_ID
+  - OIC_YEAR
+  - OIC_NUMBER
+  - TS_NUMBER
+  - OLD_FILE
+  - TRAIL_NUMBER
+  - TRAIL_NAME
+  - DESCRIPTION
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_LENGTH
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 19
+- name: FTEN Map Notation Polys
+  datasource: whse_forest_tenure.ften_map_notatn_poly_svw
+  definition_query: '"DESCRIPTION" NOT LIKE ''%G'' AND "DESCRIPTION" NOT LIKE ''%R'''
+  aggregate_columns:
+  - MAP_LABEL
+  - LIFE_CYCLE_STATUS_CODE
+  where:
+    and:
+    - conditions:
+      - field: DESCRIPTION
+        op: not_like
+        value: '%G'
+    - conditions:
+      - field: DESCRIPTION
+        op: not_like
+        value: '%R'
+    or: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 547969b1-e3e6-483d-b32e-a464f99a56a4
+  columns:
+  - OIC_YEAR
+  - OIC_NUMBER
+  - TS_NUMBER
+  - OLD_FILE
+  - TRAIL_NUMBER
+  - TRAIL_NAME
+  - DESCRIPTION
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FOREST_FILE_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 6084
+- name: FTEN Map Notation Points
+  datasource: whse_forest_tenure.ften_map_notatn_points_svw
+  definition_query: null
+  aggregate_columns:
+  - MAP_LABEL
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 0b3c01bd-80d0-4031-b0c9-1baca4d1e4cc
+  columns:
+  - FOREST_FILE_ID
+  - OIC_YEAR
+  - OIC_NUMBER
+  - TS_NUMBER
+  - OLD_FILE
+  - TRAIL_NUMBER
+  - TRAIL_NAME
+  - DESCRIPTION
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - FEATURE_CLASS_SKEY
+  - FILE_STATUS_CODE
+  - ADMIN_DISTRICT_CODE
+  - ADMIN_DISTRICT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: unknown
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 0
+- name: TFL
+  datasource: whse_admin_boundaries.fadm_tfl
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2028f2e1-52df-429b-8d05-a6898568e576
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_ID
+  - MAP_BLOCK_ID
+  - MAP_AREA_ID
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - DESCRIPTION
+  - FOREST_FILE_ID
+  - MGMT_UNIT_TYPE
+  - MGMT_UNIT_ID
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 416
+- name: TFL Additions
+  datasource: whse_admin_boundaries.fadm_tfl_addition
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - WHEN_UPDATED
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c508a36c-37a9-49b7-99b3-0a772609b67b
+  columns:
+  - FEATURE_ID
+  - LEGISLATIVE_TOOL
+  - DOCUMENT_NUMBER
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - DESCRIPTION
+  - FOREST_FILE_ID
+  - MGMT_UNIT_TYPE
+  - MGMT_UNIT_ID
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 48
+- name: TFL Deletions
+  datasource: whse_admin_boundaries.fadm_tfl_deletion
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - WHEN_UPDATED
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4504a3d6-713e-42b9-9085-f05ca6893be6
+  columns:
+  - FEATURE_ID
+  - LEGISLATIVE_TOOL
+  - DOCUMENT_NUMBER
+  - FOREST_FILE_ID
+  - MGMT_UNIT_TYPE
+  - MGMT_UNIT_ID
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - DESCRIPTION
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 369
+- name: TFL Schedule A
+  datasource: whse_admin_boundaries.fadm_tfl_sched_a
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - WHEN_UPDATED
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 24472249-9c99-4acf-9255-5903f78f077a
+  columns:
+  - FEATURE_ID
+  - FOREST_FILE_ID
+  - MAP_BLOCK_ID
+  - MAP_AREA_ID
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - DESCRIPTION
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - SCHED_A_CATEGORY
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1130
+- name: Research Plots
+  datasource: whse_forest_vegetation.resproj_rsrch_instltns_gov_svw
+  definition_query: null
+  aggregate_columns:
+  - PROJECT_KEY
+  - RESEARCH_PROJECT_STATUS_DESC
+  - PROJECT_TITLE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: fbe699c3-bab6-4296-892f-9302cb8d1cc6
+  columns:
+  - PRECISION
+  - CONFIDENCE
+  - BUFFER_DISTANCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - RESEARCH_INST_STATUS_CODE
+  - RESEARCH_INST_STATUS_DESC
+  - ORG_UNIT_NO
+  - ORG_UNIT_NAME
+  - CLIENT_NUMBER
+  - CLIENT_NAME
+  - MAP_NOTATION_ID
+  - PROJECT_KEY
+  - PROJECT_TITLE
+  - PROJECT_DESCRIPTION
+  - RESEARCH_PROJECT_TYPE_CODE
+  - RESEARCH_PROJECT_TYPE_DESC
+  - RESEARCH_PROJECT_STATUS_CODE
+  - RESEARCH_PROJECT_STATUS_DESC
+  - RESOURCE_FEATURE_IND
+  - OTHER_ORGANISATION
+  - ESTABLISHMENT_DATE
+  - ESTABLISHMENT_AGE
+  - NOTES
+  - HAZARDS
+  - CONTACT_NAME
+  - CONTACT_EMAIL
+  - CONTACT_PHONE_NUMBER
+  - CONTACT_PHONE_EXT
+  - ACTUAL_START_DATE
+  - PLANNED_COMPLETION_DATE
+  - ACTUAL_END_DATE
+  - STUDY_SITE
+  - LOCATION_NAME
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2957
+- name: Growth and Yield Plots
+  datasource: whse_forest_vegetation.ismc_psp_active_sites_sp
+  definition_query: null
+  aggregate_columns:
+  - SITE_IDENTIFIER
+  - PSP_SITE_IDENTIFIER
+  - PSP_SAMPLE_SITE_TYPE_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: b88931c3-81bf-4edd-8be4-42639483ae0b
+  columns:
+  - BGC_SUBZONE
+  - BGC_VARIANT
+  - COORDINATE_SOURCE_CODE
+  - COORDINATE_SOURCE_DESCRIPTION
+  - BUFFER_SIZE_METERS
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - LATITUDE
+  - LONGITUDE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - SITE_IDENTIFIER
+  - PSP_SITE_IDENTIFIER
+  - PSP_SAMPLE_SITE_TYPE_CODE
+  - ESTABLISHMENT_YEAR
+  - LAST_MEASUREMENT_YEAR
+  - DBH_TAGGING_LIMIT
+  - SPECIES_1
+  - SPECIES_1_AGE
+  - SPECIES_1_HEIGHT
+  - SPECIES_2
+  - SPECIES_2_AGE
+  - SPECIES_2_HEIGHT
+  - TOTAL_BASAL_AREA
+  - NUMBER_OF_VISITS
+  - BEC_ZONE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3944
+- name: FTEN Recreation Tenure Polys
+  datasource: whse_forest_tenure.ften_recreation_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - PROJECT_TYPE
+  - PROJECT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 16534159-8b43-4c2b-b0e6-8f8d2ec90fcb
+  columns:
+  - RMF_SKEY
+  - FOREST_FILE_ID
+  - SECTION_ID
+  - RECREATION_MAP_FEATURE_CODE
+  - PROJECT_TYPE
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - PROJECT_NAME
+  - RECREATION_FEATURE_CODE
+  - RESOURCE_FEATURE_IND
+  - ARCH_IMPACT_ASSESS_IND
+  - SITE_LOCATION
+  - PROJECT_ESTABLISHED_DATE
+  - RECREATION_VIEW_IND
+  - RECREATION_DISTRICT_CODE
+  - DEFINED_CAMPSITES
+  - LIFE_CYCLE_STATUS_CODE
+  - FILE_STATUS_CODE
+  - GEOGRAPHIC_DISTRICT_CODE
+  - GEOGRAPHIC_DISTRICT_NAME
+  - FEATURE_CLASS_SKEY
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 4525
+- name: FTEN Recreation Tenure Lines
+  datasource: whse_forest_tenure.ften_recreation_lines_svw
+  definition_query: null
+  aggregate_columns:
+  - FOREST_FILE_ID
+  - PROJECT_TYPE
+  - PROJECT_NAME
+  - LIFE_CYCLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 916a3f83-815c-4d2a-bbf1-d78522c047c1
+  columns:
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - RMF_SKEY
+  - FOREST_FILE_ID
+  - SECTION_ID
+  - RECREATION_MAP_FEATURE_CODE
+  - PROJECT_TYPE
+  - RETIREMENT_DATE
+  - AMENDMENT_ID
+  - MAP_LABEL
+  - PROJECT_NAME
+  - RECREATION_FEATURE_CODE
+  - RESOURCE_FEATURE_IND
+  - RIGHT_OF_WAY
+  - ARCH_IMPACT_ASSESS_IND
+  - SITE_LOCATION
+  - PROJECT_ESTABLISHED_DATE
+  - RECREATION_VIEW_IND
+  - RECREATION_DISTRICT_CODE
+  - DEFINED_CAMPSITES
+  - LIFE_CYCLE_STATUS_CODE
+  - FILE_STATUS_CODE
+  - DISTRICT_CODE
+  - DISTRICT_NAME
+  - FEATURE_CLASS_SKEY
+  - FEATURE_LENGTH
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 19934
+- name: Section 58 Recreation Order Points
+  datasource: whse_human_cultural_economic.rst_section_58_orders_point
+  definition_query: null
+  aggregate_columns:
+  - MAP_LABEL
+  - STRUCTURE_TYPE
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 0c8a52b1-e92e-4cd4-92e6-43c21e4c307c
+  columns:
+  - SECTION_58_ORDER_POINT_ID
+  - MAP_LABEL
+  - STRUCTURE_TYPE
+  - SIGN_INSTALLATION_DATE
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - LATITUDE
+  - LONGITUDE
+  - RECREATION_DISTRICT
+  - AUTHORIZING_AGENCY
+  - COMMENTS
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3
+- name: Section 58 Recreation Order Lines
+  datasource: whse_human_cultural_economic.rst_section_58_orders_line
+  definition_query: '"FILE_STATUS" = ''Active'''
+  aggregate_columns:
+  - LEGAL_ORDER_NAME
+  - ORDER_TYPE_RESTRICTION
+  - ORDER_START_DATE
+  - ORDER_END_DATE
+  where:
+    conditions:
+    - field: FILE_STATUS
+      op: '='
+      value: Active
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 1ac984da-4730-40b9-ae68-ef2c71135ae1
+  columns:
+  - SECTION_58_ORDER_LINE_ID
+  - LEGAL_ORDER_NAME
+  - MAP_LABEL
+  - ORDER_TYPE_RESTRICTION
+  - LEGAL_ORDER_EFFECTIVE_DATE
+  - ORDER_START_DATE
+  - ORDER_END_DATE
+  - SEASON
+  - AMENDMENT_DATE
+  - ORDER_EXEMPTIONS
+  - RECREATION_DISTRICT
+  - AUTHORIZING_AGENCY
+  - FILE_STATUS
+  - LAND_FEATURE_TYPE
+  - COMMENTS
+  - LEVEL_OF_USE
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 41
+- name: Section 58 Recreation Order Polygons
+  datasource: whse_human_cultural_economic.rst_section_58_orders_poly
+  definition_query: '"FILE_STATUS" = ''Active'''
+  aggregate_columns:
+  - LEGAL_ORDER_NAME
+  - ORDER_TYPE_RESTRICTION
+  - ORDER_START_DATE
+  - ORDER_END_DATE
+  where:
+    conditions:
+    - field: FILE_STATUS
+      op: '='
+      value: Active
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6a20cdeb-3d74-4952-8e20-04419ec3f9b9
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - SECTION_58_ORDER_POLY_ID
+  - LEGAL_ORDER_NAME
+  - MAP_LABEL
+  - ORDER_TYPE_RESTRICTION
+  - LEGAL_ORDER_EFFECTIVE_DATE
+  - ORDER_START_DATE
+  - ORDER_END_DATE
+  - SEASON
+  - AMENDMENT_DATE
+  - ORDER_ELEVATION_DEPENDENT
+  - ORDER_EXEMPTIONS
+  - DOMINANT_ACCESS_TYPE
+  - RECREATION_DISTRICT
+  - AUTHORIZING_AGENCY
+  - FILE_STATUS
+  - LAND_FEATURE_TYPE
+  - COMMENTS
+  - LEVEL_OF_USE
+  - FEATURE_CODE
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 92
+- name: RESULTS Openings
+  datasource: whse_forest_vegetation.rslt_opening_svw
+  definition_query: null
+  aggregate_columns:
+  - OPENING_ID
+  - OPENING_NUMBER
+  - OPENING_STATUS_CODE
+  - MAP_LABEL
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 941720e8-8369-4b47-85e0-71499c1cfe1d
+  columns:
+  - CAPTURE_METHOD_CODE
+  - DATA_SOURCE_CODE
+  - OBSERVATION_DATE
+  - DATA_QUALITY_COMMENT
+  - SUBMITTED_BY_USERID
+  - SUBMITTED_DATE
+  - SLOPE
+  - ASPECT
+  - MAXIMUM_ELEVATION
+  - MINIMUM_ELEVATION
+  - AVERAGE_ELEVATION
+  - OPENING_SEA_CALC_RESULT_CODE
+  - OPENING_SEA_CONFIDENCE_CODE
+  - OPENING_WHO_CREATED
+  - OPENING_WHEN_CREATED
+  - OPENING_WHO_UPDATED
+  - OPENING_WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OPENING_ID
+  - MAPSHEET_GRID
+  - MAPSHEET_LETTER
+  - MAPSHEET_SQUARE
+  - MAPSHEET
+  - OPENING_NUMBER
+  - MAP_LABEL
+  - OPENING_CATEGORY_CODE
+  - OPENING_STATUS_CODE
+  - OPENING_LOCATION_NAME
+  - DISTRICT_ADMIN_ZONE
+  - LICENSEE_OPENING_ID
+  - MAX_ALLOW_PERMNT_ACCESS_PCT
+  - APPROVE_DATE
+  - TSB_NUMBER_CODE
+  - AMENDMENT_IND
+  - PREV_TREE_SPECIES1_CODE
+  - PREV_TREE_SPECIES2_CODE
+  - PREV_STOCKING_STATUS_CODE
+  - PREV_AGE_CLASS_CODE
+  - PREV_HEIGHT_CLASS_CODE
+  - PREV_SITE_INDEX
+  - PREV_SITE_INDEX_SOURCE_CODE
+  - RESULTS_SUBMISSION_ID
+  - REGION_CODE
+  - REGION_NAME
+  - DISTRICT_CODE
+  - DISTRICT_NAME
+  - BCTS_CODE
+  - BCTS_NAME
+  - OPENING_GROSS_AREA
+  - FOREST_FILE_ID
+  - CUTTING_PERMIT_ID
+  - TIMBER_MARK
+  - CUT_BLOCK_ID
+  - MGMT_UNIT_ID
+  - MGMT_UNIT_TYPE_CODE
+  - MGMT_UNIT_DESCRIPTION
+  - FILE_TYPE_CODE
+  - DISTURBANCE_START_DATE
+  - DISTURBANCE_END_DATE
+  - CLIENT_NAME
+  - CLIENT_NUMBER
+  - CLIENT_LOCATION_CODE
+  - GENERALIZED_BGC_ZONE_CODE
+  - GENERALIZED_BGC_SUBZONE_CODE
+  - GENERALIZED_BGC_VARIANT
+  - GENERALIZED_BGC_PHASE
+  - GENERALIZED_BEC_SITE_SERIES
+  - GENERALIZED_BEC_SITE_TYPE
+  - GENERALIZED_BEC_SERAL
+  - DENUDATION_1_DISTURBANCE_CODE
+  - DENUDATION_1_SILV_SYSTEM_CODE
+  - DENUDATION_1_SILV_VARIANT_CODE
+  - DENUDATION_1_CUT_PHASE_CODE
+  - DENUDATION_1_COMPLETION_DATE
+  - DENUDATION_2_DISTURBANCE_CODE
+  - DENUDATION_2_SILV_SYSTEM_CODE
+  - DENUDATION_2_SILV_VARIANT_CODE
+  - DENUDATION_2_CUT_PHASE_CODE
+  - DENUDATION_2_COMPLETION_DATE
+  - DENUDATION_COUNT
+  - SITE_PREP_1_TECHNIQUE_CODE
+  - SITE_PREP_1_TREATMENT_AREA
+  - SITE_PREP_1_COMPLETION_DATE
+  - SITE_PREP_2_TECHNIQUE_CODE
+  - SITE_PREP_2_TREATMENT_AREA
+  - SITE_PREP_2_COMPLETION_DATE
+  - SITE_PREP_COUNT
+  - PLANTING_1_TECHNIQUE_CODE
+  - PLANTING_1_TREATMENT_AREA
+  - PLANTING_1_COMPLETION_DATE
+  - PLANTING_2_TECHNIQUE_CODE
+  - PLANTING_2_TREATMENT_AREA
+  - PLANTING_2_COMPLETION_DATE
+  - PLANTING_COUNT
+  - BRUSHING_TECHNIQUE_CODE
+  - BRUSHING_TREATMENT_AREA
+  - BRUSHING_COMPLETION_DATE
+  - BRUSHING_COUNT
+  - SPACING_TREATMENT_AREA
+  - SPACING_COMPLETION_DATE
+  - SPACING_COUNT
+  - FERTILIZATION_TREATMENT_AREA
+  - FERTILIZATION_COMPLETION_DATE
+  - FERTILIZATION_COUNT
+  - PRUNING_TREATMENT_AREA
+  - PRUNING_COMPLETION_DATE
+  - PRUNING_COUNT
+  - GEOMETRY_EXIST_IND
+  - FEATURE_AREA
+  - FEATURE_PERIMETER
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 345123
+- name: RESULTS Reserves
+  datasource: whse_forest_vegetation.rslt_forest_cover_reserve_svw
+  definition_query: null
+  aggregate_columns:
+  - OPENING_ID
+  - SILV_RESERVE_OBJECTIVE_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 0b97d1c9-58d8-4f5c-8e3f-86c4cb0dcf99
+  columns:
+  - OPENING_ID
+  - FOREST_FILE_ID
+  - CUTTING_PERMIT_ID
+  - CUT_BLOCK_ID
+  - SILV_POLYGON_NO
+  - SILV_POLYGON_AREA
+  - SILV_RESERVE_CODE
+  - SILV_RESERVE_OBJECTIVE_CODE
+  - ENTRY_USERID
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 217236
+- name: Climate Stations
+  datasource: whse_basemapping.gba_meteorological_locs_sp
+  definition_query: null
+  aggregate_columns:
+  - STATION_NAME
+  - AGENCY
+  - NETWORK
+  - STATION_DESC
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5.0
+  unique_id: OBJECTID
+  id: 4afbf042-096c-436c-950a-222634fc5607
+  columns:
+  - METEOROLOGICAL_LOCATION_ID
+  - NATIVE_ID
+  - STATION_NAME
+  - STATION_DESC
+  - LATITUDE
+  - LATITUDINAL_ACCURACY
+  - LONGITUDE
+  - LONGITUDINAL_ACCURACY
+  - ELEVATION
+  - ACTIVE_IND
+  - DATE_ACTIVE
+  - DATE_INACTIVE
+  - AGENCY
+  - NETWORK
+  - AGENCY_NETWORK
+  - SOURCE_CODE
+  - CLIMATE_IND
+  - PARAMETERS_MEASURED
+  - AIR_TEMP_RECD_IND
+  - MIN_AIR_TEMP_RECD_IND
+  - MAX_AIR_TEMP_RECD_IND
+  - BAROMETRIC_PRESSURE_RECD_IND
+  - BATTERY_VOLTAGE_RECD_IND
+  - DISCHARGE_RECD_IND
+  - REGULATED_DISCHARGE_RECD_IND
+  - GROUND_HEAT_FLUX_RECD_IND
+  - HUMIDITY_RECD_IND
+  - SOLAR_RADIATION_RECD_IND
+  - NET_RADIATION_RECD_IND
+  - PHOTOSYNTH_RADIATION_RECD_IND
+  - PRECIPITATION_RECD_IND
+  - SNOW_DEPTH_RECD_IND
+  - SNOW_WATER_EQUIVALENT_RECD_IND
+  - SURFACE_TEMPERATURE_RECD_IND
+  - SOIL_TEMP_RECD_IND
+  - WATER_LEVEL_RECD_IND
+  - WATER_TEMPERATURE_RECD_IND
+  - WATER_TURBIDITY_RECD_IND
+  - WIND_SPEED_DIRECTION_RECD_IND
+  - PRECIPITATION_COLLECTOR_TYPES
+  - WMO_ID
+  - WEBSITE_URL_PRIMARY
+  - WEBSITE_URL_SECONDARY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 7161
+- name: Hydrometric Stations
+  datasource: whse_environmental_monitoring.envcan_hydrometric_stn_sp
+  definition_query: '"STATION_OPERATING_STATUS" IN ( ''ACTIVE'' , ''ACTIVE-REALTIME''
+    )'
+  aggregate_columns:
+  - STATION_NAME
+  - STATION_OPERATING_STATUS
+  where:
+    conditions:
+    - field: STATION_OPERATING_STATUS
+      op: in
+      value:
+      - ACTIVE
+      - ACTIVE-REALTIME
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 0fe56355-4cca-4eb2-9149-e30610195fca
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - HYDROMETRIC_STATION_ID
+  - STATION_NUMBER
+  - FEATURE_CODE
+  - STATION_NAME
+  - FLOW_TYPE
+  - WATERSHED_GROUP_CODE
+  - WATERSHED_ID
+  - STREAM_ORDER
+  - ARCHIVE_URL
+  - REALTIME_URL
+  - STATION_OPERATING_STATUS
+  - CAPTURE_SCALE
+  - START_DATE
+  - END_DATE
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2317
+- name: Streams with Water Allocation Notations
+  datasource: whse_water_management.wls_water_notation_streams_sp
+  definition_query: null
+  aggregate_columns:
+  - NOTATION_ID_LIST
+  - PRIMARY_NOTATION_TYPE
+  - SECONDARY_NOTATION_TYPES
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 00258924-5cbb-4bef-9e6d-39556fc904f9
+  columns:
+  - WLS_WNS_SYSID
+  - LINEAR_FEATURE_ID
+  - NOTATION_ID_LIST
+  - PRIMARY_NOTATION_TYPE
+  - SECONDARY_NOTATION_TYPES
+  - FWA_WATERSHED_CODE
+  - BLUE_LINE_KEY
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 957290
+- name: Aquifers with Water Allocation Notations
+  datasource: whse_water_management.wls_water_notation_aquifers_sp
+  definition_query: null
+  aggregate_columns:
+  - NOTATION_ID
+  - NOTATION_DESCRIPTION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 5752d3e5-db5a-4b38-99a7-0f883720dea1
+  columns:
+  - WLS_WNA_SYSID
+  - AQUIFER_ID
+  - NOTATION_ID
+  - NOTATION_DESCRIPTION
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 152
+- name: Water Rights Licences
+  datasource: whse_water_management.wls_water_rights_licences_sp
+  definition_query: null
+  aggregate_columns:
+  - FILE_NUMBER
+  - LICENCE_NUMBER
+  - LICENCE_STATUS
+  - PURPOSE_USE
+  - SOURCE_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c1723e9a-be75-49f9-b524-51c101833cc7
+  columns:
+  - WLS_WRL_SYSID
+  - POD_NUMBER
+  - POD_SUBTYPE
+  - POD_DIVERSION_TYPE
+  - POD_STATUS
+  - FILE_NUMBER
+  - WELL_TAG_NUMBER
+  - LICENCE_NUMBER
+  - LICENCE_STATUS
+  - LICENCE_STATUS_DATE
+  - PRIORITY_DATE
+  - EXPIRY_DATE
+  - PURPOSE_USE_CODE
+  - PURPOSE_USE
+  - SOURCE_NAME
+  - REDIVERSION_IND
+  - QUANTITY
+  - QUANTITY_UNITS
+  - QUANTITY_FLAG
+  - QUANTITY_FLAG_DESCRIPTION
+  - QTY_DIVERSION_MAX_RATE
+  - QTY_UNITS_DIVERSION_MAX_RATE
+  - HYDRAULIC_CONNECTIVITY
+  - PERMIT_OVER_CROWN_LAND_NUMBER
+  - PRIVATE_CONTACT_INFO_IND
+  - PRIMARY_LICENSEE_NAME
+  - ADDRESS_LINE_1
+  - ADDRESS_LINE_2
+  - ADDRESS_LINE_3
+  - ADDRESS_LINE_4
+  - COUNTRY
+  - POSTAL_CODE
+  - LATITUDE
+  - LONGITUDE
+  - DISTRICT_PRECINCT_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 105480
+- name: Water Rights Applications
+  datasource: whse_water_management.wls_water_rights_applictns_sp
+  definition_query: null
+  aggregate_columns:
+  - FILE_NUMBER
+  - APPLICATION_STATUS
+  - PURPOSE_USE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4f2ab6b6-8759-4279-a3de-e81787cbcb32
+  columns:
+  - WLS_WRA_SYSID
+  - APPLICATION_JOB_NUMBER
+  - POD_NUMBER
+  - POD_SUBTYPE
+  - POD_DIVERSION_TYPE
+  - FILE_NUMBER
+  - APPLICATION_STATUS
+  - WELL_TAG_NUMBER
+  - PURPOSE_USE_CODE
+  - PURPOSE_USE
+  - QTY_DIVERSION_MAX_RATE
+  - QTY_UNITS_DIVERSION_MAX_RATE
+  - PRIVATE_CONTACT_INFO_IND
+  - PRIMARY_APPLICANT_NAME
+  - ADDRESS_LINE_1
+  - ADDRESS_LINE_2
+  - ADDRESS_LINE_3
+  - ADDRESS_LINE_4
+  - COUNTRY
+  - POSTAL_CODE
+  - LATITUDE
+  - LONGITUDE
+  - DISTRICT_PRECINCT_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 27510
+- name: Water Licenced Work Linear Features within 50m
+  datasource: whse_water_management.wls_water_licenced_wrk_line_sp
+  definition_query: null
+  aggregate_columns:
+  - WORKS_ID
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 2d8eb99b-5332-4747-b65a-2effb24d2153
+  columns:
+  - WATER_LICENCED_WORK_LINE_ID
+  - FEATURE_CODE
+  - DISPLAY_COLOUR
+  - WORKS_ID
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 141500
+- name: Water Licenced Work Point Features within 50m
+  datasource: whse_water_management.wls_water_licenced_wrk_loc_sp
+  definition_query: null
+  aggregate_columns:
+  - FEATURE_CODE
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 62a0a01e-b19c-4590-8c42-0a3b71340f80
+  columns:
+  - WATER_LICENCED_WORK_LOC_ID
+  - FEATURE_CODE
+  - WORKS_ID
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 53700
+- name: Land Parcels with Water Licences
+  datasource: whse_water_management.wls_licence_with_parcels_isp
+  definition_query: null
+  aggregate_columns:
+  - LICENCE_NO
+  - PID
+  - PIN_SID
+  - OWNERSHIP_CLASS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2024486d-ecd7-48bb-9988-c4372fc67446
+  columns:
+  - LICENCE_WITH_PARCEL_ID
+  - LICENCE_NO
+  - PID
+  - PIN_SID
+  - OWNERSHIP_CLASS
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 62650
+- name: Water Approvals
+  datasource: whse_water_management.wls_water_approvals_gov_svw
+  definition_query: null
+  aggregate_columns:
+  - APPROVAL_FILE_NUMBER
+  - CLIENT_NAME
+  - WORKS_DESCRIPTION
+  - APPROVAL_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2741bc35-ec16-41cf-8213-dd7d6c23fe79
+  columns:
+  - APPROVAL_REFUSE_ABANDON_DATE
+  - TTAT_DAYS_ADJUDICATION
+  - TTAT_DAYS_TOTAL
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - WATER_APPROVAL_ID
+  - WSD_REGION
+  - APPROVAL_TYPE
+  - APPROVAL_FILE_NUMBER
+  - FCBC_TRACKING_NUMBER
+  - CLIENT_NAME
+  - SOURCE
+  - WORKS_DESCRIPTION
+  - QUANTITY
+  - QUANTITY_UNITS
+  - QTY_DIVERSION_MAX_RATE
+  - QTY_UNITS_DIVERSION_MAX_RATE
+  - WATER_DISTRICT
+  - PRECINCT
+  - LATITUDE
+  - LONGITUDE
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - MAP_SHEET
+  - APPROVAL_STATUS
+  - APPLICATION_DATE
+  - FCBC_ACCEPTANCE_DATE
+  - TTAT_DAYS_APPLICATION_ACCEPTED
+  - FCBC_PROCESSING_DATE
+  - TTAT_DAYS_FCBC_COMPLETED
+  - WSD_TECHNICAL_OFFICER
+  - WSD_COMMENTS
+  - APPROVAL_ISSUANCE_DATE
+  - APPROVAL_START_DATE
+  - APPROVAL_EXPIRY_DATE
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 47343
+- name: Reservoir Permits over Crown Land
+  datasource: whse_water_management.wls_reservoir_pmt_licensee_sp
+  definition_query: null
+  aggregate_columns:
+  - LICENCE_NUMBER
+  - LICENCE_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: f81c2d2a-4d53-4c30-a2b9-f82f3d7bf127
+  columns:
+  - RESERVOIR_PMT_LICENSEE_ID
+  - RESERVOIR_POD
+  - RESERVOIR_NAME
+  - ELEVATION
+  - PCL_NO
+  - LICENCE_NUMBER
+  - LICENCE_STATUS
+  - EXPIRY_DATE
+  - STREAM_NAME
+  - PURPOSE
+  - QUANTITY
+  - UNITS
+  - FILE_NO
+  - DIST_PREC_NAME
+  - LICENSEE_NAME
+  - ADDRESS_LINE1
+  - ADDRESS_LINE2
+  - ADDRESS_LINE3
+  - ADDRESS_LINE4
+  - COUNTRY
+  - POSTAL_CODE
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 53
+- name: BC Dams
+  datasource: whse_water_management.wris_dams_public_svw
+  definition_query: null
+  aggregate_columns:
+  - DAM_NAME
+  - DAM_FILE_NUMBER
+  - DAM_OWNER_NAME
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 500.0
+  unique_id: OBJECTID
+  id: 4cf55a1a-c444-4642-8459-b85d859a8bcd
+  columns:
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - DAM_FILE_NUMBER
+  - DAM_NAME
+  - DAM_ALTERNATE_NAME
+  - REGION
+  - DISTRICT_PRECINCT
+  - COMMISSIONED_YEAR
+  - DAM_FUNCTION
+  - POINTS_CODE
+  - DAM_REGULATED_CODE
+  - DAM_OPERATION_CODE
+  - DAM_TYPE
+  - DAM_TYPE_DESCRIPTION
+  - DAM_HEIGHT
+  - CREST_LENGTH
+  - SPILLWAY_TYPE
+  - DAM_OWNER_NAME
+  - DAM_SAFETY_OFFICER
+  - FAILURE_CONSEQUENCE
+  - DAM_RISK_LEVEL
+  - WRIS_DP_SYSID
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2490
+- name: Coal Application
+  datasource: whse_mineral_tenure.mta_acquired_tenure_svw
+  definition_query: '"TENURE_TYPE_DESCRIPTION" = ''Coal'' AND "TENURE_SUB_TYPE_DESCRIPTION"
+    = ''APPLICATION'''
+  aggregate_columns:
+  - TENURE_NUMBER_ID
+  - OWNER_NAME
+  where:
+    and:
+    - conditions:
+      - field: TENURE_TYPE_DESCRIPTION
+        op: '='
+        value: Coal
+    - conditions:
+      - field: TENURE_SUB_TYPE_DESCRIPTION
+        op: '='
+        value: APPLICATION
+    or: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: be8606e2-036c-4e5d-984c-9d7426e5cac5
+  columns:
+  - CLAIM_NAME
+  - TENURE_TYPE_CODE
+  - TENURE_TYPE_DESCRIPTION
+  - TENURE_SUB_TYPE_CODE
+  - TENURE_SUB_TYPE_DESCRIPTION
+  - TITLE_TYPE_CODE
+  - TITLE_TYPE_DESCRIPTION
+  - ISSUE_DATE
+  - GOOD_TO_DATE
+  - AREA_IN_HECTARES
+  - PROTECTED_IND
+  - REVISION_NUMBER
+  - TAG_NUMBER
+  - CLIENT_NUMBER_ID
+  - OWNER_NAME
+  - PERCENT_OWNERSHIP
+  - NUMBER_OF_OWNERS
+  - CASH_IN_LIEU_EVENT_COUNT
+  - STATEMENT_OF_WORK_EVENT_COUNT
+  - COMPLAINTS_EVENT_COUNT
+  - OWNERSHIP_TRANSFER_EVENT_COUNT
+  - REDUCTION_EVENT_COUNT
+  - ENTRY_TIMESTAMP
+  - ENTRY_USERID
+  - UPDATE_TIMESTAMP
+  - UPDATE_USERID
+  - TERMINATION_DATE
+  - TERMINATION_TYPE_DESCRIPTION
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - TENURE_NUMBER_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 42294
+- name: Coal Lease
+  datasource: whse_mineral_tenure.mta_acquired_tenure_svw
+  definition_query: '"TENURE_TYPE_DESCRIPTION" = ''Coal'' AND "TENURE_SUB_TYPE_DESCRIPTION"
+    = ''LEASE'''
+  aggregate_columns:
+  - TENURE_NUMBER_ID
+  - OWNER_NAME
+  where:
+    and:
+    - conditions:
+      - field: TENURE_TYPE_DESCRIPTION
+        op: '='
+        value: Coal
+    - conditions:
+      - field: TENURE_SUB_TYPE_DESCRIPTION
+        op: '='
+        value: LEASE
+    or: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: e2467ba6-7a03-4797-a999-2846c11dd5eb
+  columns:
+  - CLAIM_NAME
+  - TENURE_TYPE_CODE
+  - TENURE_TYPE_DESCRIPTION
+  - TENURE_SUB_TYPE_CODE
+  - TENURE_SUB_TYPE_DESCRIPTION
+  - TITLE_TYPE_CODE
+  - TITLE_TYPE_DESCRIPTION
+  - ISSUE_DATE
+  - GOOD_TO_DATE
+  - AREA_IN_HECTARES
+  - PROTECTED_IND
+  - REVISION_NUMBER
+  - TAG_NUMBER
+  - CLIENT_NUMBER_ID
+  - OWNER_NAME
+  - PERCENT_OWNERSHIP
+  - NUMBER_OF_OWNERS
+  - CASH_IN_LIEU_EVENT_COUNT
+  - STATEMENT_OF_WORK_EVENT_COUNT
+  - COMPLAINTS_EVENT_COUNT
+  - OWNERSHIP_TRANSFER_EVENT_COUNT
+  - REDUCTION_EVENT_COUNT
+  - ENTRY_TIMESTAMP
+  - ENTRY_USERID
+  - UPDATE_TIMESTAMP
+  - UPDATE_USERID
+  - TERMINATION_DATE
+  - TERMINATION_TYPE_DESCRIPTION
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - TENURE_NUMBER_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 42294
+- name: Coal Licence
+  datasource: whse_mineral_tenure.mta_acquired_tenure_svw
+  definition_query: '"TENURE_TYPE_DESCRIPTION" = ''Coal'' AND "TENURE_SUB_TYPE_DESCRIPTION"
+    = ''LICENSE'''
+  aggregate_columns:
+  - TENURE_NUMBER_ID
+  - OWNER_NAME
+  where:
+    and:
+    - conditions:
+      - field: TENURE_TYPE_DESCRIPTION
+        op: '='
+        value: Coal
+    - conditions:
+      - field: TENURE_SUB_TYPE_DESCRIPTION
+        op: '='
+        value: LICENSE
+    or: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 626d9e42-055a-420b-a625-7851e3a41d81
+  columns:
+  - CLAIM_NAME
+  - TENURE_TYPE_CODE
+  - TENURE_TYPE_DESCRIPTION
+  - TENURE_SUB_TYPE_CODE
+  - TENURE_SUB_TYPE_DESCRIPTION
+  - TITLE_TYPE_CODE
+  - TITLE_TYPE_DESCRIPTION
+  - ISSUE_DATE
+  - GOOD_TO_DATE
+  - AREA_IN_HECTARES
+  - PROTECTED_IND
+  - REVISION_NUMBER
+  - TAG_NUMBER
+  - CLIENT_NUMBER_ID
+  - OWNER_NAME
+  - PERCENT_OWNERSHIP
+  - NUMBER_OF_OWNERS
+  - CASH_IN_LIEU_EVENT_COUNT
+  - STATEMENT_OF_WORK_EVENT_COUNT
+  - COMPLAINTS_EVENT_COUNT
+  - OWNERSHIP_TRANSFER_EVENT_COUNT
+  - REDUCTION_EVENT_COUNT
+  - ENTRY_TIMESTAMP
+  - ENTRY_USERID
+  - UPDATE_TIMESTAMP
+  - UPDATE_USERID
+  - TERMINATION_DATE
+  - TERMINATION_TYPE_DESCRIPTION
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - TENURE_NUMBER_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 42294
+- name: Permitted Mine Area for Major Mines
+  datasource: whse_mineral_tenure.hsp_mjr_mines_permttd_areas_sp
+  definition_query: null
+  aggregate_columns:
+  - PERMIT_NO
+  - PERMITTEE_NAME
+  - MINE_NAME
+  - ISSUE_DATE
+  - STATUS_DESC
+  - OP_STATUS_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 1883342f-3551-4798-900d-e9a771be51eb
+  columns:
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - HSP_MMPA_SYSID
+  - STATUS_TYPE
+  - STATUS_DESC
+  - ISSUE_DATE
+  - MINE_GUID
+  - MINE_NAME
+  - MINE_NUMBER
+  - MINE_REGION_CODE
+  - OP_STATUS_TYPE_CODE
+  - OP_STATUS_TYPE
+  - OP_STATUS_CODE
+  - OP_STATUS_DESC
+  - OP_STATUS_REASON_CODE
+  - OP_STATUS_REASON_DESC
+  - OP_STATUS_SUB_REASON_CODE
+  - OP_STATUS_SUB_REASON_DESC
+  - OP_STATUS_DATE
+  - PERMIT_NO
+  - PERMITTEE_NAME
+  - MINE_INFO_URL
+  - FEATURE_AREA_SQM
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 52
+- name: NOW Centre Points within area of interest
+  datasource: whse_mineral_tenure.hsp_notice_of_work_pa_point_sv
+  definition_query: null
+  aggregate_columns:
+  - NOW_NUMBER
+  - NOW_APPLICATION_STATUS_DESC
+  - PERMITTEE_NAME
+  - PERMIT_NO
+  - TERM_OF_APPLICATION
+  - NOW_APPLICATION_TYPE_DESC
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 89f22b50-8d07-499c-8f65-d4f366266945
+  columns:
+  - MINE_OP_STATUS_DESC
+  - MINE_OP_STATUS_REASON_DESC
+  - MINE_OP_STATUS_SUB_REASON_DESC
+  - MINE_WORK_START_DATE
+  - MINE_WORK_STOP_DATE
+  - OPERATION_STATUS_CODE
+  - OPERATION_STATUS_DESC
+  - LAST_INSPECTION_DATE
+  - LAST_INSPECTION_TYPE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - PERMIT_STATUS_CODE_DESC
+  - AMENDMENT_ISSUE_DATE
+  - AMENDMENT_AUTH_END_DATE
+  - PERMITTEE_PARTY_GUID
+  - PERMITTEE_FIRST_NAME
+  - PERMITTEE_NAME
+  - MINE_GUID
+  - MINE_NAME
+  - MINE_NUMBER
+  - MINE_REGION
+  - MINE_REGION_DESCRIPTION
+  - MINE_LATITUDE
+  - MINE_LONGITUDE
+  - STATUS_DATE
+  - MAJOR_MINE_IND
+  - MINE_TYPE
+  - MINE_TENURE_CODE
+  - MINE_TENURE_DESCRIPTION
+  - MINE_COMMODITY_CODE
+  - MINE_COMMODITY_DESC
+  - MINE_DISTURBANCE_CODE
+  - MINE_DISTURBANCE_DESC
+  - MINE_OP_STATUS_CODE
+  - MINE_OP_STATUS_SUB_REASON_CODE
+  - MINE_OP_STATUS_REASON_CODE
+  - NOW_APPLICATION_GUID
+  - MMS_CID
+  - NOW_APPLICATION_STATUS_CODE
+  - NOW_APPLICATION_STATUS_DESC
+  - NOW_NUMBER
+  - TYPE_OF_APPLICATION
+  - APPLICATION_TYPE_CODE
+  - APPLICATION_TYPE_DESC
+  - NOW_APPLICATION_TYPE_CODE
+  - NOW_APPLICATION_TYPE_DESC
+  - NOW_APPLICATION_SUBMITTED_DATE
+  - NOW_LATITUDE
+  - NOW_LONGITUDE
+  - MINE_PURPOSE
+  - REGIONAL_OFFICE_EMAIL
+  - IS_APPLICANT_IND_OR_CO
+  - RELATIONSHIP_TO_APPLICANT
+  - TENURE_NUMBER
+  - DESCRIPTION_OF_LAND
+  - TERM_OF_APPLICATION
+  - PROPOSED_START_DATE
+  - PROPOSED_END_DATE
+  - PROPOSED_ANNUAL_MAX_TONNAGE
+  - ADJUSTED_ANNUAL_MAX_TONNAGE
+  - NOW_TOTAL_DISTURBED_AREA_HA
+  - CUT_LINES_POLARIZATION_HA
+  - SETTLING_POND_HA
+  - EXP_SURFACE_DRILLING_HA
+  - SAG_QUARRY_OPERATION_HA
+  - EXP_ACCESS_HA
+  - UNDERGROUND_EXP_HA
+  - CAMP_HA
+  - MECHANICAL_TRENCHING_HA
+  - SURFACE_BULK_SAMPLE_HA
+  - PLACER_OPERATION_HA
+  - CONSULTATION_START_DATE
+  - CONSULTATION_END_DATE
+  - PUBLIC_COMMENT_START_DATE
+  - PUBLIC_COMMENT_END_DATE
+  - LATEST_RESPONSE_DATE
+  - DRAFT_START_DATE
+  - DRAFT_END_DATE
+  - REVIEW_START_DATE
+  - REVIEW_END_DATE
+  - REFERRAL_START_DATE
+  - REFERRAL_END_DATE
+  - PERMIT_GUID
+  - PERMIT_NO
+  - PERMIT_STATUS_CODE
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 41386
+- name: NOW Centre Points within 500 metres
+  datasource: whse_mineral_tenure.hsp_notice_of_work_pa_point_sv
+  definition_query: null
+  aggregate_columns:
+  - NOW_NUMBER
+  - NOW_APPLICATION_STATUS_DESC
+  - PERMITTEE_NAME
+  - PERMIT_NO
+  - TERM_OF_APPLICATION
+  - NOW_APPLICATION_TYPE_DESC
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 500.0
+  unique_id: OBJECTID
+  id: 630bd1af-b568-4130-b4a0-7059904affd4
+  columns:
+  - MINE_OP_STATUS_DESC
+  - MINE_OP_STATUS_REASON_DESC
+  - MINE_OP_STATUS_SUB_REASON_DESC
+  - MINE_WORK_START_DATE
+  - MINE_WORK_STOP_DATE
+  - OPERATION_STATUS_CODE
+  - OPERATION_STATUS_DESC
+  - LAST_INSPECTION_DATE
+  - LAST_INSPECTION_TYPE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - PERMIT_STATUS_CODE_DESC
+  - AMENDMENT_ISSUE_DATE
+  - AMENDMENT_AUTH_END_DATE
+  - PERMITTEE_PARTY_GUID
+  - PERMITTEE_FIRST_NAME
+  - PERMITTEE_NAME
+  - MINE_GUID
+  - MINE_NAME
+  - MINE_NUMBER
+  - MINE_REGION
+  - MINE_REGION_DESCRIPTION
+  - MINE_LATITUDE
+  - MINE_LONGITUDE
+  - STATUS_DATE
+  - MAJOR_MINE_IND
+  - MINE_TYPE
+  - MINE_TENURE_CODE
+  - MINE_TENURE_DESCRIPTION
+  - MINE_COMMODITY_CODE
+  - MINE_COMMODITY_DESC
+  - MINE_DISTURBANCE_CODE
+  - MINE_DISTURBANCE_DESC
+  - MINE_OP_STATUS_CODE
+  - MINE_OP_STATUS_SUB_REASON_CODE
+  - MINE_OP_STATUS_REASON_CODE
+  - NOW_APPLICATION_GUID
+  - MMS_CID
+  - NOW_APPLICATION_STATUS_CODE
+  - NOW_APPLICATION_STATUS_DESC
+  - NOW_NUMBER
+  - TYPE_OF_APPLICATION
+  - APPLICATION_TYPE_CODE
+  - APPLICATION_TYPE_DESC
+  - NOW_APPLICATION_TYPE_CODE
+  - NOW_APPLICATION_TYPE_DESC
+  - NOW_APPLICATION_SUBMITTED_DATE
+  - NOW_LATITUDE
+  - NOW_LONGITUDE
+  - MINE_PURPOSE
+  - REGIONAL_OFFICE_EMAIL
+  - IS_APPLICANT_IND_OR_CO
+  - RELATIONSHIP_TO_APPLICANT
+  - TENURE_NUMBER
+  - DESCRIPTION_OF_LAND
+  - TERM_OF_APPLICATION
+  - PROPOSED_START_DATE
+  - PROPOSED_END_DATE
+  - PROPOSED_ANNUAL_MAX_TONNAGE
+  - ADJUSTED_ANNUAL_MAX_TONNAGE
+  - NOW_TOTAL_DISTURBED_AREA_HA
+  - CUT_LINES_POLARIZATION_HA
+  - SETTLING_POND_HA
+  - EXP_SURFACE_DRILLING_HA
+  - SAG_QUARRY_OPERATION_HA
+  - EXP_ACCESS_HA
+  - UNDERGROUND_EXP_HA
+  - CAMP_HA
+  - MECHANICAL_TRENCHING_HA
+  - SURFACE_BULK_SAMPLE_HA
+  - PLACER_OPERATION_HA
+  - CONSULTATION_START_DATE
+  - CONSULTATION_END_DATE
+  - PUBLIC_COMMENT_START_DATE
+  - PUBLIC_COMMENT_END_DATE
+  - LATEST_RESPONSE_DATE
+  - DRAFT_START_DATE
+  - DRAFT_END_DATE
+  - REVIEW_START_DATE
+  - REVIEW_END_DATE
+  - REFERRAL_START_DATE
+  - REFERRAL_END_DATE
+  - PERMIT_GUID
+  - PERMIT_NO
+  - PERMIT_STATUS_CODE
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 41386
+- name: Mineral and Placer Tenures
+  datasource: whse_mineral_tenure.mta_acquired_tenure_svw
+  definition_query: '"TENURE_TYPE_DESCRIPTION" <> ''Coal'''
+  aggregate_columns:
+  - TENURE_TYPE_DESCRIPTION
+  - TENURE_SUB_TYPE_DESCRIPTION
+  - TENURE_NUMBER_ID
+  - OWNER_NAME
+  - CLAIM_NAME
+  where:
+    conditions:
+    - field: TENURE_TYPE_DESCRIPTION
+      op: '!='
+      value: Coal
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: f1377ebf-661d-4339-abaa-ae64df072e65
+  columns:
+  - CLAIM_NAME
+  - TENURE_TYPE_CODE
+  - TENURE_TYPE_DESCRIPTION
+  - TENURE_SUB_TYPE_CODE
+  - TENURE_SUB_TYPE_DESCRIPTION
+  - TITLE_TYPE_CODE
+  - TITLE_TYPE_DESCRIPTION
+  - ISSUE_DATE
+  - GOOD_TO_DATE
+  - AREA_IN_HECTARES
+  - PROTECTED_IND
+  - REVISION_NUMBER
+  - TAG_NUMBER
+  - CLIENT_NUMBER_ID
+  - OWNER_NAME
+  - PERCENT_OWNERSHIP
+  - NUMBER_OF_OWNERS
+  - CASH_IN_LIEU_EVENT_COUNT
+  - STATEMENT_OF_WORK_EVENT_COUNT
+  - COMPLAINTS_EVENT_COUNT
+  - OWNERSHIP_TRANSFER_EVENT_COUNT
+  - REDUCTION_EVENT_COUNT
+  - ENTRY_TIMESTAMP
+  - ENTRY_USERID
+  - UPDATE_TIMESTAMP
+  - UPDATE_USERID
+  - TERMINATION_DATE
+  - TERMINATION_TYPE_DESCRIPTION
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - TENURE_NUMBER_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 42294
+- name: Petroleum Tenures
+  datasource: whse_mineral_tenure.ptsa_petroleum_title_poly
+  definition_query: null
+  aggregate_columns:
+  - TITLE_NUMBER_ID
+  - TITLE_STATUS_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 0568d384-6daf-431b-a10d-616c6789c0ee
+  columns:
+  - TITLE_NUMBER_ID
+  - TITLE_STATUS_CODE
+  - TITLE_TYPE_CODE
+  - ORIGIN_TYPE_CODE
+  - DATE_OF_ISSUE
+  - EFFECTIVE_DATE
+  - TERM
+  - AREA_IN_HECTARES
+  - BONUS_PAID
+  - DOLLAR_PER_HECTARE
+  - EXPIRY_DATE
+  - CANCEL_DATE
+  - ORIGIN_NUMBER
+  - FEE
+  - SPS_REF_NUMBER
+  - REMARKS
+  - DATE_OF_SALE
+  - ENTRY_USERID
+  - ENTRY_TIMESTAMP
+  - UPDATE_USERID
+  - UPDATE_TIMESTAMP
+  - FEATURE_CODE
+  - SDGW_SRC_FID
+  - SDGW_REPL_TIME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 39820
+- name: Important Fossil Areas
+  datasource: whse_land_and_natural_resource.foss_important_fossil_areas_sp
+  definition_query: null
+  aggregate_columns:
+  - AREA_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: b4213ff0-e77e-4e7f-b467-7c8670853c82
+  columns:
+  - FIFAS_SYSID
+  - AREA_ID
+  - AREA_NAME
+  - GEOLOGIC_DESCRIPTION
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 18
+- name: Environmental Remediation Sites
+  datasource: whse_waste.site_env_rmdtn_sites_gov_svw
+  definition_query: null
+  aggregate_columns:
+  - COMMON_NAME
+  - REGIONAL_FILE_NO
+  - VICTORIA_FILE_NO
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 82dbb01a-6b54-4ea2-995b-cde535cad9da
+  columns:
+  - SR_STATUS
+  - GENERAL_DESCRIPTION
+  - VICTORIA_FILE_NO
+  - REGIONAL_FILE_NO
+  - COMMON_NAME
+  - ADDRESS
+  - LATITUDE
+  - LONGITUDE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - ENV_RMDTN_SITES_ID
+  - SITE_ID
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 28163
+- name: Environmental Monitoring Stations
+  datasource: whse_waste.bc_env_monitor_locns
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 23327e02-d759-495e-8480-f5ce8b73703d
+  columns:
+  - FCODE
+  - AEMS_TAG
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 40350
+- name: 'Heritage Sites '
+  datasource: whse_human_cultural_economic.hist_historic_environmnt_fa_sp
+  definition_query: null
+  aggregate_columns:
+  - BORDENNUMBER
+  - REGISTRATION_STATUS
+  - COMMON_SITE_NAME
+  - OTHER_SITE_NAMES
+  - RECOGNITION_GOVERNMENT_LEVEL
+  - RECOGNITION_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 8388c354-4f4c-438b-94dd-509f43a05cf3
+  columns:
+  - HIST_HEF_SYSID
+  - SITE_ID
+  - BORDENNUMBER
+  - OFFICIALLY_RECOGNIZED_IND
+  - REGISTRATION_STATUS
+  - COMMON_SITE_NAME
+  - OTHER_SITE_NAMES
+  - PARCEL_DESCRIPTION
+  - STREET_ADDRESS
+  - CITY
+  - PROVINCE
+  - LOCALITY
+  - LOCATION_DESCRIPTION
+  - RECOGNITION_GOVERNMENT
+  - RECOGNITION_GOVERNMENT_LEVEL
+  - RECOGNITION_TYPE
+  - RECOGNITION_START_DATE
+  - REFERENCE_NUMBER
+  - CONSTRUCTION_YEAR
+  - CONSTRUCTION_YEAR_QUALIFIER
+  - SIGNIFICANCE_GOVERNMENT_LEVEL
+  - PHYSICAL_DESCRIPTION
+  - HERITAGE_VALUE
+  - DEFINING_ELEMENTS
+  - DOCUMENT_LOCATION
+  - ARCHITECT_NAMES
+  - BUILDER_NAMES
+  - CURRENT_FUNCTIONAL_CATEGORIES
+  - HISTORIC_FUNCTIONAL_CATEGORIES
+  - LATITUDE
+  - LONGITUDE
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - SITE_URL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 7054
+- name: Heritage Sites within 50 metres
+  datasource: whse_human_cultural_economic.hist_historic_environmnt_fa_sp
+  definition_query: null
+  aggregate_columns:
+  - BORDENNUMBER
+  - REGISTRATION_STATUS
+  - COMMON_SITE_NAME
+  - OTHER_SITE_NAMES
+  - RECOGNITION_GOVERNMENT_LEVEL
+  - RECOGNITION_TYPE
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: eebd9916-3cc8-4deb-aa6e-6294baa6fd33
+  columns:
+  - HIST_HEF_SYSID
+  - SITE_ID
+  - BORDENNUMBER
+  - OFFICIALLY_RECOGNIZED_IND
+  - REGISTRATION_STATUS
+  - COMMON_SITE_NAME
+  - OTHER_SITE_NAMES
+  - PARCEL_DESCRIPTION
+  - STREET_ADDRESS
+  - CITY
+  - PROVINCE
+  - LOCALITY
+  - LOCATION_DESCRIPTION
+  - RECOGNITION_GOVERNMENT
+  - RECOGNITION_GOVERNMENT_LEVEL
+  - RECOGNITION_TYPE
+  - RECOGNITION_START_DATE
+  - REFERENCE_NUMBER
+  - CONSTRUCTION_YEAR
+  - CONSTRUCTION_YEAR_QUALIFIER
+  - SIGNIFICANCE_GOVERNMENT_LEVEL
+  - PHYSICAL_DESCRIPTION
+  - HERITAGE_VALUE
+  - DEFINING_ELEMENTS
+  - DOCUMENT_LOCATION
+  - ARCHITECT_NAMES
+  - BUILDER_NAMES
+  - CURRENT_FUNCTIONAL_CATEGORIES
+  - HISTORIC_FUNCTIONAL_CATEGORIES
+  - LATITUDE
+  - LONGITUDE
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - SITE_URL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 7054
+- name: Agriculture Land Reserve
+  datasource: whse_legal_admin_boundaries.oats_alr_polys
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4ba58c19-d5af-4f68-9cfb-5faa733e8774
+  columns:
+  - ALR_POLY_ID
+  - STATUS
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3226
+- name: Transportation Corridors
+  datasource: whse_tantalis.temp_transport
+  definition_query: null
+  aggregate_columns:
+  - SYMBOL_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: d2f88b47-87d3-4fae-96ad-06acfba1ff15
+  columns:
+  - SURV_RW_SID
+  - TRANSACTION_SID
+  - SPATIAL_LOCK_NUM
+  - SPATIAL_CAPT_CDE
+  - TMP_PIN_CHR
+  - TMP_FILE_CHR
+  - TMP_DESCRIPT_CHR
+  - CCOG_CHR
+  - SYMBOL_TYPE
+  - SDGW_SRC_FID
+  - SDGW_REPL_TIME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 11200
+- name: Alpine Ski Areas
+  datasource: reg_legal_and_admin_boundaries.rec_tenure_alpine_ski_areas_sp
+  definition_query: null
+  aggregate_columns:
+  - RESORT_NAME
+  - CROWN_LANDS_FILE
+  - TENURE_TYPE_1
+  - TENURE_TYPE_2
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 3d60a36e-d8e1-44e0-987a-e42e805c09d9
+  columns:
+  - TENURE_ALPINE_SKI_AREAS_ID
+  - RESORT_NAME
+  - CROWN_LANDS_FILE
+  - TENURE_TYPE_1
+  - TENURE_TYPE_2
+  - PROJECT_STATUS
+  - AREA_HA
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 39
+- name: Snowmobile Management Areas
+  datasource: whse_wildlife_inventory.ama_snowmobile_mgmt_areas_sp
+  definition_query: null
+  aggregate_columns:
+  - SNOWMOBILE_AREA_NAME
+  - AREA_MANAGEMENT_CLASS
+  - AREA_TIMING_RESTRICTIONS
+  - AREA_ACCESS_RATIONALE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 7bd514a5-b388-4316-9ac2-78c3ac09cdae
+  columns:
+  - SNOWMOBILE_MGMT_AREA_ID
+  - SNOWMOBILE_AREA_NAME
+  - AREA_MANAGEMENT_CLASS
+  - AREA_TIMING_RESTRICTIONS
+  - AREA_ACCESS_RATIONALE
+  - AREA_FEATURE_NOTES
+  - AREA_USE
+  - AREA_POLYGON_RETIRED_DATE
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 207
+- name: Reserve Mineral Sites
+  datasource: whse_mineral_tenure.mta_site_sp
+  definition_query: '"SITE_MINERAL_IND" = ''Y'''
+  aggregate_columns:
+  - RESERVE_TYPE
+  - MTA_SITE_ORDER_RESTR_DESC
+  - SITE_NAME
+  - SITE_NUMBER_ID
+  where:
+    conditions:
+    - field: SITE_MINERAL_IND
+      op: '='
+      value: Y
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9523385c-80e9-47b1-b82a-1d47e5d711ca
+  columns:
+  - SITE_PLACER_IND
+  - MTA_SITE_STATUS_DESCRIPTION
+  - TOTAL_AREA
+  - PROJECT_NAME
+  - REQUESTOR
+  - CLIENT_NUMBER_ID
+  - EFFECTIVE_DATE
+  - DEPOSITED_DATE
+  - BC_REGULATION_NUMBER
+  - ORDER_IN_COUNCIL_NUMBER
+  - MINISTERIAL_ORDER_NUMBER
+  - FILE_ID
+  - REVIEW_DATE
+  - SUNSET_DATE
+  - REVISION_NUMBER
+  - UPDATE_TIMESTAMP
+  - ENTRY_TIMESTAMP
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - SITE_NUMBER_ID
+  - SITE_NAME
+  - MTA_SITE_ORDER_RESTR_CODE
+  - MTA_SITE_ORDER_RESTR_DESC
+  - MTA_SITE_REASON_CODE
+  - MTA_SITE_REASON_DESCRIPTION
+  - RESERVE_TYPE
+  - SITE_COAL_IND
+  - SITE_MINERAL_IND
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2303
+- name: Placer Reserve Sites
+  datasource: whse_mineral_tenure.mta_site_sp
+  definition_query: SITE_PLACER_IND = 'Y'
+  aggregate_columns:
+  - RESERVE_TYPE
+  - MTA_SITE_ORDER_RESTR_DESC
+  - SITE_NAME
+  - SITE_NUMBER_ID
+  where:
+    conditions:
+    - field: SITE_PLACER_IND
+      op: '='
+      value: Y
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 474bb230-3cd3-4542-ac5c-0e0c71492d68
+  columns:
+  - SITE_PLACER_IND
+  - MTA_SITE_STATUS_DESCRIPTION
+  - TOTAL_AREA
+  - PROJECT_NAME
+  - REQUESTOR
+  - CLIENT_NUMBER_ID
+  - EFFECTIVE_DATE
+  - DEPOSITED_DATE
+  - BC_REGULATION_NUMBER
+  - ORDER_IN_COUNCIL_NUMBER
+  - MINISTERIAL_ORDER_NUMBER
+  - FILE_ID
+  - REVIEW_DATE
+  - SUNSET_DATE
+  - REVISION_NUMBER
+  - UPDATE_TIMESTAMP
+  - ENTRY_TIMESTAMP
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - SITE_NUMBER_ID
+  - SITE_NAME
+  - MTA_SITE_ORDER_RESTR_CODE
+  - MTA_SITE_ORDER_RESTR_DESC
+  - MTA_SITE_REASON_CODE
+  - MTA_SITE_REASON_DESCRIPTION
+  - RESERVE_TYPE
+  - SITE_COAL_IND
+  - SITE_MINERAL_IND
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2303
+- name: Species and Ecosystems at Risk Public Occurrences
+  datasource: whse_terrestrial_ecology.biot_occr_non_sens_area_svw
+  definition_query: ("RANK" <> 'H' AND "RANK" <> 'X') OR "RANK" IS NULL
+  aggregate_columns:
+  - ENG_NAME
+  - EL_TYPE
+  - BC_LIST
+  - SURV_SITE
+  where:
+    and: null
+    or:
+    - and:
+      - conditions:
+        - field: RANK
+          op: '!='
+          value: H
+      - conditions:
+        - field: RANK
+          op: '!='
+          value: X
+      or: null
+    - conditions:
+      - field: RANK
+        op: is_null
+        value: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6107e165-24a6-424a-b127-7dccb23f4bc9
+  columns:
+  - ADDITIONAL_INV_NEEDED_COM
+  - INVENTORY_COM
+  - REP_ACCURACY_COM
+  - SPECIMEN_DESC
+  - EO_NUM
+  - ELCODE
+  - ELEMENT_SUBNATIONAL_ID
+  - ECOSYSTEM_GRP
+  - BCSEE_SPECIES_CODE_URL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OCCR_AREA_SP_ID
+  - FEATURE_CODE
+  - SHAPE_ID
+  - OCCR_ID
+  - SCI_NAME_F
+  - SCI_NAME
+  - ENG_NAME_F
+  - ENG_NAME
+  - EL_TYPE
+  - EL_TYPE_CD
+  - TAX_CLASS
+  - DATA_SENS
+  - GLOB_RANK
+  - PROV_RANK
+  - COSEWIC
+  - BC_LIST
+  - SARA_SCHED
+  - SURV_SITE
+  - DIRECTIONS
+  - FIRST_OBS
+  - LAST_OBS
+  - OCCR_DATA
+  - RANK
+  - RANK_DESC
+  - RANK_DATE
+  - RANK_COM
+  - CONDITION
+  - OCCR_SIZE
+  - LAND_CONT
+  - GEN_DESC
+  - VEG_ZONE
+  - HABITAT
+  - BGC
+  - REFERENCES
+  - VERS_DATE
+  - VERS_AUTHOR
+  - EST_RA
+  - CON_EXTENT
+  - CON_EXTENT_DESC
+  - ECOSECTIONS
+  - ENVIRONMENT_COM
+  - SOIL_COM
+  - MIN_ELEV_METERS
+  - MAX_ELEV_METERS
+  - ADDITIONAL_INV_NEEDED_IND
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 9998
+- name: Species and Ecosystems at Risk Masked Secured Occurrences
+  datasource: whse_terrestrial_ecology.biot_occr_masked_sens_area_sp
+  definition_query: null
+  aggregate_columns:
+  - OCCR_MASKED_SENS_AREA_SP_ID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 1eb082b4-27e2-4455-b504-4adb0562f26e
+  columns:
+  - OCCR_MASKED_SENS_AREA_SP_ID
+  - ADVISORY
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1
+- name: Community Watersheds
+  datasource: whse_water_management.wls_community_ws_pub_svw
+  definition_query: null
+  aggregate_columns:
+  - CW_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 62b7a73f-6672-4da4-8f08-f94ca854d381
+  columns:
+  - WLS_CW_SYSID
+  - CW_CODE
+  - CW_NAME
+  - CW_SOURCE_NAME
+  - CW_SOURCE_TYPE
+  - POD_NUMBER
+  - CW_LEGISLATION
+  - CW_DATE_CREATED
+  - CW_STATUS
+  - ORGANIZATION
+  - ORGANIZATION_COUNT
+  - ORGANIZATION_TYPE
+  - WATER_SYSTEM_NAME
+  - CW_USE
+  - SOURCE_CATEGORY
+  - SOURCE_COMMENTS
+  - WATER_TREATMENT_TYPE
+  - WATER_TREATMENT_LOCATION
+  - CONNECTIONS_COUNT
+  - CONNECTED_CW_NAME
+  - CONNECTED_CW_POD_NUMBER
+  - NATURAL_RESOURCE_DISTRICT
+  - HEALTH_AUTHORITY
+  - CW_ASSESSMENT_IND
+  - CW_ASSESSMENT_URL
+  - WATER_QLTY_OBJ_STATUS
+  - WATER_QLTY_OBJ_OVERVW_RPT_URL
+  - WATER_QLTY_OBJ_TECH_RPT_URL
+  - WATER_QLTY_OBJ_RPT_YEAR
+  - WATER_QLTY_OBJ_TYPE
+  - ORGANIZATION_CONCERNS
+  - WATERWORKS_DAMAGE
+  - GENERAL_COMMENTS
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 466
+- name: Flood Plains in BC
+  datasource: whse_basemapping.cwb_floodplains_bc_area_svw
+  definition_query: null
+  aggregate_columns:
+  - FLOODPLAIN_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6562c4f5-828c-4eba-ae48-16bbeffead49
+  columns:
+  - FLOODPLAINS_BC_AREA_ID
+  - FEATURE_CODE
+  - FEATURE_NAME
+  - DRAWING_NO
+  - FILE_NO
+  - DESIGNATION_DATE
+  - FLOODPLAIN_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 133
+- name: Water Wells
+  datasource: whse_water_management.gw_water_wells_wrbc_svw
+  definition_query: null
+  aggregate_columns:
+  - WELL_TAG_NUMBER
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2aa75408-3497-4d6c-ab7b-ef45194d4a3b
+  columns:
+  - CONSTRUCTION_START_DATE
+  - CONSTRUCTION_END_DATE
+  - ALTERATION_START_DATE
+  - ALTERATION_END_DATE
+  - DECOMMISSION_START_DATE
+  - DECOMMISSION_END_DATE
+  - DECOMMISSION_REASON
+  - OBSERVATION_WELL_NUMBER
+  - OBSERVATION_WELL_STATUS
+  - EMS_ID
+  - AQUIFER_MATERIAL
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - GW_WW_SYSID
+  - WELL_TAG_NUMBER
+  - IDENTIFICATION_PLATE_NUMBER
+  - STREET_ADDRESS
+  - CITY
+  - LEGAL_LOT
+  - LEGAL_PLAN
+  - LEGAL_DISTRICT_LOT
+  - LEGAL_PID
+  - WELL_LOCATION_DESCRIPTION
+  - COORDINATE_ACQUISITION_CODE
+  - WELL_STATUS
+  - WELL_CLASS
+  - WELL_SUBCLASS
+  - INTENDED_WATER_USE
+  - WELL_DETAILS_URL
+  - LICENCE_STATUS
+  - AQUIFER_ID
+  - PERSON_RESPONSIBLE
+  - COMPANY_OF_PERSON_RESPONSIBLE
+  - FINISHED_WELL_DEPTH
+  - TOTAL_DEPTH_DRILLED
+  - BEDROCK_DEPTH
+  - YIELD
+  - YIELD_ESTIMATION_DURATION
+  - ARTESIAN_COND
+  - ARTESIAN_FLOW
+  - ARTESIAN_PRESSURE
+  - STATIC_WATER_LEVEL
+  - DIAMETER
+  - FINAL_CASING_STICK_UP
+  - GROUND_ELEVATION
+  - GROUND_ELEVATION_METHOD
+  - SURFACE_SEAL_DEPTH
+  - SURFACE_SEAL_THICKNESS
+  - SURFACE_SEAL_METHOD
+  - SCREEN_INTAKE_METHOD
+  - WATER_SUPPLY_SYSTEM_NAME
+  - WATER_SUPPLY_SYSTEM_WELL_NAME
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 130868
+- name: Ground Water Aquifers
+  datasource: whse_water_management.gw_aquifers_classification_svw
+  definition_query: null
+  aggregate_columns:
+  - MATERIAL
+  - PRODUCTIVITY
+  - VULNERABILITY
+  - DEMAND
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ec66bb48-c349-4cb9-80bc-3110aa627235
+  columns:
+  - GW_A_SYSID
+  - AQUIFER_ID
+  - NAME
+  - MAPPING_YEAR
+  - LOCATION
+  - MATERIAL
+  - SUBTYPE
+  - AQUIFER_DETAILS_URL
+  - LITHO_STRATOGRAPHIC_UNIT
+  - VULNERABILITY
+  - PRODUCTIVITY
+  - DEMAND
+  - WATER_USE
+  - QUALITY_CONCERN
+  - NOTES
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1166
+- name: Water Reservations Points
+  datasource: whse_water_management.wls_water_reservation_sv
+  definition_query: null
+  aggregate_columns:
+  - RESERVATION_ID
+  - RESERVATION_DESCRIPTION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 43a7e614-c9ac-47cb-99dd-2f8f63288e6b
+  columns:
+  - WLS_WR_SYSID
+  - RESERVATION_ID
+  - RESERVATION_DESCRIPTION
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 238
+- name: Water Allocation Notation Points
+  datasource: whse_water_management.wls_water_notation_sv
+  definition_query: null
+  aggregate_columns:
+  - NOTATION_ID
+  - NOTATION_DESCRIPTION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c7f43584-648b-47d4-bbc7-680816cb5fa4
+  columns:
+  - WLS_WN_SYSID
+  - NOTATION_ID
+  - NOTATION_TYPE
+  - NOTATION_DESCRIPTION
+  - BLUE_LINE_KEY
+  - LATITUDE
+  - LONGITUDE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 5007
+- name: Non Trim Hydrography
+  datasource: whse_water_management.wls_non_trim_hydrgrph_line_svw
+  definition_query: null
+  aggregate_columns:
+  - STREAM_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: e1b79d92-9d06-406d-a2a6-c108ba92694c
+  columns:
+  - NON_TRIM_HYDRGRPH_LINE_ID
+  - FEATURE_CODE
+  - STREAM_NAME
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 17960
+- name: Flood Protection Works Appurtenant Structures
+  datasource: whse_water_management.fpw_appurtenant_structure_svw
+  definition_query: null
+  aggregate_columns:
+  - WORKS_TYPE_APPURT
+  - COMMENTS
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: d6747b76-f16c-4340-a67d-4dcb1bb9be55
+  columns:
+  - STRUCTURE_MATERIAL
+  - MONUMENT_MARKINGS
+  - MONUMENT_TYPE
+  - VEHICLE_BRIDGE_SIDE
+  - VEHICLE_BRIDGE_END
+  - VEHICLE_BRIDGE_MATERIAL
+  - VEHICLE_BRIDGE_USAGE
+  - VEHICLE_BRIDGE_NAME
+  - WEIR_SIDE
+  - WEIR_MATERIAL
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - ACCESS_POINT_SIDE
+  - ACCESS_POINT_NAME
+  - ARMOURED_BANK_TYPE
+  - ARMOURED_BANK_SIDE
+  - CULVERT_MATERIAL
+  - CULVERT_END
+  - CULVERT_SIZE_MM
+  - DROP_STRUCTURE_SIDE
+  - PROTECTION_POINT_END
+  - PROTECTION_POINT_TYPE
+  - FENCE_GATE_POINT_TYPE
+  - LOCK_IDENTIFICATION_FEATURE
+  - FLOOD_BOX_CONCRETE_INLET_IND
+  - FLOOD_BOX_CONCRETE_OUTLET_IND
+  - FLOOD_BOX_TRASH_RACK_IND
+  - FLOOD_BOX_GATE_TYPE
+  - FLOOD_BOX_NUMBER_OF_PIPES
+  - FOOT_BRIDGE_SIDE
+  - FOOT_BRIDGE_MATERIAL
+  - GAUGE_TYPE
+  - GAUGE_READABILITY
+  - GROYNE_END
+  - GROYNE_MATERIAL
+  - GROYNE_WIDTH_M
+  - MANHOLE_TYPE
+  - MANHOLE_SIZE_MM
+  - CROSS_SECTION_IDENTIFIER
+  - PLATFORM_OBSTRUCTION_IND
+  - OUTLET_POINT_CONCRETE_IND
+  - OUTLET_POINT_GATE_TYPE
+  - OUTLET_POINT_NUMBER_OF_PIPES
+  - PUMP_HOUSE_BUILDING_MATERIAL
+  - PUMP_HOUSE_CORNER
+  - PUMP_HOUSE_DIMENSIONS
+  - SIGN_MATERIAL
+  - SIGN_TEXT
+  - STAIRS_MATERIAL
+  - STAIRS_OBSTRUCTION_IND
+  - FPW_AS_SYSID
+  - DIKE_NUMBER
+  - DIKE_NAME
+  - WORKS_TYPE_APPURT
+  - REGION
+  - WATER_COURSE
+  - UTM_ZONE
+  - UTM_EASTING_X
+  - UTM_NORTHING_Y
+  - SURVEY_DATE
+  - APPURTENANT_STRUCTURE_ID
+  - COMMENTS
+  - DATA_SOURCE
+  - ACCESS_POINT_TYPE
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 20911
+- name: Active Snow Course Locations
+  datasource: whse_water_management.ssl_snow_mss_locs_sp
+  definition_query: null
+  aggregate_columns:
+  - LOCATION_ID
+  - LOCATION_NAME
+  - STATUS
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 32ca8902-18b1-41d4-a942-5e0872484c39
+  columns:
+  - LONGITUDE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - SNOW_MSS_LOC_ID
+  - LOCATION_ID
+  - LOCATION_NAME
+  - ELEVATION
+  - STATUS
+  - LATITUDE
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 385
+- name: Active Snow Pillow Locations
+  datasource: whse_water_management.ssl_snow_asws_stns_sp
+  definition_query: null
+  aggregate_columns:
+  - LOCATION_ID
+  - LOCATION_NAME
+  - STATUS
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 15a131ff-806f-4c74-aa78-ee3bbb238b37
+  columns:
+  - SNOW_ASWS_STN_ID
+  - LOCATION_ID
+  - LOCATION_NAME
+  - ELEVATION
+  - STATUS
+  - LATITUDE
+  - LONGITUDE
+  - OPERATOR
+  - CAMERA_URL
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 144
+- name: Wildlife Habitat Area Legal
+  datasource: whse_wildlife_management.wcp_wildlife_habitat_area_poly
+  definition_query: null
+  aggregate_columns:
+  - COMMON_SPECIES_NAME
+  - TAG
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ea4428ee-ebeb-4423-b6ef-af272170ed7e
+  columns:
+  - HABITAT_AREA_ID
+  - TAG
+  - APPROVAL_DATE
+  - NOTICE_DATE
+  - FEATURE_NOTES
+  - FEATURE_CODE
+  - ORG_ORGANIZATION_ID
+  - COMMON_SPECIES_NAME
+  - LEGISLATION_ACT_NAME
+  - TIMBER_HARVEST_CODE
+  - HECTARES
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 6880
+- name: Wildlife Habitat Proposed
+  datasource: whse_wildlife_management.wcp_wha_proposed_sp
+  definition_query: null
+  aggregate_columns:
+  - COMMON_SPECIES_NAME
+  - WHA_TAG
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: a7f68664-9712-4342-b6ef-20d5af35e815
+  columns:
+  - WHA_PROPOSED_ID
+  - WHA_TAG
+  - PROPOSED_DATE
+  - PROPOSED_NAME
+  - COMMON_SPECIES_NAME
+  - TIMBER_HARVEST_CODE
+  - FEATURE_NOTES
+  - ACCOUNTS_MEASURES_LINK
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 548
+- name: Ungulate Winter Range Legal
+  datasource: whse_wildlife_management.wcp_ungulate_winter_range_sp
+  definition_query: null
+  aggregate_columns:
+  - SPECIES_1
+  - UWR_NUMBER
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4bf53a14-a698-4020-9549-0e8241cbd6b5
+  columns:
+  - LEGISLATION_ACT_NAME
+  - TIMBER_HARVEST_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - UWR_NUMBER
+  - UWR_UNIT_NUMBER
+  - SPECIES_1
+  - SPECIES_2
+  - APPROVAL_DATE
+  - DATE_OF_NOTICE
+  - HECTARES
+  - FEATURE_NOTES
+  - FEATURE_CODE
+  - UNGULATE_WINTER_RANGE_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 200800
+- name: Ungulate Winter Range Legal with 5 km buffer
+  datasource: whse_wildlife_management.wcp_ungulate_winter_range_sp
+  definition_query: null
+  aggregate_columns:
+  - SPECIES_1
+  - UWR_NUMBER
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5000.0
+  unique_id: OBJECTID
+  id: 6347f05e-8158-4f2d-aeb8-495e9943384f
+  columns:
+  - LEGISLATION_ACT_NAME
+  - TIMBER_HARVEST_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - UWR_NUMBER
+  - UWR_UNIT_NUMBER
+  - SPECIES_1
+  - SPECIES_2
+  - APPROVAL_DATE
+  - DATE_OF_NOTICE
+  - HECTARES
+  - FEATURE_NOTES
+  - FEATURE_CODE
+  - UNGULATE_WINTER_RANGE_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 200800
+- name: Ungulate Winter Range Proposed
+  datasource: whse_wildlife_management.wcp_ung_wntr_rng_proposed_sp
+  definition_query: null
+  aggregate_columns:
+  - SPECIES_1
+  - UWR_NUMBER
+  - TIMBER_HARVEST_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 13d5f042-a9a5-4332-9716-84b7179b9703
+  columns:
+  - UNG_WNTR_RNG_PROPOSED_ID
+  - UWR_NUMBER
+  - UWR_UNIT_NUMBER
+  - SPECIES_1
+  - SPECIES_2
+  - FEATURE_NOTES
+  - HECTARES
+  - LEGISLATION_ACT_NAME
+  - TIMBER_HARVEST_CODE
+  - CONTACT_NAME
+  - CONTACT_EMAIL
+  - SUPPORTING_MATERIAL_URL_1
+  - SUPPORTING_MATERIAL_URL_2
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 186
+- name: Caribou Habitat Areas WHA GAR order
+  datasource: whse_wildlife_management.wcp_wildlife_habitat_area_poly
+  definition_query: '"COMMON_SPECIES_NAME" LIKE ''%Caribou%'' '
+  aggregate_columns:
+  - TAG
+  - FEATURE_NOTES
+  - COMMON_SPECIES_NAME
+  where:
+    conditions:
+    - field: COMMON_SPECIES_NAME
+      op: like
+      value: '%Caribou%'
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 41cdd5bd-22c4-47da-8990-314d693b4762
+  columns:
+  - HABITAT_AREA_ID
+  - TAG
+  - APPROVAL_DATE
+  - NOTICE_DATE
+  - FEATURE_NOTES
+  - FEATURE_CODE
+  - ORG_ORGANIZATION_ID
+  - COMMON_SPECIES_NAME
+  - LEGISLATION_ACT_NAME
+  - TIMBER_HARVEST_CODE
+  - HECTARES
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 6880
+- name: Caribou Habitat Areas UWR GAR order
+  datasource: whse_wildlife_management.wcp_ungulate_winter_range_sp
+  definition_query: '"SPECIES_1" LIKE ''M-RATA%'''
+  aggregate_columns:
+  - UWR_NUMBER
+  - FEATURE_NOTES
+  where:
+    conditions:
+    - field: SPECIES_1
+      op: like
+      value: M-RATA%
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: d4cfdc31-96c2-4107-95df-810a19267380
+  columns:
+  - LEGISLATION_ACT_NAME
+  - TIMBER_HARVEST_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - UWR_NUMBER
+  - UWR_UNIT_NUMBER
+  - SPECIES_1
+  - SPECIES_2
+  - APPROVAL_DATE
+  - DATE_OF_NOTICE
+  - HECTARES
+  - FEATURE_NOTES
+  - FEATURE_CODE
+  - UNGULATE_WINTER_RANGE_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 200800
+- name: Proposed Fisheries Sensitive Watersheds
+  datasource: whse_wildlife_management.wcp_fish_sens_ws_proposed_sp
+  definition_query: null
+  aggregate_columns:
+  - FSW_TAG
+  - GAZETTED_NAME
+  - TIMBER_HARVEST_CODE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: e91e5385-91cc-42aa-a316-a23aae8f6757
+  columns:
+  - FEATURE_NOTES
+  - FSW_TAG
+  - GAZETTED_NAME
+  - LOCAL_NAME
+  - SQKM
+  - WATERSHED_CODE
+  - UNIT_NUMBER
+  - LEGISLATION_ACT_NAME
+  - TIMBER_HARVEST_CODE
+  - CONTACT_NAME
+  - CONTACT_EMAIL
+  - SUPPORTING_MATERIAL_URL_1
+  - SUPPORTING_MATERIAL_URL_2
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - FISH_SENS_WS_PROPOSED_ID
+  - EVALUATION_UNIT
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 15
+- name: Approved Fisheries Sensitive Watersheds
+  datasource: whse_wildlife_management.wcp_fish_sensitive_ws_poly
+  definition_query: null
+  aggregate_columns:
+  - FSW_TAG
+  - GAZETTED_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 33b1c3ba-fb29-4eea-99be-c8344371f1ab
+  columns:
+  - FISH_SENSITIVE_WS_POLY_ID
+  - APPROVAL_DATE
+  - EVALUATION_UNIT
+  - FEATURE_NOTES
+  - FSW_TAG
+  - GAZETTED_NAME
+  - LOCAL_NAME
+  - NOTICE_DATE
+  - WATERSHED_CODE
+  - FEATURE_CODE
+  - UNIT_NUMBER
+  - LEGISLATION_ACT_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 327
+- name: Critical Habitat for Federally listed Species at Risk
+  datasource: whse_wildlife_management.wcp_critical_habitat_sp
+  definition_query: null
+  aggregate_columns:
+  - COMMON_NAME_ENGLISH
+  - CRITICAL_HABITAT_SITE_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: dbfc674d-5cdd-4dae-8d33-333e60929451
+  columns:
+  - CRITICAL_HABITAT_ID
+  - COSEWIC_SPECIES_ID
+  - SCIENTIFIC_NAME
+  - COMMON_NAME_ENGLISH
+  - COMMON_NAME_FRENCH
+  - COSEWIC_POPULATION
+  - CRITICAL_HABITAT_STATUS
+  - CRITICAL_HABITAT_REGION
+  - CRITICAL_HABITAT_SITE_ID
+  - CRITICAL_HABITAT_SITE_NAME
+  - CRITICAL_HABITAT_DETAIL
+  - CRITICAL_HABITAT_VARIANT
+  - CRITICAL_HABITAT_APPROACH
+  - CRITICAL_HABITAT_METHOD
+  - AREA_HECTARES
+  - LAND_TENURE
+  - CRITICAL_HABITAT_COMMENTS
+  - CRITICAL_HABITAT_DATE_EDITED
+  - PROVINCE_TERRITORY
+  - FEDERAL_DEPARTMENT_NAME
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - LATITUDE
+  - LONGITUDE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 148160
+- name: Eelgrass Areas
+  datasource: whse_wildlife_management.crims_eelgrasses
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 065730c0-72f4-447a-9251-7f32033728ec
+  columns:
+  - EELGRASS_ID
+  - FEATURE_CODE
+  - RA
+  - RI
+  - LOCATION
+  - FEATURE
+  - SPECIES
+  - TYPE_USE
+  - EGRASS_COMMENT
+  - SOURCE1
+  - SOURCE2
+  - SURVEY_TYPE
+  - MAP_DATE
+  - CONTACT
+  - PROJECT
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 913
+- name: Kelp Beds
+  datasource: whse_wildlife_management.crims_kelp_beds
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 7047dada-45da-449d-9944-4cf865cc04de
+  columns:
+  - KELP_ID
+  - FEATURE_CODE
+  - RA
+  - RI
+  - LOCATION
+  - FEATURE
+  - SPECIES
+  - BIOMASS
+  - DENSITY
+  - KELP_COMMENT
+  - SOURCE1
+  - PROJECT
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 39120
+- name: Wildlife Management Areas
+  datasource: whse_tantalis.ta_wildlife_mgmt_areas_svw
+  definition_query: null
+  aggregate_columns:
+  - WILDLIFE_MANAGEMENT_AREA_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: eae7927b-a812-4d50-ac2f-ef1504fcef9f
+  columns:
+  - ADMIN_AREA_SID
+  - WILDLIFE_MANAGEMENT_AREA_NAME
+  - ORCS_PRIMARY
+  - ORCS_SECONDARY
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 36
+- name: Wildlife Management Units
+  datasource: whse_wildlife_management.waa_wildlife_mgmt_units_svw
+  definition_query: null
+  aggregate_columns:
+  - WILDLIFE_MGMT_UNIT_ID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9829a301-f338-4a5c-9659-cdcac5c44510
+  columns:
+  - FEATURE_CODE
+  - REGION_RESPONSIBLE
+  - REGION_RESPONSIBLE_ID
+  - REGION_RESPONSIBLE_NAME
+  - GAME_MANAGEMENT_ZONE_ID
+  - GAME_MANAGEMENT_ZONE_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - WILDLIFE_MGMT_UNIT_ID
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 225
+- name: Provincial Forest
+  datasource: whse_admin_boundaries.fadm_prov_forest
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: fc59daf1-a74a-4c93-b424-430e65a77ede
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - MAP_BLOCK_ID
+  - DATA_SOURCE_CODE
+  - DATA_SOURCE_CD_DESCRIPTION
+  - CAPTURE_METHOD_CD
+  - CAPTURE_METHOD_CD_DESCRIPTION
+  - ACCURACY_CD
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 296
+- name: Provincial Forest Additions
+  datasource: whse_admin_boundaries.fadm_prov_forest_addition
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  - OIC_YEAR
+  - OIC_NUMBER
+  - MAP_BLOCK_ID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ab444c11-f672-4acb-97b6-8f77bfd52154
+  columns:
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - OIC_YEAR
+  - OIC_NUMBER
+  - MAP_BLOCK_ID
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 211
+- name: Provincial Forest Deletions
+  datasource: whse_admin_boundaries.fadm_prov_forest_deletion
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  - DOCUMENT_TYPE
+  - DELETION_YEAR
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 54653c71-4820-4392-b1ee-e3bd520b70ee
+  columns:
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - DOCUMENT_TYPE
+  - DELETION_YEAR
+  - DELETION_NUMBER
+  - MAP_BLOCK_ID
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 2579
+- name: Provincial Forest Exclusions
+  datasource: whse_admin_boundaries.fadm_prov_forest_exclusion
+  definition_query: null
+  aggregate_columns:
+  - PROV_FOREST_CD_DESCRIPTION
+  - AREA_TYPE
+  - EXCLUSION_NUMBER
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: e3e80c0f-3e83-4b0d-a5ff-d1091941afea
+  columns:
+  - FEATURE_ID
+  - PROV_FOREST_CD
+  - PROV_FOREST_CD_DESCRIPTION
+  - AREA_TYPE
+  - EXCLUSION_NUMBER
+  - EFFECTIVE_DATE
+  - RETIREMENT_DATE
+  - COMMENTS
+  - FEATURE_CODE
+  - WHO_UPDATED
+  - WHEN_UPDATED
+  - FEATURE_CLASS_SKEY
+  - OBJECT_VERSION_SKEY
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 99
+- name: Terrain Mapping Project Boundaries
+  datasource: whse_terrestrial_ecology.ste_ter_project_boundaries_svw
+  definition_query: null
+  aggregate_columns:
+  - PROJECT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 2eecf756-aed8-4457-8bc5-41ed733f96b6
+  columns:
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - BUSINESS_AREA_PROJECT_ID
+  - PROJECT_TYPE
+  - PROJECT_NAME
+  - PROJECT_MAP_SCALE
+  - MODIFICATION_DATE
+  - GEOGRAPHIC_LOCATION_NAME
+  - PROJECT_COMPLETION_DATE
+  - SURVEYED_DATES
+  - ECOSYSTEM_SURVEY_INTENSITY_LVL
+  - TERRAIN_SURVEY_INTENSITY_LVL
+  - ACCURACY_ASSESSMENT_LVL
+  - ACCURACY_ASSESSMENT_COMMENTS
+  - RESPONSIBLE_ORGANIZATION_NAME
+  - PROJECT_SUPERVISOR_NAME
+  - ECOSYSTEM_MAPPER_NAME
+  - TERRAIN_MAPPER_NAME
+  - SOIL_MAPPER_NAME
+  - WILDLIFE_MAPPER_NAME
+  - DIGITAL_DATA_CAPTURE_NAME
+  - GIS_SUPERVISOR_NAME
+  - RECORDER_NAME
+  - PROJECT_CLIENT_NAME
+  - TRIM_VERSION_NUMBER
+  - IMAGE_TYPE
+  - IMAGE_SCALE
+  - IMAGE_YEAR
+  - TERRAIN_LEGEND_SOURCE
+  - TERRAIN_LEGEND_TYPE
+  - VERSION_OF_PACKAGE_USED
+  - STABILITY_CLASSIFICATION_TYPE
+  - SLOPE_UNIT
+  - PROJECT_COMMENTS
+  - PROJECT_IDENTIFICATION
+  - MAP_LEGEND_DESCRIPTION
+  - MAP_LEGEND_DATA_DOWNLOAD_LINK
+  - ECOCAT_DATA_DESCRIPTION
+  - ECOCAT_URL_DATA_DOWNLOAD_LINK
+  - REFERENCE_1_DATA_DESCRIPTION
+  - REFERENCE_1_DATA_DOWNLOAD_LINK
+  - REFERENCE_2_DATA_DESCRIPTION
+  - REFERENCE_2_DATA_DOWNLOAD_LINK
+  - REFERENCE_3_DATA_DESCRIPTION
+  - REFERENCE_3_DATA_DOWNLOAD_LINK
+  - REFERENCE_4_DATA_DESCRIPTION
+  - REFERENCE_4_DATA_DOWNLOAD_LINK
+  - BOUNDARY_ONLY_FLAG
+  - REVIEW_COMMENTS
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 876
+- name: Landscape Units
+  datasource: whse_land_use_planning.rmp_landscape_unit_svw
+  definition_query: ("BIODIVERSITY_EMPHASIS_OPTION" = 'Multiple' AND "BEO_SUB_TYPE_APPLICABLE"
+    = 'Y') OR "BEO_SUB_TYPE_APPLICABLE" = 'N'
+  aggregate_columns:
+  - LANDSCAPE_UNIT_NAME
+  - BIODIVERSITY_EMPHASIS_OPTION
+  where:
+    and: null
+    or:
+    - and:
+      - conditions:
+        - field: BIODIVERSITY_EMPHASIS_OPTION
+          op: '='
+          value: Multiple
+      - conditions:
+        - field: BEO_SUB_TYPE_APPLICABLE
+          op: '='
+          value: Y
+      or: null
+    - conditions:
+      - field: BEO_SUB_TYPE_APPLICABLE
+        op: '='
+        value: N
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: f7a8f2e9-27f0-4215-aaaa-8204c9d82c6d
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - LANDSCAPE_UNIT_ID
+  - LANDSCAPE_UNIT_PROVID
+  - LANDSCAPE_UNIT_NUMBER
+  - LANDSCAPE_UNIT_NAME
+  - BIODIVERSITY_EMPHASIS_OPTION
+  - BEO_SUB_TYPE_APPLICABLE
+  - ORIGINAL_DECISION_DATE
+  - LAST_AMENDMENT_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - ENABLING_DOCUMENT_TITLE
+  - ENABLING_DOCUMENT_URL
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1924
+- name: Strategic Land Resource Plans
+  datasource: whse_land_use_planning.rmp_strgc_land_rsrce_plan_svw
+  definition_query: null
+  aggregate_columns:
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 33ae8adb-1429-4eff-893b-9ebdb3cfe084
+  columns:
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - STRGC_LAND_RSRCE_PLAN_ID
+  - STRGC_LAND_RSRCE_PLAN_PROVID
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  - STRGC_LAND_RSRCE_ABRVN
+  - PLAN_TYPE
+  - PLAN_STATUS
+  - APPROVAL_DATE
+  - APPROVAL_LAST_AMEND_DATE
+  - LEGALIZATION_DATE
+  - LEGALIZATION_LAST_AMEND_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - ENABLING_DOCUMENT_TITLE
+  - ENABLING_DOCUMENT_URL
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 101
+- name: Legal OGMA
+  datasource: whse_land_use_planning.rmp_ogma_legal_current_svw
+  definition_query: null
+  aggregate_columns:
+  - LEGAL_OGMA_PROVID
+  - OGMA_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: fb4d5bc6-d82f-4892-85b1-8971da6179e7
+  columns:
+  - LEGAL_OGMA_INTERNAL_ID
+  - LEGAL_OGMA_PROVID
+  - OGMA_TYPE
+  - OGMA_PRIMARY_REASON
+  - LEGALIZATION_FRPA_DATE
+  - LEGALIZATION_OGAA_DATE
+  - LAST_AMENDMENT_DATE
+  - ASSOCIATED_ACT_NAME
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - ENABLING_DOCUMENT_TITLE
+  - ENABLING_DOCUMENT_URL
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 22077
+- name: Non Legal OGMA
+  datasource: whse_land_use_planning.rmp_ogma_non_legal_current_svw
+  definition_query: null
+  aggregate_columns:
+  - NON_LEGAL_OGMA_PROVID
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: f6e517cc-a082-4c9a-bcea-6f5ba1b35b6b
+  columns:
+  - NON_LEGAL_OGMA_INTERNAL_ID
+  - NON_LEGAL_OGMA_PROVID
+  - OGMA_TYPE
+  - OGMA_PRIMARY_REASON
+  - ORIGINAL_DECISION_DATE
+  - LAST_AMENDMENT_DATE
+  - ASSOCIATED_ACT_NAME
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 36974
+- name: Old Growth Recommended Harvest Deferral Areas
+  datasource: whse_forest_vegetation.ogsr_priority_def_area_cur_sp
+  definition_query: null
+  aggregate_columns:
+  - TAP_CLASSIFICATION_LABEL
+  - CURRENT_PRIORITY_DEFERRAL_ID
+  - PRIORITY_BIG_TREED_OG_DESCR
+  - ANCIENT_FOREST_DESCR
+  - REMNANT_OLD_ECOSYS_DESCR
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 0fc2aa8d-6b1c-4bd0-9c4f-214c8a89ae9e
+  columns:
+  - OGSR_PDAC_SYSID
+  - CURRENT_PRIORITY_DEFERRAL_ID
+  - TAP_PRIORITY_DEFERRAL_ID
+  - TAP_CLASSIFICATION_LABEL
+  - PRIORITY_BIG_TREED_OG_ID
+  - ANCIENT_FOREST_ID
+  - REMNANT_OLD_ECOSYS_ID
+  - PRIORITY_BIG_TREED_OG_IND
+  - ANCIENT_FOREST_IND
+  - REMNANT_OLD_ECOSYS_IND
+  - PRIORITY_BIG_TREED_OG_DESCR
+  - ANCIENT_FOREST_DESCR
+  - REMNANT_OLD_ECOSYS_DESCR
+  - REGION_NAME
+  - DISTRICT_NAME
+  - LANDSCAPE_UNIT_PROVID
+  - LANDSCAPE_UNIT_NAME
+  - LANDSCAPE_UNIT_NUMBER
+  - BGC_LABEL
+  - SOURCE
+  - FIELD_VERIFIED_IND
+  - REPLACEMENT_AREA_IND
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 258120
+- name: Legal Strategic Land and Resource Planning Objectives polygons
+  datasource: whse_land_use_planning.rmp_plan_legal_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - LEGAL_FEAT_OBJECTIVE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ba8048f6-9df2-49bf-8ea7-5550c6453f5c
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - RSRCE_PLAN_METADATA_LINK
+  - FEATURE_CODE
+  - LEGAL_FEAT_ATRB_19_VALUE
+  - LEGAL_FEAT_ATRB_20_NAME
+  - LEGAL_FEAT_ATRB_20_VALUE
+  - LEGAL_FEAT_ATRB_21_NAME
+  - LEGAL_FEAT_ATRB_21_VALUE
+  - LEGAL_FEAT_ATRB_22_NAME
+  - LEGAL_FEAT_ATRB_22_VALUE
+  - LEGAL_FEAT_ATRB_23_NAME
+  - LEGAL_FEAT_ATRB_23_VALUE
+  - LEGAL_FEAT_ATRB_24_NAME
+  - LEGAL_FEAT_ATRB_24_VALUE
+  - LEGAL_FEAT_ATRB_25_NAME
+  - LEGAL_FEAT_ATRB_25_VALUE
+  - ENABLING_DOCUMENT_URL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - LEGAL_FEAT_ID
+  - LEGAL_FEAT_PROVID
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  - LEGAL_FEAT_OBJECTIVE
+  - LEGALIZATION_DATE
+  - LAST_AMENDMENT_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - LEGAL_FEAT_ATRB_1_NAME
+  - LEGAL_FEAT_ATRB_1_VALUE
+  - LEGAL_FEAT_ATRB_2_NAME
+  - LEGAL_FEAT_ATRB_2_VALUE
+  - LEGAL_FEAT_ATRB_3_NAME
+  - LEGAL_FEAT_ATRB_3_VALUE
+  - LEGAL_FEAT_ATRB_4_NAME
+  - LEGAL_FEAT_ATRB_4_VALUE
+  - LEGAL_FEAT_ATRB_5_NAME
+  - LEGAL_FEAT_ATRB_5_VALUE
+  - LEGAL_FEAT_ATRB_6_NAME
+  - LEGAL_FEAT_ATRB_6_VALUE
+  - LEGAL_FEAT_ATRB_7_NAME
+  - LEGAL_FEAT_ATRB_7_VALUE
+  - LEGAL_FEAT_ATRB_8_NAME
+  - LEGAL_FEAT_ATRB_8_VALUE
+  - LEGAL_FEAT_ATRB_9_NAME
+  - LEGAL_FEAT_ATRB_9_VALUE
+  - LEGAL_FEAT_ATRB_10_NAME
+  - LEGAL_FEAT_ATRB_10_VALUE
+  - LEGAL_FEAT_ATRB_11_NAME
+  - LEGAL_FEAT_ATRB_11_VALUE
+  - LEGAL_FEAT_ATRB_12_NAME
+  - LEGAL_FEAT_ATRB_12_VALUE
+  - LEGAL_FEAT_ATRB_13_NAME
+  - LEGAL_FEAT_ATRB_13_VALUE
+  - LEGAL_FEAT_ATRB_14_NAME
+  - LEGAL_FEAT_ATRB_14_VALUE
+  - LEGAL_FEAT_ATRB_15_NAME
+  - LEGAL_FEAT_ATRB_15_VALUE
+  - LEGAL_FEAT_ATRB_16_NAME
+  - LEGAL_FEAT_ATRB_16_VALUE
+  - LEGAL_FEAT_ATRB_17_NAME
+  - LEGAL_FEAT_ATRB_17_VALUE
+  - LEGAL_FEAT_ATRB_18_NAME
+  - LEGAL_FEAT_ATRB_18_VALUE
+  - LEGAL_FEAT_ATRB_19_NAME
+  - LEGAL_FEAT_ATRB_30_NAME
+  - LEGAL_FEAT_ATRB_30_VALUE
+  - ENABLING_DOCUMENT_TITLE
+  - LEGAL_FEAT_ATRB_26_NAME
+  - LEGAL_FEAT_ATRB_26_VALUE
+  - LEGAL_FEAT_ATRB_27_NAME
+  - LEGAL_FEAT_ATRB_27_VALUE
+  - LEGAL_FEAT_ATRB_28_NAME
+  - LEGAL_FEAT_ATRB_28_VALUE
+  - LEGAL_FEAT_ATRB_29_NAME
+  - LEGAL_FEAT_ATRB_29_VALUE
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 73774
+- name: Legal Strategic Land and Resource Planning Objectives point
+  datasource: whse_land_use_planning.rmp_plan_legal_point_svw
+  definition_query: null
+  aggregate_columns:
+  - LEGAL_FEAT_OBJECTIVE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: fdd21426-7e71-48fe-99df-9582f3c66284
+  columns:
+  - LEGAL_FEAT_ATRB_23_VALUE
+  - LEGAL_FEAT_ATRB_24_NAME
+  - LEGAL_FEAT_ATRB_24_VALUE
+  - LEGAL_FEAT_ATRB_25_NAME
+  - LEGAL_FEAT_ATRB_25_VALUE
+  - LEGAL_FEAT_ATRB_26_NAME
+  - LEGAL_FEAT_ATRB_26_VALUE
+  - LEGAL_FEAT_ATRB_27_NAME
+  - LEGAL_FEAT_ATRB_27_VALUE
+  - LEGAL_FEAT_ATRB_28_NAME
+  - LEGAL_FEAT_ATRB_28_VALUE
+  - LEGAL_FEAT_ATRB_29_NAME
+  - LEGAL_FEAT_ATRB_29_VALUE
+  - LEGAL_FEAT_ATRB_30_NAME
+  - LEGAL_FEAT_ATRB_30_VALUE
+  - ENABLING_DOCUMENT_TITLE
+  - ENABLING_DOCUMENT_URL
+  - RSRCE_PLAN_METADATA_LINK
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - LEGAL_FEAT_ID
+  - LEGAL_FEAT_PROVID
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  - LEGAL_FEAT_OBJECTIVE
+  - LEGALIZATION_DATE
+  - LAST_AMENDMENT_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - LEGAL_FEAT_ATRB_1_NAME
+  - LEGAL_FEAT_ATRB_1_VALUE
+  - LEGAL_FEAT_ATRB_2_NAME
+  - LEGAL_FEAT_ATRB_2_VALUE
+  - LEGAL_FEAT_ATRB_3_NAME
+  - LEGAL_FEAT_ATRB_3_VALUE
+  - LEGAL_FEAT_ATRB_4_NAME
+  - LEGAL_FEAT_ATRB_4_VALUE
+  - LEGAL_FEAT_ATRB_5_NAME
+  - LEGAL_FEAT_ATRB_5_VALUE
+  - LEGAL_FEAT_ATRB_6_NAME
+  - LEGAL_FEAT_ATRB_6_VALUE
+  - LEGAL_FEAT_ATRB_7_NAME
+  - LEGAL_FEAT_ATRB_7_VALUE
+  - LEGAL_FEAT_ATRB_8_NAME
+  - LEGAL_FEAT_ATRB_8_VALUE
+  - LEGAL_FEAT_ATRB_9_NAME
+  - LEGAL_FEAT_ATRB_9_VALUE
+  - LEGAL_FEAT_ATRB_10_NAME
+  - LEGAL_FEAT_ATRB_10_VALUE
+  - LEGAL_FEAT_ATRB_11_NAME
+  - LEGAL_FEAT_ATRB_11_VALUE
+  - LEGAL_FEAT_ATRB_12_NAME
+  - LEGAL_FEAT_ATRB_12_VALUE
+  - LEGAL_FEAT_ATRB_13_NAME
+  - LEGAL_FEAT_ATRB_13_VALUE
+  - LEGAL_FEAT_ATRB_14_NAME
+  - LEGAL_FEAT_ATRB_14_VALUE
+  - LEGAL_FEAT_ATRB_15_NAME
+  - LEGAL_FEAT_ATRB_15_VALUE
+  - LEGAL_FEAT_ATRB_16_NAME
+  - LEGAL_FEAT_ATRB_16_VALUE
+  - LEGAL_FEAT_ATRB_17_NAME
+  - LEGAL_FEAT_ATRB_17_VALUE
+  - LEGAL_FEAT_ATRB_18_NAME
+  - LEGAL_FEAT_ATRB_18_VALUE
+  - LEGAL_FEAT_ATRB_19_NAME
+  - LEGAL_FEAT_ATRB_19_VALUE
+  - LEGAL_FEAT_ATRB_20_NAME
+  - LEGAL_FEAT_ATRB_20_VALUE
+  - LEGAL_FEAT_ATRB_21_NAME
+  - LEGAL_FEAT_ATRB_21_VALUE
+  - LEGAL_FEAT_ATRB_22_NAME
+  - LEGAL_FEAT_ATRB_22_VALUE
+  - LEGAL_FEAT_ATRB_23_NAME
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 4203
+- name: Legal Strategic Land and Resource Planning Objectives line
+  datasource: whse_land_use_planning.rmp_plan_legal_line_svw
+  definition_query: null
+  aggregate_columns:
+  - LEGAL_FEAT_OBJECTIVE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 16b343cc-ddd8-48c9-8ab6-ce9b7c1569e1
+  columns:
+  - LEGAL_FEAT_ATRB_26_VALUE
+  - LEGAL_FEAT_ATRB_27_NAME
+  - LEGAL_FEAT_ATRB_27_VALUE
+  - LEGAL_FEAT_ATRB_28_NAME
+  - LEGAL_FEAT_ATRB_28_VALUE
+  - LEGAL_FEAT_ATRB_29_NAME
+  - LEGAL_FEAT_ATRB_29_VALUE
+  - LEGAL_FEAT_ATRB_30_NAME
+  - LEGAL_FEAT_ATRB_30_VALUE
+  - ENABLING_DOCUMENT_TITLE
+  - ENABLING_DOCUMENT_URL
+  - RSRCE_PLAN_METADATA_LINK
+  - FEATURE_CODE
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - LEGAL_FEAT_ATRB_17_VALUE
+  - LEGAL_FEAT_ATRB_18_NAME
+  - LEGAL_FEAT_ATRB_18_VALUE
+  - LEGAL_FEAT_ATRB_19_NAME
+  - LEGAL_FEAT_ATRB_19_VALUE
+  - LEGAL_FEAT_ATRB_20_NAME
+  - LEGAL_FEAT_ATRB_20_VALUE
+  - LEGAL_FEAT_ATRB_21_NAME
+  - LEGAL_FEAT_ATRB_21_VALUE
+  - LEGAL_FEAT_ATRB_22_NAME
+  - LEGAL_FEAT_ATRB_22_VALUE
+  - LEGAL_FEAT_ATRB_23_NAME
+  - LEGAL_FEAT_ATRB_23_VALUE
+  - LEGAL_FEAT_ATRB_24_NAME
+  - LEGAL_FEAT_ATRB_24_VALUE
+  - LEGAL_FEAT_ATRB_25_NAME
+  - LEGAL_FEAT_ATRB_25_VALUE
+  - LEGAL_FEAT_ATRB_26_NAME
+  - LEGAL_FEAT_ID
+  - LEGAL_FEAT_PROVID
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  - LEGAL_FEAT_OBJECTIVE
+  - LEGALIZATION_DATE
+  - LAST_AMENDMENT_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - LEGAL_FEAT_ATRB_1_NAME
+  - LEGAL_FEAT_ATRB_1_VALUE
+  - LEGAL_FEAT_ATRB_2_NAME
+  - LEGAL_FEAT_ATRB_2_VALUE
+  - LEGAL_FEAT_ATRB_3_NAME
+  - LEGAL_FEAT_ATRB_3_VALUE
+  - LEGAL_FEAT_ATRB_4_NAME
+  - LEGAL_FEAT_ATRB_4_VALUE
+  - LEGAL_FEAT_ATRB_5_NAME
+  - LEGAL_FEAT_ATRB_5_VALUE
+  - LEGAL_FEAT_ATRB_6_NAME
+  - LEGAL_FEAT_ATRB_6_VALUE
+  - LEGAL_FEAT_ATRB_7_NAME
+  - LEGAL_FEAT_ATRB_7_VALUE
+  - LEGAL_FEAT_ATRB_8_NAME
+  - LEGAL_FEAT_ATRB_8_VALUE
+  - LEGAL_FEAT_ATRB_9_NAME
+  - LEGAL_FEAT_ATRB_9_VALUE
+  - LEGAL_FEAT_ATRB_10_NAME
+  - LEGAL_FEAT_ATRB_10_VALUE
+  - LEGAL_FEAT_ATRB_11_NAME
+  - LEGAL_FEAT_ATRB_11_VALUE
+  - LEGAL_FEAT_ATRB_12_NAME
+  - LEGAL_FEAT_ATRB_12_VALUE
+  - LEGAL_FEAT_ATRB_13_NAME
+  - LEGAL_FEAT_ATRB_13_VALUE
+  - LEGAL_FEAT_ATRB_14_NAME
+  - LEGAL_FEAT_ATRB_14_VALUE
+  - LEGAL_FEAT_ATRB_15_NAME
+  - LEGAL_FEAT_ATRB_15_VALUE
+  - LEGAL_FEAT_ATRB_16_NAME
+  - LEGAL_FEAT_ATRB_16_VALUE
+  - LEGAL_FEAT_ATRB_17_NAME
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 39899
+- name: Non Legal Strategic Land and Resource Planning Features polygon
+  datasource: whse_land_use_planning.rmp_plan_non_legal_poly_svw
+  definition_query: null
+  aggregate_columns:
+  - NON_LEGAL_FEAT_OBJECTIVE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: d8a725d5-5ea0-4210-8e33-b57d15504cc0
+  columns:
+  - OBJECTID
+  - NON_LEGAL_FEAT_ID
+  - NON_LEGAL_FEAT_PROVID
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  - NON_LEGAL_FEAT_OBJECTIVE
+  - ORIGINAL_DECISION_DATE
+  - SE_ANNO_CAD_DATA
+  - NON_LEGAL_FEAT_ATRB_28_VALUE
+  - NON_LEGAL_FEAT_ATRB_29_NAME
+  - NON_LEGAL_FEAT_ATRB_29_VALUE
+  - NON_LEGAL_FEAT_ATRB_30_NAME
+  - RSRCE_PLAN_METADATA_LINK
+  - LAST_AMENDMENT_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - NON_LEGAL_FEAT_ATRB_1_NAME
+  - NON_LEGAL_FEAT_ATRB_1_VALUE
+  - NON_LEGAL_FEAT_ATRB_2_NAME
+  - NON_LEGAL_FEAT_ATRB_2_VALUE
+  - NON_LEGAL_FEAT_ATRB_3_NAME
+  - NON_LEGAL_FEAT_ATRB_3_VALUE
+  - NON_LEGAL_FEAT_ATRB_4_NAME
+  - NON_LEGAL_FEAT_ATRB_4_VALUE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - NON_LEGAL_FEAT_ATRB_27_NAME
+  - NON_LEGAL_FEAT_ATRB_27_VALUE
+  - NON_LEGAL_FEAT_ATRB_28_NAME
+  - NON_LEGAL_FEAT_ATRB_5_NAME
+  - NON_LEGAL_FEAT_ATRB_5_VALUE
+  - NON_LEGAL_FEAT_ATRB_6_NAME
+  - NON_LEGAL_FEAT_ATRB_6_VALUE
+  - NON_LEGAL_FEAT_ATRB_7_NAME
+  - NON_LEGAL_FEAT_ATRB_7_VALUE
+  - NON_LEGAL_FEAT_ATRB_8_NAME
+  - NON_LEGAL_FEAT_ATRB_8_VALUE
+  - NON_LEGAL_FEAT_ATRB_9_NAME
+  - NON_LEGAL_FEAT_ATRB_9_VALUE
+  - NON_LEGAL_FEAT_ATRB_10_NAME
+  - NON_LEGAL_FEAT_ATRB_10_VALUE
+  - NON_LEGAL_FEAT_ATRB_11_NAME
+  - NON_LEGAL_FEAT_ATRB_11_VALUE
+  - NON_LEGAL_FEAT_ATRB_12_NAME
+  - NON_LEGAL_FEAT_ATRB_12_VALUE
+  - NON_LEGAL_FEAT_ATRB_13_NAME
+  - NON_LEGAL_FEAT_ATRB_13_VALUE
+  - NON_LEGAL_FEAT_ATRB_14_NAME
+  - NON_LEGAL_FEAT_ATRB_14_VALUE
+  - NON_LEGAL_FEAT_ATRB_15_NAME
+  - NON_LEGAL_FEAT_ATRB_15_VALUE
+  - NON_LEGAL_FEAT_ATRB_16_NAME
+  - NON_LEGAL_FEAT_ATRB_16_VALUE
+  - NON_LEGAL_FEAT_ATRB_17_NAME
+  - NON_LEGAL_FEAT_ATRB_17_VALUE
+  - NON_LEGAL_FEAT_ATRB_18_NAME
+  - NON_LEGAL_FEAT_ATRB_18_VALUE
+  - NON_LEGAL_FEAT_ATRB_19_NAME
+  - NON_LEGAL_FEAT_ATRB_19_VALUE
+  - NON_LEGAL_FEAT_ATRB_20_NAME
+  - NON_LEGAL_FEAT_ATRB_20_VALUE
+  - NON_LEGAL_FEAT_ATRB_21_NAME
+  - NON_LEGAL_FEAT_ATRB_21_VALUE
+  - NON_LEGAL_FEAT_ATRB_22_NAME
+  - NON_LEGAL_FEAT_ATRB_22_VALUE
+  - NON_LEGAL_FEAT_ATRB_23_NAME
+  - NON_LEGAL_FEAT_ATRB_23_VALUE
+  - NON_LEGAL_FEAT_ATRB_24_NAME
+  - NON_LEGAL_FEAT_ATRB_24_VALUE
+  - NON_LEGAL_FEAT_ATRB_25_NAME
+  - NON_LEGAL_FEAT_ATRB_25_VALUE
+  - NON_LEGAL_FEAT_ATRB_26_NAME
+  - NON_LEGAL_FEAT_ATRB_26_VALUE
+  - FEATURE_CODE
+  - NON_LEGAL_FEAT_ATRB_30_VALUE
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 375250
+- name: Non Legal Strategic Land and Resource Planning Features point
+  datasource: whse_land_use_planning.rmp_plan_non_legal_point_svw
+  definition_query: null
+  aggregate_columns:
+  - NON_LEGAL_FEAT_OBJECTIVE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 7e9a4dd0-03b6-484d-940d-50a502a88f86
+  columns:
+  - NON_LEGAL_FEAT_ATRB_20_VALUE
+  - NON_LEGAL_FEAT_ATRB_21_NAME
+  - NON_LEGAL_FEAT_ATRB_21_VALUE
+  - NON_LEGAL_FEAT_ATRB_22_NAME
+  - NON_LEGAL_FEAT_ATRB_22_VALUE
+  - NON_LEGAL_FEAT_ATRB_23_NAME
+  - NON_LEGAL_FEAT_ATRB_23_VALUE
+  - NON_LEGAL_FEAT_ATRB_24_NAME
+  - NON_LEGAL_FEAT_ATRB_24_VALUE
+  - NON_LEGAL_FEAT_ATRB_25_NAME
+  - NON_LEGAL_FEAT_ATRB_25_VALUE
+  - NON_LEGAL_FEAT_ATRB_26_NAME
+  - NON_LEGAL_FEAT_ATRB_26_VALUE
+  - NON_LEGAL_FEAT_ATRB_27_NAME
+  - NON_LEGAL_FEAT_ATRB_27_VALUE
+  - NON_LEGAL_FEAT_ATRB_28_NAME
+  - NON_LEGAL_FEAT_ATRB_28_VALUE
+  - NON_LEGAL_FEAT_ATRB_29_NAME
+  - NON_LEGAL_FEAT_ATRB_29_VALUE
+  - NON_LEGAL_FEAT_ATRB_30_NAME
+  - NON_LEGAL_FEAT_ATRB_30_VALUE
+  - RSRCE_PLAN_METADATA_LINK
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - NON_LEGAL_FEAT_ID
+  - NON_LEGAL_FEAT_PROVID
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  - NON_LEGAL_FEAT_OBJECTIVE
+  - ORIGINAL_DECISION_DATE
+  - LAST_AMENDMENT_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - NON_LEGAL_FEAT_ATRB_1_NAME
+  - NON_LEGAL_FEAT_ATRB_1_VALUE
+  - NON_LEGAL_FEAT_ATRB_2_NAME
+  - NON_LEGAL_FEAT_ATRB_2_VALUE
+  - NON_LEGAL_FEAT_ATRB_3_NAME
+  - NON_LEGAL_FEAT_ATRB_3_VALUE
+  - NON_LEGAL_FEAT_ATRB_4_NAME
+  - NON_LEGAL_FEAT_ATRB_4_VALUE
+  - NON_LEGAL_FEAT_ATRB_5_NAME
+  - NON_LEGAL_FEAT_ATRB_5_VALUE
+  - NON_LEGAL_FEAT_ATRB_6_NAME
+  - NON_LEGAL_FEAT_ATRB_6_VALUE
+  - NON_LEGAL_FEAT_ATRB_7_NAME
+  - NON_LEGAL_FEAT_ATRB_7_VALUE
+  - NON_LEGAL_FEAT_ATRB_8_NAME
+  - NON_LEGAL_FEAT_ATRB_8_VALUE
+  - NON_LEGAL_FEAT_ATRB_9_NAME
+  - NON_LEGAL_FEAT_ATRB_9_VALUE
+  - NON_LEGAL_FEAT_ATRB_10_NAME
+  - NON_LEGAL_FEAT_ATRB_10_VALUE
+  - NON_LEGAL_FEAT_ATRB_11_NAME
+  - NON_LEGAL_FEAT_ATRB_11_VALUE
+  - NON_LEGAL_FEAT_ATRB_12_NAME
+  - NON_LEGAL_FEAT_ATRB_12_VALUE
+  - NON_LEGAL_FEAT_ATRB_13_NAME
+  - NON_LEGAL_FEAT_ATRB_13_VALUE
+  - NON_LEGAL_FEAT_ATRB_14_NAME
+  - NON_LEGAL_FEAT_ATRB_14_VALUE
+  - NON_LEGAL_FEAT_ATRB_15_NAME
+  - NON_LEGAL_FEAT_ATRB_15_VALUE
+  - NON_LEGAL_FEAT_ATRB_16_NAME
+  - NON_LEGAL_FEAT_ATRB_16_VALUE
+  - NON_LEGAL_FEAT_ATRB_17_NAME
+  - NON_LEGAL_FEAT_ATRB_17_VALUE
+  - NON_LEGAL_FEAT_ATRB_18_NAME
+  - NON_LEGAL_FEAT_ATRB_18_VALUE
+  - NON_LEGAL_FEAT_ATRB_19_NAME
+  - NON_LEGAL_FEAT_ATRB_19_VALUE
+  - NON_LEGAL_FEAT_ATRB_20_NAME
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 675
+- name: Non Legal Strategic Land and Resource Planning Features line
+  datasource: whse_land_use_planning.rmp_plan_non_legal_line_svw
+  definition_query: null
+  aggregate_columns:
+  - NON_LEGAL_FEAT_OBJECTIVE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ae3cec7b-7da3-47fc-9006-75e1a5aeed5e
+  columns:
+  - RSRCE_PLAN_METADATA_LINK
+  - FEATURE_CODE
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - NON_LEGAL_FEAT_ATRB_28_VALUE
+  - NON_LEGAL_FEAT_ATRB_29_NAME
+  - NON_LEGAL_FEAT_ATRB_29_VALUE
+  - NON_LEGAL_FEAT_ID
+  - NON_LEGAL_FEAT_PROVID
+  - STRGC_LAND_RSRCE_PLAN_NAME
+  - NON_LEGAL_FEAT_OBJECTIVE
+  - ORIGINAL_DECISION_DATE
+  - LAST_AMENDMENT_DATE
+  - GIS_CHANGE_DATE
+  - GIS_CHANGE_PERSON
+  - CHANGE_REASON
+  - INITIATOR_OF_CHANGE
+  - NON_LEGAL_FEAT_ATRB_1_NAME
+  - NON_LEGAL_FEAT_ATRB_1_VALUE
+  - NON_LEGAL_FEAT_ATRB_2_NAME
+  - NON_LEGAL_FEAT_ATRB_2_VALUE
+  - NON_LEGAL_FEAT_ATRB_3_NAME
+  - NON_LEGAL_FEAT_ATRB_3_VALUE
+  - NON_LEGAL_FEAT_ATRB_4_NAME
+  - NON_LEGAL_FEAT_ATRB_4_VALUE
+  - NON_LEGAL_FEAT_ATRB_5_NAME
+  - NON_LEGAL_FEAT_ATRB_5_VALUE
+  - NON_LEGAL_FEAT_ATRB_6_NAME
+  - NON_LEGAL_FEAT_ATRB_6_VALUE
+  - NON_LEGAL_FEAT_ATRB_7_NAME
+  - NON_LEGAL_FEAT_ATRB_7_VALUE
+  - NON_LEGAL_FEAT_ATRB_8_NAME
+  - NON_LEGAL_FEAT_ATRB_8_VALUE
+  - NON_LEGAL_FEAT_ATRB_9_NAME
+  - NON_LEGAL_FEAT_ATRB_9_VALUE
+  - NON_LEGAL_FEAT_ATRB_10_NAME
+  - NON_LEGAL_FEAT_ATRB_10_VALUE
+  - NON_LEGAL_FEAT_ATRB_11_NAME
+  - NON_LEGAL_FEAT_ATRB_11_VALUE
+  - NON_LEGAL_FEAT_ATRB_12_NAME
+  - NON_LEGAL_FEAT_ATRB_12_VALUE
+  - NON_LEGAL_FEAT_ATRB_13_NAME
+  - NON_LEGAL_FEAT_ATRB_13_VALUE
+  - NON_LEGAL_FEAT_ATRB_14_NAME
+  - NON_LEGAL_FEAT_ATRB_14_VALUE
+  - NON_LEGAL_FEAT_ATRB_15_NAME
+  - NON_LEGAL_FEAT_ATRB_27_VALUE
+  - NON_LEGAL_FEAT_ATRB_28_NAME
+  - NON_LEGAL_FEAT_ATRB_30_NAME
+  - NON_LEGAL_FEAT_ATRB_30_VALUE
+  - NON_LEGAL_FEAT_ATRB_15_VALUE
+  - NON_LEGAL_FEAT_ATRB_16_NAME
+  - NON_LEGAL_FEAT_ATRB_16_VALUE
+  - NON_LEGAL_FEAT_ATRB_17_NAME
+  - NON_LEGAL_FEAT_ATRB_27_NAME
+  - NON_LEGAL_FEAT_ATRB_17_VALUE
+  - NON_LEGAL_FEAT_ATRB_18_NAME
+  - NON_LEGAL_FEAT_ATRB_18_VALUE
+  - NON_LEGAL_FEAT_ATRB_19_NAME
+  - NON_LEGAL_FEAT_ATRB_19_VALUE
+  - NON_LEGAL_FEAT_ATRB_20_NAME
+  - NON_LEGAL_FEAT_ATRB_20_VALUE
+  - NON_LEGAL_FEAT_ATRB_21_NAME
+  - NON_LEGAL_FEAT_ATRB_21_VALUE
+  - NON_LEGAL_FEAT_ATRB_22_NAME
+  - NON_LEGAL_FEAT_ATRB_22_VALUE
+  - NON_LEGAL_FEAT_ATRB_23_NAME
+  - NON_LEGAL_FEAT_ATRB_23_VALUE
+  - NON_LEGAL_FEAT_ATRB_24_NAME
+  - NON_LEGAL_FEAT_ATRB_24_VALUE
+  - NON_LEGAL_FEAT_ATRB_25_NAME
+  - NON_LEGAL_FEAT_ATRB_25_VALUE
+  - NON_LEGAL_FEAT_ATRB_26_NAME
+  - NON_LEGAL_FEAT_ATRB_26_VALUE
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 52177
+- name: Known Fish Observations
+  datasource: whse_fish.fiss_fish_obsrvtn_pnt_sp
+  definition_query: null
+  aggregate_columns:
+  - SPECIES_NAME
+  - GAZETTED_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 0b57aa90-ce6a-4000-8459-30998c4ab06f
+  columns:
+  - FISH_OBSERVATION_POINT_ID
+  - WBODY_ID
+  - SPECIES_CODE
+  - AGENCY_ID
+  - POINT_TYPE_CODE
+  - OBSERVATION_DATE
+  - AGENCY_NAME
+  - SOURCE
+  - SOURCE_REF
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - ACTIVITY_CODE
+  - ACTIVITY
+  - LIFE_STAGE_CODE
+  - LIFE_STAGE
+  - SPECIES_NAME
+  - WATERBODY_IDENTIFIER
+  - WATERBODY_TYPE
+  - GAZETTED_NAME
+  - NEW_WATERSHED_CODE
+  - TRIMMED_WATERSHED_CODE
+  - ACAT_REPORT_URL
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 446655
+- name: Known Fish Observations within 5km
+  datasource: whse_fish.fiss_fish_obsrvtn_pnt_sp
+  definition_query: null
+  aggregate_columns:
+  - SPECIES_NAME
+  - GAZETTED_NAME
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5000.0
+  unique_id: OBJECTID
+  id: a4e65b8e-f205-47c2-85df-d12c80e939f4
+  columns:
+  - FISH_OBSERVATION_POINT_ID
+  - WBODY_ID
+  - SPECIES_CODE
+  - AGENCY_ID
+  - POINT_TYPE_CODE
+  - OBSERVATION_DATE
+  - AGENCY_NAME
+  - SOURCE
+  - SOURCE_REF
+  - UTM_ZONE
+  - UTM_EASTING
+  - UTM_NORTHING
+  - ACTIVITY_CODE
+  - ACTIVITY
+  - LIFE_STAGE_CODE
+  - LIFE_STAGE
+  - SPECIES_NAME
+  - WATERBODY_IDENTIFIER
+  - WATERBODY_TYPE
+  - GAZETTED_NAME
+  - NEW_WATERSHED_CODE
+  - TRIMMED_WATERSHED_CODE
+  - ACAT_REPORT_URL
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 446655
+- name: Historic Known Fish Distribution Points with Spawning and Rearing
+  datasource: whse_fish.fiss_hist_fish_dst_pnt_pub_svw
+  definition_query: null
+  aggregate_columns:
+  - ACTIVITY
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4d75a6b0-e06f-49ee-a669-a6ac3bb3e339
+  columns:
+  - LOC_TYPE
+  - NEW_WATERSHED_CODE
+  - GAZETTED_NAME
+  - MAPSHEET
+  - POINT_ID
+  - SPECIES_CODE
+  - SPECIES_NAME
+  - STOCK_NAME
+  - STOCK_CHAR
+  - STOCK_TYPE
+  - STOCK_MANAGEMENT_CLASS
+  - ACTIVITY_CODE
+  - ACTIVITY
+  - COMMENTS
+  - REFS_AND_DATES
+  - ROUTE_ID
+  - ROUTE_MEASURE
+  - THEME_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 37649
+- name: Historic Known Fish Dist Points with Spawning and Rearing 5km buffer
+  datasource: whse_fish.fiss_hist_fish_dst_pnt_pub_svw
+  definition_query: null
+  aggregate_columns:
+  - ACTIVITY
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 5000.0
+  unique_id: OBJECTID
+  id: a82f77d0-e439-401c-827d-57bfa0d007c0
+  columns:
+  - LOC_TYPE
+  - NEW_WATERSHED_CODE
+  - GAZETTED_NAME
+  - MAPSHEET
+  - POINT_ID
+  - SPECIES_CODE
+  - SPECIES_NAME
+  - STOCK_NAME
+  - STOCK_CHAR
+  - STOCK_TYPE
+  - STOCK_MANAGEMENT_CLASS
+  - ACTIVITY_CODE
+  - ACTIVITY
+  - COMMENTS
+  - REFS_AND_DATES
+  - ROUTE_ID
+  - ROUTE_MEASURE
+  - THEME_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 37649
+- name: Biogeoclimatic Zone
+  datasource: whse_forest_vegetation.bec_biogeoclimatic_20k_spg
+  definition_query: null
+  aggregate_columns:
+  - MAP_LABEL
+  - ZONE_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c04db410-1688-4730-bbb1-db36439606e5
+  columns:
+  - MAP_LABEL
+  - BGC_LABEL
+  - ZONE_NAME
+  - SUBZONE_NAME
+  - VARIANT_NAME
+  - PHASE_NAME
+  - NATURAL_DISTURBANCE_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - FEATURE_AREA
+  - FEATURE_LENGTH
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_CLASS_SKEY
+  - ZONE
+  - SUBZONE
+  - VARIANT
+  - PHASE
+  - NATURAL_DISTURBANCE
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 15802
+- name: Energy Production Tenures Tantalis
+  datasource: whse_tantalis.ta_crown_tenures_svw
+  definition_query: '"TENURE_PURPOSE" = ''ENERGY PRODUCTION'''
+  aggregate_columns:
+  - CROWN_LANDS_FILE
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - TENURE_LEGAL_DESCRIPTION
+  where:
+    conditions:
+    - field: TENURE_PURPOSE
+      op: '='
+      value: ENERGY PRODUCTION
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4a950566-8515-4207-8b2d-d0fc8187beae
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - INTRID_SID
+  - TENURE_STAGE
+  - TENURE_STATUS
+  - FEATURE_LENGTH_M
+  - FEATURE_AREA_SQM
+  - TENURE_TYPE
+  - TENURE_SUBTYPE
+  - TENURE_PURPOSE
+  - TENURE_SUBPURPOSE
+  - CROWN_LANDS_FILE
+  - APPLICATION_TYPE_CDE
+  - TENURE_DOCUMENT
+  - TENURE_EXPIRY
+  - TENURE_LOCATION
+  - TENURE_LEGAL_DESCRIPTION
+  - TENURE_AREA_DERIVATION
+  - TENURE_AREA_IN_HECTARES
+  - RESPONSIBLE_BUSINESS_UNIT
+  - DISPOSITION_TRANSACTION_SID
+  - CODE_CHR_STAGE
+  - FEATURE_CODE
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 66792
+- name: BCER Road Permit Areas
+  datasource: whse_mineral_tenure.og_road_area_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - ROAD_NUMBER
+  - ROAD_SEGMENT
+  - PROPONENT
+  - CONSTRUCTION_DESC
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: f7153f3e-e754-412b-89ca-80c3023920bf
+  columns:
+  - OG_ROAD_AREA_PERMIT_ID
+  - LAND_ID
+  - ROAD_NUMBER
+  - ROAD_SEGMENT
+  - LAND_STAGE
+  - LAND_STAGE_DESC
+  - LAND_STAGE_EFF_DATE
+  - LAND_CANCEL_DATE
+  - APPLICATION_DETERMINATION_NUM
+  - CONSTRUCTION_CODE
+  - CONSTRUCTION_DESC
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 9871
+- name: BCER Road Application Areas
+  datasource: whse_mineral_tenure.og_road_area_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - ROAD_NUMBER
+  - PROPONENT
+  - APPLICATION_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 210a62d7-fadf-415f-92ba-f38b617a281d
+  columns:
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OG_ROAD_AREA_APPL_ID
+  - LAND_ID
+  - ROAD_NUMBER
+  - LAND_AREA_NUMBER
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - APPLICATION_DETERMINATION_NUM
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 267
+- name: BCER Well Facility Permits
+  datasource: whse_mineral_tenure.og_well_facility_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - PROPONENT
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9a8a6f7b-a3f3-4fb0-b5ab-e8751edeaf20
+  columns:
+  - OG_WELL_FACILITY_PERMIT_ID
+  - LAND_ID
+  - LAND_STAGE
+  - LAND_STAGE_DESC
+  - LAND_STAGE_EFF_DATE
+  - LAND_CANCEL_DATE
+  - APPLICATION_DETERMINATION_NUM
+  - CONSTRUCTION_CODE
+  - CONSTRUCTION_DESC
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 11249
+- name: BCER Well Facility Applications
+  datasource: whse_mineral_tenure.og_well_facility_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - PROPONENT
+  - APPLICATION_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c88fc353-b781-44f3-b67f-a63ac809795f
+  columns:
+  - OG_WELL_FACILITY_APPL_ID
+  - LAND_ID
+  - LAND_AREA_NUMBER
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - APPLICATION_DETERMINATION_NUM
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 227
+- name: BCER Pipeline Area Permits
+  datasource: whse_mineral_tenure.og_pipeline_area_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - PROJECT_NUMBER
+  - PROPONENT
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 14f86e8f-4027-43fa-95b2-ecee4c020148
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OG_PIPELINE_AREA_PERMIT_ID
+  - LAND_ID
+  - PROJECT_NUMBER
+  - LAND_STAGE
+  - LAND_STAGE_DESC
+  - LAND_STAGE_EFF_DATE
+  - LAND_CANCEL_DATE
+  - APPLICATION_DETERMINATION_NUM
+  - CONSTRUCTION_CODE
+  - CONSTRUCTION_DESC
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 11701
+- name: BCER Pipeline Area Applications
+  datasource: whse_mineral_tenure.og_pipeline_area_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - PROJECT_NUMBER
+  - PROPONENT
+  - APPLICATION_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: bbebbd39-865d-44ce-936d-e46582226adf
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OG_PIPELINE_AREA_APPL_ID
+  - LAND_ID
+  - PROJECT_NUMBER
+  - LAND_AREA_NUMBER
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - APPLICATION_DETERMINATION_NUM
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 344
+- name: BCER Pipeline Area Permits within 50m
+  datasource: whse_mineral_tenure.og_pipeline_area_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - PROJECT_NUMBER
+  - PROPONENT
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 6cfeed38-f990-4f57-8b0b-8470958bd44f
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OG_PIPELINE_AREA_PERMIT_ID
+  - LAND_ID
+  - PROJECT_NUMBER
+  - LAND_STAGE
+  - LAND_STAGE_DESC
+  - LAND_STAGE_EFF_DATE
+  - LAND_CANCEL_DATE
+  - APPLICATION_DETERMINATION_NUM
+  - CONSTRUCTION_CODE
+  - CONSTRUCTION_DESC
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 11701
+- name: BCER Pipeline Area Applications within 50m
+  datasource: whse_mineral_tenure.og_pipeline_area_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - PROJECT_NUMBER
+  - PROPONENT
+  - APPLICATION_STATUS
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 091b3123-6c48-4a6a-8949-4549aa4d0896
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OG_PIPELINE_AREA_APPL_ID
+  - LAND_ID
+  - PROJECT_NUMBER
+  - LAND_AREA_NUMBER
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - APPLICATION_DETERMINATION_NUM
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 344
+- name: BCER Construction Corridor
+  datasource: whse_mineral_tenure.og_constr_corridor_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - PROPONENT
+  - APPLICATION_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 33c1ac94-2320-41d5-b2fc-1d1f5fdd588b
+  columns:
+  - OG_CONSTR_CORRIDOR_APPL_ID
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 90
+- name: BCER Seismic Permits
+  datasource: whse_mineral_tenure.og_geophysical_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - GEO_NUMBER
+  - PROGRAM_NAME
+  - PROGRAM_TYPE
+  - PROPONENT
+  - STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: e459d2d1-bfb7-48d5-b469-302eb5c892f8
+  columns:
+  - OG_GEOPHYSICAL_PERMIT_ID
+  - GEO_NUMBER
+  - PROGRAM_NAME
+  - PROGRAM_TYPE
+  - STAGE
+  - STAGE_DESCRIPTION
+  - STAGE_EFF_DATE
+  - LINE_TYPE
+  - CUT_TYPE
+  - CUT_TYPE_DESC
+  - LINE_WIDTH
+  - STATUS
+  - APPLICATION_DETERMINATION_NUM
+  - ACTIVITY_APPROVAL_DATE
+  - ACTIVITY_CANCEL_DATE
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - LAND_TYPE
+  - DATA_SOURCE
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 210240
+- name: BCER Seismic Applications
+  datasource: whse_mineral_tenure.og_geophysical_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - GEO_NUMBER
+  - PROGRAM_NAME
+  - PROGRAM_TYPE
+  - PROPONENT
+  - APPLICATION_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 949e462e-383e-4b79-ae91-25eb878c49d9
+  columns:
+  - OG_GEOPHYSICAL_APPL_ID
+  - GEO_NUMBER
+  - PROGRAM_NAME
+  - PROGRAM_TYPE
+  - LINE_TYPE
+  - CUT_TYPE
+  - CUT_TYPE_DESC
+  - LINE_WIDTH
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - APPLICATION_DETERMINATION_NUM
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - DATA_SOURCE
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 16154
+- name: BCER Facility Location Permits
+  datasource: whse_mineral_tenure.og_facility_locatns_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - FACILITY_ID
+  - FACILITY_TYPE_DESC
+  - FACILITY_NAME
+  - PROPONENT
+  - STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 960e98b8-ea6a-424a-b639-bd1232a56cf0
+  columns:
+  - OG_FACILITY_LOCATN_PERMIT_ID
+  - FACILITY_ID
+  - FACILITY_TYPE
+  - FACILITY_TYPE_DESC
+  - FACILITY_NAME
+  - STATUS
+  - MAXIMUM_H2S_PERCENT
+  - APPLICATION_DETERMINATION_NUM
+  - ACTIVITY_APPROVAL_DATE
+  - ACTIVITY_CANCEL_DATE
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - DATA_SOURCE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 10953
+- name: BCER Ancillary Permits
+  datasource: whse_mineral_tenure.og_assoc_ancillary_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - ASSOC_ANC_NUM
+  - SITE_TYPE_DESC
+  - PROPONENT
+  - STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c05517f9-bf50-42f6-ab75-452508434d1c
+  columns:
+  - OG_ASSOC_ANCILLARY_PERMIT_ID
+  - LAND_ID
+  - ASSOC_ANC_NUM
+  - SITE_TYPE
+  - SITE_TYPE_DESC
+  - STATUS
+  - LAND_STAGE
+  - LAND_STAGE_DESC
+  - LAND_STAGE_EFF_DATE
+  - APPLICATION_DETERMINATION_NUM
+  - ACTIVITY_APPROVAL_DATE
+  - ACTIVITY_CANCEL_DATE
+  - CONSTRUCTION_CODE
+  - CONSTRUCTION_DESC
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 98190
+- name: BCER Ancillary Applications
+  datasource: whse_mineral_tenure.og_assoc_ancillary_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - LAND_ID
+  - ASSOC_ANC_NUM
+  - SITE_TYPE_DESC
+  - PROPONENT
+  - APPLICATION_STATUS
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 68b9fb4d-c176-4e62-93fa-2bae004838db
+  columns:
+  - OG_ASSOC_ANCILLARY_APPL_ID
+  - LAND_ID
+  - ASSOC_ANC_NUM
+  - LAND_AREA_NUMBER
+  - SITE_TYPE
+  - SITE_TYPE_DESC
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - APPLICATION_DETERMINATION_NUM
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - ARCH_PERMIT_NUMBER
+  - ARCH_REQUIREMENT_CODE
+  - ARCH_SITE_IDENTIFIED
+  - DATA_SOURCE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 4375
+- name: BCER Sump Locations
+  datasource: whse_mineral_tenure.og_sump_locations_sp
+  definition_query: null
+  aggregate_columns:
+  - SUMP_NUMBER
+  - WELL_AUTHORITY_NUMBER
+  - SUMP_LOCATION
+  - SUMP_CLOSURE_DATE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 030efba6-2e30-461d-85d5-6068a621bc34
+  columns:
+  - OG_SUMP_LOCATION_ID
+  - SUMP_NUMBER
+  - PROPONENT
+  - WELL_AUTHORITY_NUMBER
+  - WELL_NAME
+  - PROJECT_NUMBER
+  - SUMP_LOCATION
+  - SUMP_CLOSURE_DATE
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3476
+- name: BCER Waste Disposal Sites
+  datasource: whse_mineral_tenure.og_waste_disp_sites_pre2016_sp
+  definition_query: null
+  aggregate_columns:
+  - DISPOSAL_NUMBER
+  - SUMP_NUMBER
+  - PROPOSED_DISPOSAL_DATE
+  - PROPONENT
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 234a9f00-3433-42f1-8b6f-8222269261f7
+  columns:
+  - OG_WASTE_DISP_SITE_PRE2016_ID
+  - EPASS_TRACKING_NUMBER
+  - DISPOSAL_NUMBER
+  - WASTE_DISPOSAL_TYPE_CODE
+  - SUMP_NUMBER
+  - PROPOSED_DISPOSAL_DATE
+  - PROPONENT
+  - ANCILLARY_AND_OTHER_TYPE
+  - ACCURACY_PERCENTILE
+  - ACCURACY_HORIZONTAL
+  - ACCURACY_VERTICAL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 6592
+- name: BCER Water Source Permits
+  datasource: whse_mineral_tenure.og_water_source_permit_sp
+  definition_query: null
+  aggregate_columns:
+  - OG_WATER_SOURCE_PERMIT_ID
+  - WATER_SOURCE_TYPE_DESC
+  - STATUS
+  - PROPONENT
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ce40d471-9eea-4af3-9bbc-2a3d9f3aafd6
+  columns:
+  - OG_WATER_SOURCE_PERMIT_ID
+  - SHORT_TERM_WATER_USE_NUM
+  - POD_NUMBER
+  - WATER_SOURCE_TYPE
+  - WATER_SOURCE_TYPE_DESC
+  - WATER_SOURCE_NAME
+  - PURPOSE
+  - PURPOSE_DESC
+  - APPROVED_VOLUME_PER_DAY
+  - APPROVED_TOTAL_VOLUME
+  - APPROVED_START_DATE
+  - APPROVED_END_DATE
+  - STATUS
+  - APPLICATION_DETERMINATION_NUM
+  - ACTIVITY_APPROVAL_DATE
+  - ACTIVITY_CANCEL_DATE
+  - LEGACY_OGC_FILE_NUMBER
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - UTM_ZONE
+  - UTM_NORTHING
+  - UTM_EASTING
+  - DATA_SOURCE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 5451
+- name: BCER Water Source Applications
+  datasource: whse_mineral_tenure.og_water_source_appl_sp
+  definition_query: null
+  aggregate_columns:
+  - OG_WATER_SOURCE_APPL_ID
+  - WATER_SOURCE_TYPE_DESC
+  - APPLICATION_STATUS
+  - PROPONENT
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: b5121812-0d92-457d-8061-d365215b935b
+  columns:
+  - OG_WATER_SOURCE_APPL_ID
+  - SHORT_TERM_WATER_USE_NUM
+  - POD_NUMBER
+  - WATER_SOURCE_TYPE
+  - WATER_SOURCE_TYPE_DESC
+  - WATER_SOURCE_NAME
+  - PURPOSE
+  - PURPOSE_DESC
+  - PROPOSED_VOLUME_PER_DAY
+  - PROPOSED_TOTAL_VOLUME
+  - APPLICATION_NUMBER
+  - APPLICATION_TYPE
+  - APPLICATION_STATUS
+  - APPLICATION_SUBMITTED_DATE
+  - REVISION_NUMBER
+  - APPLICATION_DETERMINATION_NUM
+  - PROPONENT
+  - AUTHORITY_TYPE
+  - LAND_TYPE
+  - DATA_SOURCE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 190
+- name: LEGACY BCER Petroleum Development Roads Pre 2006 within 50m
+  datasource: whse_mineral_tenure.og_petrlm_dev_rds_pre06_gov_sp
+  definition_query: null
+  aggregate_columns:
+  - OGC_FILE_NUMBER
+  - PETRLM_DEVELOPMENT_ROAD_NUM
+  - PETRLM_DEVELOPMENT_ROAD_NAME
+  - PROPONENT
+  - PETRLM_DEVELOPMENT_ROAD_STATUS
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: 36d4fd27-f8ae-46bf-b0c4-ef0f04e050a7
+  columns:
+  - OG_PETRLM_DEV_RD_PRE06_GOV_ID
+  - OGC_FILE_NUMBER
+  - APPLICATION_RECEIVED_DATE
+  - PETRLM_DEVELOPMENT_ROAD_STATUS
+  - PETRLM_DEVELOPMENT_ROAD_NUM
+  - PETRLM_DEVELOPMENT_ROAD_TYPE
+  - PETRLM_DEVELOPMENT_ROAD_NAME
+  - PROPONENT
+  - SOURCE_DATA
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 997
+- name: LEGACY BCER Facility Locations Pre 2016
+  datasource: whse_mineral_tenure.og_facility_locatns_pre2016_sp
+  definition_query: null
+  aggregate_columns:
+  - FACILITY_ID_CODE
+  - FACILITY_NAME
+  - FACILITY_CLASS_CODE
+  - FACILITY_LOCATION
+  - PROPONENT
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 50.0
+  unique_id: OBJECTID
+  id: f09cfee0-994c-462d-84de-07fdcc9147a4
+  columns:
+  - APPROVAL_DATE
+  - OPERATIONS_EFFECTIVE_DATE
+  - OPERATIONS_TERMINATION_DATE
+  - AMENDED_APPLICATION_DATE
+  - AMENDED_APPROVAL_DATE
+  - AMENDED_OPERATIONS_EFFCTV_DATE
+  - AMENDED_OPERATIONS_TERM_DATE
+  - FACILITY_CLASS_CODE
+  - PROPONENT
+  - MAXIMUM_HYDROGEN_SULPHIDE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - OG_FACILITY_LOCATN_PRE2016_ID
+  - FACILITY_ID_CODE
+  - FACILITY_NAME
+  - FACILITY_LOCATION
+  - APPLICATION_DATE
+  geom_column: SHAPE
+  geometry_type: point
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3744
+- name: MOT District Boundaries
+  datasource: whse_admin_boundaries.tadm_mot_district_bndry_poly
+  definition_query: null
+  aggregate_columns:
+  - DISTRICT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 6ba70a42-2941-474d-b509-f42b96278cf8
+  columns:
+  - DISTRICT_NUMBER
+  - DISTRICT_NAME
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 11
+- name: MOE District Boundaries
+  datasource: whse_admin_boundaries.eadm_wlap_region_bnd_area_svw
+  definition_query: null
+  aggregate_columns:
+  - REGION_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: ff8f474b-25a8-4c3d-8cc7-3c704b75c369
+  columns:
+  - WLAP_REGIONAL_BND_AREA_ID
+  - FEATURE_CODE
+  - QWLAP_TAG
+  - REGION_NUMBER
+  - REGION_NAME
+  - REGION_NUMBER_NAME
+  - REGION_CARTOGRAPHIC_LABEL
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 9
+- name: Health Authority Boundaries
+  datasource: whse_admin_boundaries.bcha_health_authority_bndry_sp
+  definition_query: null
+  aggregate_columns:
+  - HLTH_AUTHORITY_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 5a1ac549-4dc7-40a9-81cf-1423f132de97
+  columns:
+  - HLTH_HAB_SYSID
+  - HLTH_AUTHORITY_CODE
+  - HLTH_AUTHORITY_NAME
+  - HLTH_AUTHORITY_ID
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 5
+- name: Land Districts
+  datasource: whse_tantalis.ta_land_districts_svw
+  definition_query: null
+  aggregate_columns:
+  - LAND_DISTRICT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9c619264-1385-44c0-8a78-9590c9a9ad1e
+  columns:
+  - ADMIN_AREA_SID
+  - LAND_DISTRICT_NAME
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 61
+- name: Regional Districts
+  datasource: whse_legal_admin_boundaries.abms_regional_districts_sp
+  definition_query: null
+  aggregate_columns:
+  - ADMIN_AREA_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 881bca6a-d1f0-47eb-97d3-6ccda68774d6
+  columns:
+  - LGL_ADMIN_AREA_ID
+  - ADMIN_AREA_NAME
+  - ADMIN_AREA_ABBREVIATION
+  - ADMIN_AREA_BOUNDARY_TYPE
+  - ADMIN_AREA_GROUP_NAME
+  - CHANGE_REQUESTED_ORG
+  - UPDATE_TYPE
+  - WHEN_UPDATED
+  - MAP_STATUS
+  - OIC_MO_NUMBER
+  - OIC_MO_YEAR
+  - OIC_MO_TYPE
+  - WEBSITE_URL
+  - IMAGE_URL
+  - AFFECTED_ADMIN_AREA_ABRVN
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 28
+- name: Muskwa Kechika Management Area
+  datasource: whse_tantalis.ta_mgmt_areas_spatial_svw
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 03b52bb2-d2a2-4c33-9dc4-38628d95efeb
+  columns:
+  - ADMIN_AREA_SID
+  - MANAGEMENT_AREA_NAME
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 1
+- name: Natural Resource District
+  datasource: whse_admin_boundaries.adm_nr_districts_sp
+  definition_query: null
+  aggregate_columns:
+  - ORG_UNIT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: b1911e49-6591-4da6-ae58-191795ddc171
+  columns:
+  - DISTRICT_NAME
+  - ORG_UNIT
+  - ORG_UNIT_NAME
+  - REGION_ORG_UNIT
+  - REGION_ORG_UNIT_NAME
+  - FEATURE_CODE
+  - FEATURE_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 23
+- name: Natural Resource Regions
+  datasource: whse_admin_boundaries.adm_nr_regions_sp
+  definition_query: null
+  aggregate_columns:
+  - REGION_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 3d85a9ef-0ca3-4114-8096-38e7efaa78b9
+  columns:
+  - REGION_NAME
+  - ORG_UNIT
+  - ORG_UNIT_NAME
+  - FEATURE_CODE
+  - FEATURE_NAME
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 8
+- name: Natural Resource ADM Areas
+  datasource: 'whse_admin_boundaries.adm_nr_areas_sp '
+  definition_query: null
+  aggregate_columns:
+  - AREA_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: cfc5be89-14ca-4ea8-a463-26f2f2b4a58f
+  columns:
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - AREA_NUMBER
+  - AREA_NAME
+  - ORG_UNIT
+  - ORG_UNIT_NAME
+  - FEATURE_CODE
+  - FEATURE_NAME
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3
+- name: Water Management Districts
+  datasource: whse_admin_boundaries.lwadm_watmgmt_dist_area_svw
+  definition_query: null
+  aggregate_columns:
+  - DISTRICT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: a3cff95d-e140-4825-8761-e100bcdb0935
+  columns:
+  - WATMGMT_DISTRICT_AREA_ID
+  - FEATURE_CODE
+  - DISTRICT_ID
+  - DISTRICT_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 26
+- name: Water Management Precincts
+  datasource: whse_admin_boundaries.lwadm_watmgmt_prec_area_svw
+  definition_query: null
+  aggregate_columns:
+  - PRECINCT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 4b42b601-3c72-4912-9305-94166738ea09
+  columns:
+  - WATMGMT_PRECINCT_AREA_ID
+  - FEATURE_CODE
+  - PRECINCT_NAME
+  - PRECINCT_ID
+  - DISTRICT_NAME
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 136
+- name: Municipalities
+  datasource: whse_legal_admin_boundaries.abms_municipalities_sp
+  definition_query: null
+  aggregate_columns:
+  - ADMIN_AREA_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 11d8f8ce-63c4-4076-af60-764364d7724b
+  columns:
+  - LGL_ADMIN_AREA_ID
+  - ADMIN_AREA_NAME
+  - ADMIN_AREA_ABBREVIATION
+  - ADMIN_AREA_BOUNDARY_TYPE
+  - ADMIN_AREA_GROUP_NAME
+  - CHANGE_REQUESTED_ORG
+  - UPDATE_TYPE
+  - WHEN_UPDATED
+  - MAP_STATUS
+  - OIC_MO_NUMBER
+  - OIC_MO_YEAR
+  - OIC_MO_TYPE
+  - WEBSITE_URL
+  - IMAGE_URL
+  - AFFECTED_ADMIN_AREA_ABRVN
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 160
+- name: Nanwakolas Area Significance
+  datasource: whse_human_cultural_economic.fnt_nanwakolas_matrix_sp
+  definition_query: null
+  aggregate_columns:
+  - AREA_SIGNIFICANCE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 639ad35c-616c-4d2b-8238-23b4321e909a
+  columns:
+  - NANWAKOLAS_MATRIX_ID
+  - AREA_SIGNIFICANCE
+  - AREA_HECTARES
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 3318
+- name: First Nation Treaty Lands
+  datasource: whse_legal_admin_boundaries.fnt_treaty_land_sp
+  definition_query: null
+  aggregate_columns:
+  - FIRST_NATION_NAME
+  - LAND_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: c64f8d60-24ab-470a-a911-da3d1090f969
+  columns:
+  - TREATY_LAND_ID
+  - TREATY
+  - EFFECTIVE_DATE
+  - FIRST_NATION_NAME
+  - LAND_TYPE
+  - CHAPTER_REFERENCE
+  - APPENDIX_REFERENCE
+  - COMMENTS
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 148
+- name: First Nation Treaty Related Lands
+  datasource: whse_legal_admin_boundaries.fnt_treaty_related_land_sp
+  definition_query: null
+  aggregate_columns:
+  - FIRST_NATION_NAME
+  - LAND_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: f0b66e8b-390c-4965-a11b-b7d1d169fea9
+  columns:
+  - TREATY_RELATED_LAND_ID
+  - TREATY
+  - EFFECTIVE_DATE
+  - FIRST_NATION_NAME
+  - LAND_TYPE
+  - CHAPTER_REFERENCE
+  - APPENDIX_REFERENCE
+  - COMMENTS
+  - FEATURE_CODE
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 52
+- name: First Nation Treaty Areas
+  datasource: whse_legal_admin_boundaries.fnt_treaty_area_sp
+  definition_query: null
+  aggregate_columns:
+  - FIRST_NATION_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 9447d298-98ae-4894-ac3c-1d0f4cd43c15
+  columns:
+  - TREATY_AREA_ID
+  - TREATY
+  - EFFECTIVE_DATE
+  - FIRST_NATION_NAME
+  - AREA_TYPE
+  - LAND_TYPE
+  - GEOGRAPHIC_LOCATION
+  - CHAPTER_REFERENCE
+  - APPENDIX_REFERENCE
+  - COMMENTS
+  - FEATURE_CODE
+  - SE_ANNO_CAD_DATA
+  - OBJECTID
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  geom_column: GEOMETRY
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 69
+- name: Land Claim Settlement Areas
+  datasource: whse_tantalis.ta_land_claim_stlmnt_areas_svw
+  definition_query: null
+  aggregate_columns:
+  - LAND_CLAIM_SETTLEMENT_NAME
+  where: null
+  operator:
+    type: overlay
+  unique_id: OBJECTID
+  id: 1061938c-707f-4367-829b-a05afaf38330
+  columns:
+  - ADMIN_AREA_SID
+  - LAND_CLAIM_SETTLEMENT_NAME
+  - FEATURE_CODE
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - OBJECTID
+  - SE_ANNO_CAD_DATA
+  geom_column: SHAPE
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: ORACLE
+  row_count: 8
+skipped:
+- name: Archaeology Sites
+  datasource: whse_archaeology.raad_tfm_sites_svw
+  stage: reading the dataset
+  reason: 'DataReadError: No geometry information found for whse_archaeology.raad_tfm_sites_svw.
+    The table may not exist, or your BCGW account may not have access to it (no entry
+    in ALL_SDO_GEOM_METADATA).'
+- name: Archaeology Sites within 50 metres
+  datasource: whse_archaeology.raad_tfm_sites_svw
+  stage: reading the dataset
+  reason: 'DataReadError: No geometry information found for whse_archaeology.raad_tfm_sites_svw.
+    The table may not exist, or your BCGW account may not have access to it (no entry
+    in ALL_SDO_GEOM_METADATA).'
+- name: Archaeological Potential
+  datasource: whse_archaeology.raad_aoa_provincial
+  stage: reading the dataset
+  reason: 'DataReadError: No geometry information found for whse_archaeology.raad_aoa_provincial.
+    The table may not exist, or your BCGW account may not have access to it (no entry
+    in ALL_SDO_GEOM_METADATA).'
+- name: Arch Potential Informed Contributors Layer
+  datasource: whse_archaeology.raad_informed_contributors_sv
+  stage: reading the dataset
+  reason: 'DataReadError: No geometry information found for whse_archaeology.raad_informed_contributors_sv.
+    The table may not exist, or your BCGW account may not have access to it (no entry
+    in ALL_SDO_GEOM_ME...'
+- name: AOI of First Nations Reconciliation Initiatives
+  datasource: whse_human_cultural_economic.fnt_areas_of_interest_sp
+  stage: reading the dataset
+  reason: 'DataReadError: No geometry information found for whse_human_cultural_economic.fnt_areas_of_interest_sp.
+    The table may not exist, or your BCGW account may not have access to it (no entry
+    in ALL_SDO_...'
