@@ -520,7 +520,15 @@ def main() -> None:
     print(f"\nAssembled AstResults: {len(results.results)} dataset groups, job_id={results.job_id}")
 
     out_path = Path(args.out)
-    write_results_spreadsheet(tasks, results, tracker, out_path)
+
+    out_path = Path(args.out)
+    #write_results_spreadsheet(tasks, results, tracker, out_path)
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(results.model_dump_json(indent=2), encoding="utf-8")
+    print(f"JSON results written to {out_path.resolve()}")
+        
+    
     print(f"Results spreadsheet written to {out_path.resolve()}")
 
 

@@ -1,6 +1,7 @@
 #main to run the fastapi backend connection to the ast_engine
 import json
 import logging
+from pathlib import Path
 
 from contextlib import asynccontextmanager
 
@@ -84,3 +85,13 @@ def debug_queue(queue: redis.Redis = Depends(lambda: redis_client)):
         "count": len(items),
         "items": items,
     }
+
+@app.get("/api/results")
+def get_results():
+    '''
+    Sample route for now -> returns a simple JSON results output object
+    '''
+    path = Path("ast_api/tests/data/results.json")
+
+    with path.open(encoding="cp1252") as f:
+        return json.load(f)
