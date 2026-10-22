@@ -11,5 +11,6 @@
 - [ ] No secrets, credentials, or local-only paths committed
 - [ ] Logging uses module-level loggers
 - [ ] Exceptions and validation results follow engine convention
+- [ ] Commit message starts with version type fix:/feat:/BREAKING CHANGE:
 
 ### Other Comments?
