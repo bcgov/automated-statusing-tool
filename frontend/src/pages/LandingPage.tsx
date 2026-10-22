@@ -9,7 +9,7 @@ import { useCallback, useState } from "react";
 import ASTForm from "../components/ast-form";
 // The map (right side of the page).
 import OLMap from "../components/OLMap";
-import type { TantalisIdentifiers } from "../types/tantalis";
+import type { CriticalConflictsRequest, TantalisIdentifiers } from "../types/tantalis";
 
 // A shape clicked on the map.
 // clickedAt stores the time of the click, so clicking the same shape twice still counts as a new click.
@@ -28,12 +28,25 @@ const LandingPage = () => {
   // The identifiers sent from the form. The map watches this and runs the TANTALIS lookup when it changes.
   // Starts as null because nothing has been sent yet.
   const [tantalisPreview, setTantalisPreview] = useState<TantalisIdentifiers | null>(null);
+  const [tantalisShapeLoaded, setTantalisShapeLoaded] = useState(false);
+  const [criticalConflictsRequest, setCriticalConflictsRequest] = useState<CriticalConflictsRequest | null>(null);
+  const [isCriticalConflictsOpen, setIsCriticalConflictsOpen] = useState(false);
 
   // Runs when a shape is clicked on the map. Saves its identifiers plus the time of the click.
   // useCallback keeps this the same function between redraws, so the map
   // doesn't have to remove and re-add its click listener every time the page redraws.
   const handlePolygonClick = useCallback((selection: TantalisIdentifiers): void => {
     setMapSelection({ ...selection, clickedAt: Date.now() });
+  }, []);
+
+  const handlePreviewCriticalConflicts = useCallback((request: TantalisIdentifiers): void => {
+    setCriticalConflictsRequest({ ...request, clickedAt: Date.now() });
+    setIsCriticalConflictsOpen(true);
+  }, []);
+
+  const handleCloseCriticalConflicts = useCallback((): void => {
+    setCriticalConflictsRequest(null);
+    setIsCriticalConflictsOpen(false);
   }, []);
 
   // What appears on the page.
@@ -46,6 +59,10 @@ const LandingPage = () => {
       <ASTForm
         mapSelection={mapSelection}
         onViewTantalis={setTantalisPreview}
+        isTantalisShapeLoaded={tantalisShapeLoaded}
+        isCriticalConflictsOpen={isCriticalConflictsOpen}
+        onPreviewCriticalConflicts={handlePreviewCriticalConflicts}
+        onClearCriticalConflicts={handleCloseCriticalConflicts}
       />
 
       {/* The map.
@@ -54,6 +71,10 @@ const LandingPage = () => {
       <OLMap
         onPolygonClick={handlePolygonClick}
         tantalisPreview={tantalisPreview}
+        onTantalisShapeLoaded={setTantalisShapeLoaded}
+        criticalConflictsRequest={criticalConflictsRequest}
+        isCriticalConflictsOpen={isCriticalConflictsOpen}
+        onCloseCriticalConflicts={handleCloseCriticalConflicts}
       />
     </div>
   );

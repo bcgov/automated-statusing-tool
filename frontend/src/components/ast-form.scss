@@ -6,6 +6,37 @@
   width: 100%;
 }
 
+.ast-inline-input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #60666d;
+  border-radius: 4px;
+  background: #fff;
+  color: #313132;
+  font: inherit;
+}
+
+.ast-inline-input::placeholder {
+  color: #6b7280;
+  opacity: 1;
+}
+
+.region-select [data-placeholder] {
+  color: #6b7280;
+}
+
+.ast-inline-input:focus-visible {
+  outline: 3px solid #fcba19;
+  outline-offset: 1px;
+}
+
+.source-details-inner > .ast-inline-input {
+  margin-top: 8px;
+}
+
 // Box around the Source section (the radio buttons and their fields).
 .source-container {
   margin: 10px 0; // 10px of space above and below
@@ -32,14 +63,6 @@
   &.expanded {
     grid-template-rows: 1fr;
   }
-}
-
-// Row with the "View shape on map" link, centred.
-.tantalis-preview-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-top: 12px;
 }
 
 // "View shape on map" is a button, but styled to look like a link,
@@ -86,7 +109,7 @@
   overflow-wrap: anywhere; // Break very long file names so they don't spill out
 }
 
-// Generate Maps and Export Overlap Results switches, stacked.
+// Output and map preview switches, stacked.
 .switch-container {
   display: flex;
   flex-direction: column; // Stack top to bottom

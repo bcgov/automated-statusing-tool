@@ -2,7 +2,7 @@
 // useEffect = run code after the page draws (for example, set up the map).
 // useRef = keep a value between redraws without causing a redraw.
 // useState = store a value that redraws the page when it changes.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 // FC = "function component". Used here only as a type, so it adds nothing to the final app.
 import type { FC, FormEvent } from "react";
 // OpenLayers pieces used to build the map.
@@ -14,27 +14,28 @@ import VectorLayer from "ol/layer/Vector"; // Layer for shapes (Tantalis preview
 import XYZ from "ol/source/XYZ"; // Loads tiles from a URL pattern like {z}/{y}/{x}
 import TileWMS from "ol/source/TileWMS";
 import VectorSource from "ol/source/Vector"; // Holds the shapes shown in a vector layer
-import { GeoJSON } from "ol/format"; // Reads and writes GeoJSON shapes
+import { GeoJSON, WKT } from "ol/format"; // Reads GeoJSON and writes intersection filters
 import { fromLonLat } from "ol/proj"; // Converts longitude/latitude into map coordinates
 import { Fill, Stroke, Style } from "ol/style"; // Fill colour, outline and full shape style
+import { createEmpty, extend as extendExtent } from "ol/extent";
 import Attribution from "ol/control/Attribution";
 import ScaleLine from "ol/control/ScaleLine"; // The scale bar
 import { unByKey } from "ol/Observable"; // Removes an event listener that was added with map.on()
 // Feature = one shape on the map. Used only as a type.
 import type Feature from "ol/Feature";
+import type {
+  CriticalConflictError,
+  CriticalConflictLayer,
+  CriticalConflictsRequest,
+  TantalisIdentifiers,
+} from "../types/tantalis";
+import CriticalConflictsPanel from "./CriticalConflictsPanel";
 
 // Default OpenLayers styling.
 import "ol/ol.css";
 
 // The only two basemap choices.
 type BasemapId = "street" | "satellite";
-
-// The three Tantalis identifiers. All values are kept as strings in the app
-interface TantalisIdentifiers {
-  fileNumber: string;
-  dispositionId: string;
-  parcelId: string;
-}
 
 // Everything LandingPage can pass into this map. The ? means the value is optional.
 interface OLMapProps {
@@ -46,6 +47,10 @@ interface OLMapProps {
   onPolygonClick?: (selection: TantalisIdentifiers) => void;
   // Identifiers sent from the form. When this changes, the map looks up and shows the shape.
   tantalisPreview?: TantalisIdentifiers | null;
+  onTantalisShapeLoaded: (isLoaded: boolean) => void;
+  criticalConflictsRequest: CriticalConflictsRequest | null;
+  isCriticalConflictsOpen: boolean;
+  onCloseCriticalConflicts: () => void;
 }
 
 // Starting colour of the preview shape. 120 on the colour wheel = green.
@@ -199,6 +204,13 @@ interface TantalisQueryResponse {
   numberMatched?: number | string;
 }
 
+interface CriticalLayerCheck {
+  layer: MapLayerDefinition;
+  features: Feature[];
+  status: "success" | "error";
+  message?: string;
+}
+
 const TANTALIS_QUERY_RESULT_LIMIT = 10;
 // Builds a basemap tile source from a tile URL.
 // crossOrigin lets the browser use tiles from another website safely.
@@ -264,6 +276,50 @@ const isDigitsOnly = (value: string): boolean => /^\d+$/.test(value);
 // Doubles any apostrophes (' becomes '') so text is safe inside a quoted filter value.
 const escapeCqlText = (value: string): string => value.replace(/'/g, "''");
 
+const readGeometryColumnName = async (layerName: string, signal: AbortSignal): Promise<string> => {
+  const url = new URL(TANTALIS_WFS_URL);
+  url.searchParams.set("service", "WFS");
+  url.searchParams.set("version", "2.0.0");
+  url.searchParams.set("request", "DescribeFeatureType");
+  url.searchParams.set("typeNames", layerName);
+
+  const response = await fetch(url.toString(), { signal });
+  if (!response.ok) {
+    throw new Error(`the layer description returned status ${response.status}`);
+  }
+
+  const xml = new DOMParser().parseFromString(await response.text(), "application/xml");
+  if (xml.querySelector("parsererror")) {
+    throw new Error("the layer description was not valid XML");
+  }
+
+  const geometryElement = Array.from(xml.getElementsByTagNameNS("*", "element")).find((element) =>
+    /^[^:]+:.*PropertyType$/i.test(element.getAttribute("type") ?? "")
+  );
+  const geometryName = geometryElement?.getAttribute("name");
+  if (!geometryName || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(geometryName)) {
+    throw new Error("the layer geometry column could not be identified");
+  }
+  return geometryName;
+};
+
+const parseLayerDescriptions = (xmlText: string): globalThis.Map<string, string> => {
+  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+  if (xml.querySelector("parsererror")) {
+    throw new Error("the WMS capabilities were not valid XML");
+  }
+
+  const descriptions = new globalThis.Map<string, string>();
+  Array.from(xml.getElementsByTagNameNS("*", "Layer")).forEach((layer) => {
+    const name = Array.from(layer.children).find((child) => child.localName === "Name")?.textContent?.trim();
+    const abstract = Array.from(layer.children).find((child) => child.localName === "Abstract")?.textContent?.trim();
+    if (name && abstract) {
+      descriptions.set(name, abstract);
+    }
+  });
+  return descriptions;
+};
+
 // The map component. It creates the OpenLayers map and handles everything the map does.
 const OLMap: FC<OLMapProps> = ({
   // If LandingPage doesn't send a center or zoom, use the defaults.
@@ -271,6 +327,10 @@ const OLMap: FC<OLMapProps> = ({
   zoom = DEFAULT_ZOOM,
   onPolygonClick,
   tantalisPreview,
+  onTantalisShapeLoaded,
+  criticalConflictsRequest,
+  isCriticalConflictsOpen,
+  onCloseCriticalConflicts,
 }) => {
   // The <div> the map is drawn inside.
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -286,6 +346,11 @@ const OLMap: FC<OLMapProps> = ({
   const layerGroupToggleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const queryHighlightLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   const queryAbortRef = useRef<AbortController | null>(null);
+  const criticalConflictLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const criticalConflictsAbortRef = useRef<AbortController | null>(null);
+  const criticalConflictHoverRef = useRef<object | null>(null);
+  const criticalConflictPinnedRef = useRef<object | null>(null);
+  const criticalConflictDescriptionsRef = useRef<Promise<globalThis.Map<string, string>> | null>(null);
 
   // Which basemap is selected. Starts on satellite.
   const [selectedBasemap, setSelectedBasemap] = useState<BasemapId>("satellite");
@@ -317,10 +382,44 @@ const OLMap: FC<OLMapProps> = ({
   // Message shown on the map while loading, or when the lookup fails or finds nothing.
   // An empty string means no message is shown.
   const [previewStatus, setPreviewStatus] = useState<string>("");
+  const [criticalConflictLayers, setCriticalConflictLayers] = useState<CriticalConflictLayer[]>([]);
+  const [criticalConflictErrors, setCriticalConflictErrors] = useState<CriticalConflictError[]>([]);
+  const [criticalConflictsChecking, setCriticalConflictsChecking] = useState(false);
+  const [criticalConflictStatus, setCriticalConflictStatus] = useState("");
+  const [hoveredConflictLayerName, setHoveredConflictLayerName] = useState<string | null>(null);
+  const [pinnedConflictLayerName, setPinnedConflictLayerName] = useState<string | null>(null);
 
   const toggleMapPanel = (panel: "basemap" | "layers"): void => {
     setOpenMapPanel((current) => (current === panel ? null : panel));
   };
+
+  const clearCriticalConflicts = useCallback((): void => {
+    criticalConflictsAbortRef.current?.abort();
+    criticalConflictsAbortRef.current = null;
+    const map = mapRef.current;
+    const layer = criticalConflictLayerRef.current;
+    if (map && layer) {
+      map.removeLayer(layer);
+      layer.getSource()?.clear();
+    }
+    criticalConflictHoverRef.current = null;
+    criticalConflictPinnedRef.current = null;
+    const target = map?.getTargetElement();
+    if (target) {
+      target.style.cursor = "";
+    }
+    setCriticalConflictLayers([]);
+    setCriticalConflictErrors([]);
+    setCriticalConflictsChecking(false);
+    setCriticalConflictStatus("");
+    setHoveredConflictLayerName(null);
+    setPinnedConflictLayerName(null);
+  }, []);
+
+  const handleCloseCriticalConflicts = useCallback((): void => {
+    clearCriticalConflicts();
+    onCloseCriticalConflicts();
+  }, [clearCriticalConflicts, onCloseCriticalConflicts]);
 
   useEffect(() => {
     if (openMapPanel !== "layers") {
@@ -432,6 +531,52 @@ const OLMap: FC<OLMapProps> = ({
     map.addLayer(queryHighlightLayer);
     queryHighlightLayerRef.current = queryHighlightLayer;
 
+    const normalConflictStyle = new Style({
+      fill: new Fill({ color: "rgba(220, 38, 38, 0.18)" }),
+      stroke: new Stroke({ color: "#dc2626", width: 2 }),
+    });
+    const highlightedConflictStyle = new Style({
+      fill: new Fill({ color: "rgba(220, 38, 38, 0.3)" }),
+      stroke: new Stroke({ color: "#b91c1c", width: 4 }),
+    });
+    const criticalConflictLayer = new VectorLayer({
+      source: new VectorSource(),
+      style: (feature) =>
+        feature === criticalConflictHoverRef.current || feature === criticalConflictPinnedRef.current
+          ? highlightedConflictStyle
+          : normalConflictStyle,
+      zIndex: 115,
+    });
+    criticalConflictLayerRef.current = criticalConflictLayer;
+
+    const findCriticalConflict = (pixel: number[]): object | null =>
+      map.forEachFeatureAtPixel(
+        pixel,
+        (feature) => feature,
+        { layerFilter: (layer) => layer === criticalConflictLayerRef.current, hitTolerance: 4 }
+      ) ?? null;
+
+    const pointerMoveKey = map.on("pointermove", (event) => {
+      const feature = event.dragging ? null : findCriticalConflict(event.pixel);
+      const target = map.getTargetElement();
+      if (target) {
+        target.style.cursor = feature ? "pointer" : "";
+      }
+      if (criticalConflictHoverRef.current !== feature) {
+        criticalConflictHoverRef.current = feature;
+        criticalConflictLayer.changed();
+      }
+      const layerName = feature ? (feature as Feature).get("criticalConflictLayerName") : null;
+      setHoveredConflictLayerName(typeof layerName === "string" ? layerName : null);
+    });
+    const conflictClickKey = map.on("click", (event) => {
+      const feature = findCriticalConflict(event.pixel);
+      criticalConflictPinnedRef.current = feature;
+      criticalConflictLayer.changed();
+      const layerName = feature ? (feature as Feature).get("criticalConflictLayerName") : null;
+      setPinnedConflictLayerName(typeof layerName === "string" ? layerName : null);
+    });
+
     // Keep provider credits available while using custom map controls.
     map.addControl(new Attribution({ collapsible: true, collapsed: true }));
 
@@ -445,9 +590,16 @@ const OLMap: FC<OLMapProps> = ({
     // Clean up when the component is removed from the page.
     return () => {
       queryAbortRef.current?.abort();
+      criticalConflictsAbortRef.current?.abort();
+      unByKey([pointerMoveKey, conflictClickKey]);
+      const target = map.getTargetElement();
+      if (target) {
+        target.style.cursor = "";
+      }
       map.setTarget(undefined);
       mapRef.current = null;
       queryHighlightLayerRef.current = null;
+      criticalConflictLayerRef.current = null;
     };
     // The empty list [] means this runs only once. Later center/zoom changes are handled in step 2.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -517,6 +669,9 @@ const OLMap: FC<OLMapProps> = ({
   // The sliders are left out of the list at the bottom, so moving them doesn't repeat the lookup.
   useEffect(() => {
     const map = mapRef.current;
+    onTantalisShapeLoaded(false);
+    clearCriticalConflicts();
+    onCloseCriticalConflicts();
 
     // Stop if the map isn't ready or nothing has been sent yet.
     if (!map || !tantalisPreview) {
@@ -532,6 +687,7 @@ const OLMap: FC<OLMapProps> = ({
     // so stop here if they contain anything other than digits.
     if (!isDigitsOnly(dispositionId) || !isDigitsOnly(parcelId)) {
       setPreviewStatus("Disposition ID and Parcel ID must contain numbers only.");
+      onTantalisShapeLoaded(false);
       return;
     }
 
@@ -593,6 +749,7 @@ const OLMap: FC<OLMapProps> = ({
         // Nothing matched, so tell the user.
         if (features.length === 0) {
           setPreviewStatus("No TANTALIS shape matched all three identifiers. Check the values and try again.");
+          onTantalisShapeLoaded(false);
           return;
         }
 
@@ -604,6 +761,7 @@ const OLMap: FC<OLMapProps> = ({
         const extent = previewSource.getExtent();
         if (!extent) {
           setPreviewStatus("The TANTALIS shape was found but has no area to zoom to.");
+          onTantalisShapeLoaded(false);
           return;
         }
 
@@ -616,6 +774,7 @@ const OLMap: FC<OLMapProps> = ({
 
         // Success, so clear the loading message.
         setPreviewStatus("");
+        onTantalisShapeLoaded(true);
       })
       .catch((error: unknown) => {
         // A cancelled request is normal when a newer one replaces it, so ignore it.
@@ -626,6 +785,7 @@ const OLMap: FC<OLMapProps> = ({
         // Anything else is a real problem, so show it on the map.
         const reason = error instanceof Error ? error.message : "unknown error";
         setPreviewStatus(`Could not load the TANTALIS shape: ${reason}.`);
+        onTantalisShapeLoaded(false);
       });
 
     // Clean up: runs before the next lookup or when the map is removed.
@@ -639,7 +799,200 @@ const OLMap: FC<OLMapProps> = ({
     };
     // Only rerun when new identifiers arrive. The slider values are left out on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tantalisPreview]);
+  }, [tantalisPreview, onTantalisShapeLoaded, clearCriticalConflicts, onCloseCriticalConflicts]);
+
+  useEffect(() => {
+    if (!criticalConflictsRequest) {
+      clearCriticalConflicts();
+      return;
+    }
+
+    criticalConflictsAbortRef.current?.abort();
+    const controller = new AbortController();
+    criticalConflictsAbortRef.current = controller;
+    setCriticalConflictsChecking(true);
+    setCriticalConflictStatus("");
+    setCriticalConflictLayers([]);
+    setCriticalConflictErrors([]);
+    criticalConflictHoverRef.current = null;
+    criticalConflictPinnedRef.current = null;
+    setHoveredConflictLayerName(null);
+    setPinnedConflictLayerName(null);
+
+    const map = mapRef.current;
+    const inputSource = previewLayerRef.current?.getSource();
+    const conflictLayer = criticalConflictLayerRef.current;
+    const conflictSource = conflictLayer?.getSource();
+    const inputFeatures = inputSource?.getFeatures() ?? [];
+    const inputWkts = inputFeatures.flatMap((feature) => {
+      const geometry = feature.getGeometry();
+      return geometry
+        ? [new WKT().writeGeometry(geometry.clone().transform("EPSG:3857", "EPSG:4326"))]
+        : [];
+    });
+    const previewExtent = inputSource?.getExtent();
+
+    if (!map || !inputSource || !conflictLayer || !conflictSource || inputWkts.length === 0 || !previewExtent) {
+      setCriticalConflictStatus("The TANTALIS shape is not available on the map.");
+      setCriticalConflictsChecking(false);
+      return () => controller.abort();
+    }
+
+    conflictSource.clear();
+    if (!map.getLayers().getArray().includes(conflictLayer)) {
+      map.addLayer(conflictLayer);
+    }
+
+    const criticalGroup = MAP_LAYER_GROUPS.find((group) => group.id === "critical-overlaps");
+    if (!criticalGroup) {
+      setCriticalConflictStatus("Critical conflict layers are not configured.");
+      setCriticalConflictsChecking(false);
+      return () => controller.abort();
+    }
+
+    const getLayerDescriptions = (): Promise<globalThis.Map<string, string>> => {
+      if (!criticalConflictDescriptionsRef.current) {
+        const url = new URL(TANTALIS_WMS_URL);
+        url.searchParams.set("service", "WMS");
+        url.searchParams.set("version", "1.3.0");
+        url.searchParams.set("request", "GetCapabilities");
+        let descriptionRequest: Promise<globalThis.Map<string, string>>;
+        descriptionRequest = fetch(url.toString(), { signal: controller.signal })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`WMS capabilities returned status ${response.status}`);
+            }
+            return response.text();
+          })
+          .then(parseLayerDescriptions)
+          .catch((error: unknown) => {
+            if (controller.signal.aborted) {
+              if (criticalConflictDescriptionsRef.current === descriptionRequest) {
+                criticalConflictDescriptionsRef.current = null;
+              }
+              throw error;
+            }
+            return new globalThis.Map<string, string>();
+          });
+        criticalConflictDescriptionsRef.current = descriptionRequest;
+      }
+      return criticalConflictDescriptionsRef.current;
+    };
+
+    const checkCriticalConflicts = async (): Promise<void> => {
+      const checkedLayers = await Promise.all(
+        criticalGroup.layers.map(async (layer): Promise<CriticalLayerCheck | null> => {
+          try {
+            const geometryColumn = await readGeometryColumnName(layer.name, controller.signal);
+            const url = new URL(TANTALIS_WFS_URL);
+            url.searchParams.set("service", "WFS");
+            url.searchParams.set("version", "2.0.0");
+            url.searchParams.set("request", "GetFeature");
+            url.searchParams.set("typeNames", layer.name);
+            url.searchParams.set("outputFormat", "application/json");
+            url.searchParams.set("srsName", "EPSG:4326");
+            url.searchParams.set(
+              "CQL_FILTER",
+              inputWkts.map((wkt) => `INTERSECTS(${geometryColumn},${wkt})`).join(" OR ")
+            );
+
+            const response = await fetch(url.toString(), { signal: controller.signal });
+            if (!response.ok) {
+              throw new Error(`the map service returned status ${response.status}`);
+            }
+            const geoJson: unknown = await response.json();
+            if (!isTantalisQueryResponse(geoJson)) {
+              throw new Error("the map service returned an unexpected conflict response");
+            }
+            const features = new GeoJSON().readFeatures(geoJson, {
+              dataProjection: "EPSG:4326",
+              featureProjection: "EPSG:3857",
+            }) as Feature[];
+            features.forEach((feature) => feature.set("criticalConflictLayerName", layer.name));
+            return { layer, features, status: "success" };
+          } catch (error) {
+            if (controller.signal.aborted) {
+              return null;
+            }
+            return {
+              layer,
+              features: [],
+              status: "error",
+              message: error instanceof Error ? error.message : "unknown error",
+            };
+          }
+        })
+      );
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const overlaps = checkedLayers.filter(
+        (result): result is CriticalLayerCheck =>
+          result !== null && result.status === "success" && result.features.length > 0
+      );
+      overlaps.forEach(({ features }) => conflictSource.addFeatures(features));
+
+      let descriptions = new globalThis.Map<string, string>();
+      if (overlaps.length > 0) {
+        descriptions = await getLayerDescriptions();
+      }
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setCriticalConflictLayers(
+        overlaps.map(({ layer }) => ({
+          name: layer.name,
+          label: layer.label,
+          description: descriptions.get(layer.name) ?? "Layer description unavailable.",
+        }))
+      );
+      setCriticalConflictErrors(
+        checkedLayers.flatMap((result) =>
+          result?.status === "error"
+            ? [{
+                layerName: result.layer.name,
+                layerLabel: result.layer.label,
+                message: result.message ?? "unknown error",
+              }]
+            : []
+        )
+      );
+
+      const extent = createEmpty();
+      extendExtent(extent, previewExtent);
+      conflictSource.getFeatures().forEach((feature) => {
+        const featureExtent = feature.getGeometry()?.getExtent();
+        if (featureExtent) {
+          extendExtent(extent, featureExtent);
+        }
+      });
+      map.getView().fit(extent, {
+        padding: [30, 30, 30, 30],
+        maxZoom: 16,
+        duration: 600,
+      });
+      setCriticalConflictsChecking(false);
+    };
+
+    void checkCriticalConflicts().catch((error: unknown) => {
+      if (controller.signal.aborted) {
+        return;
+      }
+      setCriticalConflictStatus(`Could not check critical conflicts: ${error instanceof Error ? error.message : "unknown error"}`);
+      setCriticalConflictsChecking(false);
+    });
+
+    return () => {
+      controller.abort();
+      if (criticalConflictsAbortRef.current === controller) {
+        criticalConflictsAbortRef.current = null;
+      }
+    };
+  }, [criticalConflictsRequest, clearCriticalConflicts]);
 
   // Search only attribute fields first; the WMS overlay stays hidden unless its checkbox is enabled.
   const searchTantalisLayer = async (
@@ -884,6 +1237,16 @@ const OLMap: FC<OLMapProps> = ({
             {previewStatus}
           </div>
         )}
+
+        <CriticalConflictsPanel
+          layers={criticalConflictLayers}
+          errors={criticalConflictErrors}
+          isChecking={criticalConflictsChecking}
+          isOpen={isCriticalConflictsOpen}
+          selectedLayerName={pinnedConflictLayerName ?? hoveredConflictLayerName}
+          status={criticalConflictStatus}
+          onClose={handleCloseCriticalConflicts}
+        />
 
         {/* Compact, bordered tool panel; each action remains a distinct button. */}
         <div className="map-controls map-controls--right" ref={mapControlsRef}>
