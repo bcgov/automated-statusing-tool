@@ -294,6 +294,7 @@ const OLMap: FC<OLMapProps> = ({
   const [layerPanelMaxHeight, setLayerPanelMaxHeight] = useState<number>();
   // The active layer is the most recently enabled layer and receives symbology/query actions.
   const [activeTantalisLayer, setActiveTantalisLayer] = useState<string>(TANTALIS_LAYER);
+  const [openLayerQueries, setOpenLayerQueries] = useState<Record<string, boolean>>({});
   const [selectedTantalisStyles, setSelectedTantalisStyles] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, layer.styles[0]?.name ?? ""]))
@@ -1025,8 +1026,26 @@ const OLMap: FC<OLMapProps> = ({
                                 />
                                 <span className="map-layer-name">{layer.label}</span>
                               </label>
+                              {visibleTantalisLayers[layer.name] && (
+                                <button
+                                  type="button"
+                                  className="map-layer-filter-submit tantalis-preview-link map-layer-query-toggle"
+                                  aria-label={`${openLayerQueries[layer.name] ? "Hide" : "Show"} ${layer.label} query controls`}
+                                  aria-expanded={Boolean(openLayerQueries[layer.name])}
+                                  title={`${openLayerQueries[layer.name] ? "Hide" : "Show"} ${layer.label} query controls`}
+                                  onClick={() => {
+                                    const isOpening = !openLayerQueries[layer.name];
+                                    setOpenLayerQueries((current) => ({ ...current, [layer.name]: isOpening }));
+                                    if (isOpening && activeTantalisLayer !== layer.name) {
+                                      selectQueryLayer(layer.name);
+                                    }
+                                  }}
+                                >
+                                  Query
+                                </button>
+                              )}
                             </div>
-                            {visibleTantalisLayers[layer.name] && (
+                            {visibleTantalisLayers[layer.name] && openLayerQueries[layer.name] && (
                               <form
                                 className="map-layer-filter-row"
                                 onSubmit={(event) => {
@@ -1136,12 +1155,16 @@ const OLMap: FC<OLMapProps> = ({
                                 </label>
                               </details>
                             )}
-                            {visibleTantalisLayers[layer.name] && activeTantalisLayer === layer.name && queryStatus && (
+                            {visibleTantalisLayers[layer.name] &&
+                              openLayerQueries[layer.name] &&
+                              activeTantalisLayer === layer.name &&
+                              queryStatus && (
                               <div className="map-query-status" role="status" aria-live="polite">
                                 {queryStatus}
                               </div>
                             )}
                             {visibleTantalisLayers[layer.name] &&
+                              openLayerQueries[layer.name] &&
                               activeTantalisLayer === layer.name &&
                               queryResults.length > 0 && (
                               <ul className="map-query-results">

@@ -607,6 +607,14 @@ select {
   opacity: 0.5;
 }
 
+.map-layer-query-toggle {
+  flex: 0 0 auto;
+  width: auto;
+  min-height: 30px;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
 .map-layer-control {
   display: flex;
   flex-direction: column;
