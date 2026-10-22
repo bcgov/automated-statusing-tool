@@ -545,7 +545,7 @@ select {
 
 .map-layer-filter-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr);
   gap: 4px;
   margin: 4px 0 6px 24px;
 }
@@ -570,10 +570,15 @@ select {
 }
 
 .map-layer-filter-submit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   width: 100%;
   min-width: 0;
-  height: 26px;
-  padding: 0;
+  min-height: 30px;
+  height: auto;
+  padding: 2px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -581,12 +586,11 @@ select {
   font: inherit;
   font-size: 9px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.2;
   text-decoration: underline;
   text-underline-offset: 0.18rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-align: center;
   cursor: pointer;
   transition: color 0.2s ease, opacity 0.2s ease;
 }

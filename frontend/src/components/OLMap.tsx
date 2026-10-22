@@ -1096,15 +1096,16 @@ const OLMap: FC<OLMapProps> = ({
                                 <button
                                   type="submit"
                                   className="map-layer-filter-submit tantalis-preview-link"
-                                  aria-label={`Search ${layer.label} by ${selectedAttribute?.label ?? "attribute"}`}
-                                  title={`Search ${layer.label} by ${selectedAttribute?.label ?? "attribute"}`}
+                                  aria-label="Search and Zoom to Layer"
+                                  title="Search and Zoom to Layer"
                                   disabled={
                                     !selectedQueryAttributes[layer.name] ||
                                     !queryAttributeValues[layer.name]?.trim() ||
                                     isQuerying
                                   }
                                 >
-                                  {selectedAttribute ? `Search ${selectedAttribute.label}` : "Search"}
+                                  <span>Search and</span>
+                                  <span>Zoom to Layer</span>
                                 </button>
                               </form>
                             )}
