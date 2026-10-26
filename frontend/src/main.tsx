@@ -5,6 +5,8 @@ import { useState } from 'react'
 import { PageHeader, PageFooter, AlertBannerComponent } from "./components/bcgov-components";
 import LandingPage from "./pages/LandingPage";
 import "./index.scss";
+import { AuthProvider } from "./auth/AuthContext";
+import Callback from './pages/Callback'; // Your OIDC callback page
 
 
 // createrRoot takes an HTML element
@@ -17,12 +19,15 @@ const appElement = document.getElementById("app");
 if (appElement) {
   ReactDOM.createRoot(appElement).render(
     <Router>
-      <AlertBannerComponent />
-      <PageHeader />
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-        </Routes>
-      <PageFooter />
+      <AuthProvider>
+        <AlertBannerComponent />
+        <PageHeader />
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/callback" element={<Callback />} />
+          </Routes>
+        <PageFooter />
+      </AuthProvider>
     </Router>
   );
 }
