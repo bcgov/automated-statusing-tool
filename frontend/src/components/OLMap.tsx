@@ -4,18 +4,20 @@
 // useState = store a value that redraws the page when it changes.
 import { useEffect, useRef, useState } from "react";
 // FC = "function component". Used here only as a type, so it adds nothing to the final app.
-import type { FC } from "react";
-
+import type { FC, FormEvent } from "react";
 // OpenLayers pieces used to build the map.
 import Map from "ol/Map";
 import View from "ol/View"; // Controls where the map looks (center and zoom)
+import LayerGroup from "ol/layer/Group";
 import TileLayer from "ol/layer/Tile"; // Layer for basemap image tiles
 import VectorLayer from "ol/layer/Vector"; // Layer for shapes (Tantalis preview)
 import XYZ from "ol/source/XYZ"; // Loads tiles from a URL pattern like {z}/{y}/{x}
+import TileWMS from "ol/source/TileWMS";
 import VectorSource from "ol/source/Vector"; // Holds the shapes shown in a vector layer
-import { GeoJSON } from "ol/format"; // Reads GeoJSON data into shapes OpenLayers can draw
+import { GeoJSON } from "ol/format"; // Reads and writes GeoJSON shapes
 import { fromLonLat } from "ol/proj"; // Converts longitude/latitude into map coordinates
 import { Fill, Stroke, Style } from "ol/style"; // Fill colour, outline and full shape style
+import Attribution from "ol/control/Attribution";
 import ScaleLine from "ol/control/ScaleLine"; // The scale bar
 import { unByKey } from "ol/Observable"; // Removes an event listener that was added with map.on()
 // Feature = one shape on the map. Used only as a type.
@@ -62,16 +64,154 @@ const SATELLITE_URL =
 
 // BC Open Maps web service (WFS) used to look up Tantalis shapes.
 const TANTALIS_WFS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
+const TANTALIS_WMS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
 // The Tantalis Crown tenures layer to search.
 const TANTALIS_LAYER = "pub:WHSE_TANTALIS.TA_CROWN_TENURES_SVW";
 
 // Credit shown for the Esri basemap tiles.
 const ESRI_ATTRIBUTION = "Tiles © Esri";
+const TANTALIS_ATTRIBUTION = "Data from the Province of British Columbia";
 
+interface MapLayerDefinition {
+  name: string;
+  label: string;
+  idAttribute: { name: string; label: string; type: "text" | "number" };
+  styles: TantalisStyleDefinition[];
+  queryAttributes: TantalisQueryAttribute[];
+}
+
+interface TantalisStyleDefinition {
+  name: string;
+  label: string;
+}
+
+interface TantalisQueryAttribute {
+  name: string;
+  label: string;
+  type: "text" | "number" | "date";
+}
+
+interface MapLayerGroupDefinition {
+  id: string;
+  label: string;
+  layers: MapLayerDefinition[];
+}
+
+// Layer definitions drive map overlays and their layer-specific query controls.
+const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = [
+  {
+    id: "crown-land",
+    label: "Crown land",
+    layers: [
+      {
+        name: TANTALIS_LAYER,
+        label: "Crown tenures",
+        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
+        styles: [
+          { name: "2214", label: "Outlined" },
+          { name: "2215", label: "Colour Filled" },
+        ],
+        queryAttributes: [
+          { name: "CROWN_LANDS_FILE", label: "File number", type: "text" },
+          { name: "DISPOSITION_TRANSACTION_SID", label: "Disposition ID", type: "number" },
+          { name: "INTRID_SID", label: "Parcel ID", type: "number" },
+          { name: "TENURE_STAGE", label: "Tenure stage", type: "text" },
+          { name: "TENURE_STATUS", label: "Tenure status", type: "text" },
+          { name: "TENURE_TYPE", label: "Tenure type", type: "text" },
+          { name: "TENURE_SUBTYPE", label: "Tenure subtype", type: "text" },
+          { name: "TENURE_PURPOSE", label: "Tenure purpose", type: "text" },
+          { name: "TENURE_SUBPURPOSE", label: "Tenure subpurpose", type: "text" },
+          { name: "APPLICATION_TYPE_CDE", label: "Application type", type: "text" },
+          { name: "TENURE_DOCUMENT", label: "Tenure document", type: "text" },
+          { name: "TENURE_EXPIRY", label: "Expiry date", type: "date" },
+          { name: "TENURE_LOCATION", label: "Tenure location", type: "text" },
+          { name: "RESPONSIBLE_BUSINESS_UNIT", label: "Responsible business unit", type: "text" },
+          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
+        ],
+      },
+      {
+        name: "pub:WHSE_TANTALIS.TA_CROWN_INVENTORY_SVW",
+        label: "Crown land inventory",
+        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
+        styles: [
+          { name: "2173", label: "Outlined" },
+          { name: "2174", label: "Colour Filled" },
+        ],
+        queryAttributes: [
+          { name: "INTRID_SID", label: "Parcel ID", type: "number" },
+          { name: "TENURE_STAGE", label: "Tenure stage", type: "text" },
+          { name: "TENURE_STATUS", label: "Tenure status", type: "text" },
+          { name: "TENURE_TYPE", label: "Tenure type", type: "text" },
+          { name: "TENURE_SUBTYPE", label: "Tenure subtype", type: "text" },
+          { name: "TENURE_PURPOSE", label: "Tenure purpose", type: "text" },
+          { name: "TENURE_SUBPURPOSE", label: "Tenure subpurpose", type: "text" },
+          { name: "CROWN_LANDS_FILE", label: "File number", type: "text" },
+          { name: "TENURE_DOCUMENT", label: "Tenure document", type: "text" },
+          { name: "TENURE_EXPIRY", label: "Expiry date", type: "date" },
+          { name: "TENURE_LOCATION", label: "Tenure location", type: "text" },
+          { name: "RESPONSIBLE_BUSINESS_UNIT", label: "Responsible business unit", type: "text" },
+          { name: "DISPOSITION_TRANSACTION_SID", label: "Disposition ID", type: "number" },
+          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "critical-overlaps",
+    label: "Critical overlaps",
+    layers: [
+      {
+        name: "pub:WHSE_LEGAL_ADMIN_BOUNDARIES.FNT_TREATY_RELATED_LAND_SP",
+        label: "FCBC treaty-related lands",
+        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
+        styles: [
+          { name: "217", label: "Outlined" },
+          { name: "218", label: "Colour Filled" },
+        ],
+        queryAttributes: [
+          { name: "TREATY_RELATED_LAND_ID", label: "Treaty-related land ID", type: "number" },
+          { name: "TREATY", label: "Treaty", type: "text" },
+          { name: "EFFECTIVE_DATE", label: "Effective date", type: "date" },
+          { name: "FIRST_NATION_NAME", label: "First Nation name", type: "text" },
+          { name: "LAND_TYPE", label: "Land type", type: "text" },
+          { name: "CHAPTER_REFERENCE", label: "Chapter reference", type: "text" },
+          { name: "APPENDIX_REFERENCE", label: "Appendix reference", type: "text" },
+          { name: "COMMENTS", label: "Comments", type: "text" },
+          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
+          { name: "FEATURE_AREA_SQM", label: "Feature area (m²)", type: "number" },
+          { name: "FEATURE_LENGTH_M", label: "Feature length (m)", type: "number" },
+        ],
+      },
+    ],
+  },
+];
+
+interface TantalisQueryResult {
+  objectId: string;
+  layerName: string;
+  idAttribute: MapLayerDefinition["idAttribute"];
+  queryAttributeName: string;
+  attributes: Array<{ name: string; label: string; value: string }>;
+}
+
+interface TantalisQueryResponse {
+  features: Array<{ properties: Record<string, unknown> | null }>;
+  numberMatched?: number | string;
+}
+
+const TANTALIS_QUERY_RESULT_LIMIT = 10;
 // Builds a basemap tile source from a tile URL.
 // crossOrigin lets the browser use tiles from another website safely.
 const createBasemapSource = (url: string): XYZ =>
   new XYZ({ url, crossOrigin: "anonymous", attributions: ESRI_ATTRIBUTION });
+
+const asText = (value: unknown): string => (value == null ? "" : String(value));
+
+const isTantalisQueryResponse = (value: unknown): value is TantalisQueryResponse =>
+  typeof value === "object" &&
+  value !== null &&
+  "features" in value &&
+  Array.isArray(value.features);
 
 // Icon for the Basemap button (a folded paper map).
 // In each d="..." drawing path: M = move to, V = vertical line, L = line to, Z = close the shape.
@@ -90,28 +230,17 @@ const PaperMapIcon: FC = () => (
   </svg>
 );
 
-// Icon for the Shape symbology button (a paintbrush).
-const PaintbrushIcon: FC = () => (
+// Icon for the Layers button (stacked map layers).
+const LayersIcon: FC = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
-    {/* Brush head */}
     <path
-      d="M4 15.5L12.5 7L16.5 11L8 19.5H4V15.5Z"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    />
-    {/* Brush handle */}
-    <path
-      d="M13.5 6.5L17.5 2.5L20.5 5.5L16.5 9.5"
+      d="M12 3L3 7.5L12 12L21 7.5L12 3ZM3 12L12 16.5L21 12M3 16.5L12 21L21 16.5"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.5"
       strokeLinecap="round"
       strokeLinejoin="round"
     />
-    {/* Paint stroke under the brush */}
-    <path d="M4.5 19.5H7.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
   </svg>
 );
 
@@ -145,17 +274,41 @@ const OLMap: FC<OLMapProps> = ({
 }) => {
   // The <div> the map is drawn inside.
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapFrameRef = useRef<HTMLDivElement | null>(null);
+  const mapControlsRef = useRef<HTMLDivElement | null>(null);
+  const layerPanelRef = useRef<HTMLDivElement | null>(null);
   // The OpenLayers map, so every part of this file can reach it.
   const mapRef = useRef<Map | null>(null);
   // The layer showing the current TANTALIS preview shape, so the sliders can restyle it.
   const previewLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  // References let the layer panel update individual OpenLayers WMS layers.
+  const tantalisLayerRefs = useRef<Record<string, TileLayer<TileWMS>>>({});
+  const layerGroupToggleRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const queryHighlightLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const queryAbortRef = useRef<AbortController | null>(null);
 
   // Which basemap is selected. Starts on satellite.
   const [selectedBasemap, setSelectedBasemap] = useState<BasemapId>("satellite");
-  // Whether the basemap picker is open.
-  const [showBasemapPanel, setShowBasemapPanel] = useState<boolean>(false);
-  // Whether the colour/transparency panel is open.
-  const [showShapeSymbologyPanel, setShowShapeSymbologyPanel] = useState<boolean>(false);
+  // One active popup keeps map tools from stacking on top of each other.
+  const [openMapPanel, setOpenMapPanel] = useState<"basemap" | "layers" | null>(null);
+  const [layerPanelMaxHeight, setLayerPanelMaxHeight] = useState<number>();
+  // The active layer is the most recently enabled layer and receives symbology/query actions.
+  const [activeTantalisLayer, setActiveTantalisLayer] = useState<string>(TANTALIS_LAYER);
+  const [selectedTantalisStyles, setSelectedTantalisStyles] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, layer.styles[0]?.name ?? ""]))
+    )
+  );
+  const [selectedQueryAttributes, setSelectedQueryAttributes] = useState<Record<string, string>>({});
+  const [queryAttributeValues, setQueryAttributeValues] = useState<Record<string, string>>({});
+  const [queryResults, setQueryResults] = useState<TantalisQueryResult[]>([]);
+  const [queryStatus, setQueryStatus] = useState<string>("");
+  const [isQuerying, setIsQuerying] = useState<boolean>(false);
+  const [zoomingObjectId, setZoomingObjectId] = useState<string | null>(null);
+  // Keep the sample overlays off until the user enables them.
+  const [visibleTantalisLayers, setVisibleTantalisLayers] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, false])))
+  );
   // Current colour slider value.
   const [previewHue, setPreviewHue] = useState<number>(DEFAULT_PREVIEW_HUE);
   // Current transparency slider value.
@@ -163,6 +316,71 @@ const OLMap: FC<OLMapProps> = ({
   // Message shown on the map while loading, or when the lookup fails or finds nothing.
   // An empty string means no message is shown.
   const [previewStatus, setPreviewStatus] = useState<string>("");
+
+  const toggleMapPanel = (panel: "basemap" | "layers"): void => {
+    setOpenMapPanel((current) => (current === panel ? null : panel));
+  };
+
+  useEffect(() => {
+    if (openMapPanel !== "layers") {
+      return;
+    }
+
+    const panel = layerPanelRef.current;
+    const frame = mapFrameRef.current;
+    const controls = mapControlsRef.current;
+    if (!panel || !frame || !controls) {
+      return;
+    }
+
+    let observedFooter: HTMLElement | null = null;
+    let resizeObserver: ResizeObserver | undefined;
+    const updateLayerPanelHeight = (): void => {
+      const footer = document.querySelector<HTMLElement>(".bcgov-page-footer");
+      const panelTop = panel.getBoundingClientRect().top;
+      const availableBottom = footer?.getBoundingClientRect().top ?? window.innerHeight;
+      const availableHeight = Math.max(0, availableBottom - panelTop - 8);
+      setLayerPanelMaxHeight(Math.min(380, availableHeight));
+      if (footer !== observedFooter) {
+        if (observedFooter) {
+          resizeObserver?.unobserve(observedFooter);
+        }
+        observedFooter = footer;
+        if (footer) {
+          resizeObserver?.observe(footer);
+        }
+      }
+    };
+
+    resizeObserver = new ResizeObserver(updateLayerPanelHeight);
+    resizeObserver.observe(frame);
+    resizeObserver.observe(controls);
+    const mutationObserver = new MutationObserver(updateLayerPanelHeight);
+    mutationObserver.observe(document.querySelector("#root") ?? document.body, {
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    window.addEventListener("resize", updateLayerPanelHeight);
+    updateLayerPanelHeight();
+
+    return () => {
+      resizeObserver.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener("resize", updateLayerPanelHeight);
+    };
+  }, [openMapPanel]);
+
+  const selectQueryLayer = (layerName: string): void => {
+    queryAbortRef.current?.abort();
+    queryAbortRef.current = null;
+    setIsQuerying(false);
+    setZoomingObjectId(null);
+    setActiveTantalisLayer(layerName);
+    setQueryResults([]);
+    setQueryStatus("");
+    queryHighlightLayerRef.current?.getSource()?.clear();
+  };
 
   // 1. Create the map one time when the component first appears.
   useEffect(() => {
@@ -174,28 +392,87 @@ const OLMap: FC<OLMapProps> = ({
     // Basemap layer. Starts on satellite to match the selected option.
     const baseLayer = new TileLayer({ source: createBasemapSource(SATELLITE_URL) });
 
+    // Create a real OpenLayers group so these related WMS overlays remain grouped on the map.
+    const mapLayerGroups = MAP_LAYER_GROUPS.map((group) => {
+      const layers = group.layers.map((layer) => {
+        const mapLayer = new TileLayer({
+          visible: false,
+          source: new TileWMS({
+            url: TANTALIS_WMS_URL,
+            params: { LAYERS: layer.name, TILED: true },
+            serverType: "geoserver",
+            crossOrigin: "anonymous",
+            attributions: TANTALIS_ATTRIBUTION,
+          }),
+        });
+        tantalisLayerRefs.current[layer.name] = mapLayer;
+        return mapLayer;
+      });
+
+      return new LayerGroup({ layers, properties: { title: group.label } });
+    });
+
     const map = new Map({
       target: mapContainerRef.current, // Draw the map inside our <div>
-      layers: [baseLayer], // Basemap is always the first (bottom) layer
+      layers: [baseLayer, ...mapLayerGroups],
       view: new View({ center: fromLonLat(center), zoom }),
       controls: [], // Hide the default OpenLayers buttons. We use our own.
     });
 
+    // Query results draw only the one feature the user chooses, not the full WMS layer.
+    const queryHighlightLayer = new VectorLayer({
+      source: new VectorSource(),
+      style: new Style({
+        fill: new Fill({ color: "rgba(255, 193, 7, 0.28)" }),
+        stroke: new Stroke({ color: "#b45309", width: 3 }),
+      }),
+      zIndex: 110,
+    });
+    map.addLayer(queryHighlightLayer);
+    queryHighlightLayerRef.current = queryHighlightLayer;
+
+    // Keep provider credits available while using custom map controls.
+    map.addControl(new Attribution({ collapsible: true, collapsed: true }));
+
     // Add the scale bar in metres/kilometres.
     // The class name matches the existing CSS that positions and styles it.
-    map.addControl(new ScaleLine({ className: "burn-severity-scale", units: "metric", minWidth: 140 }));
+    map.addControl(new ScaleLine({ className: "map-scale", units: "metric", minWidth: 140 }));
 
     // Save the map so the rest of the file can use it.
     mapRef.current = map;
 
     // Clean up when the component is removed from the page.
     return () => {
+      queryAbortRef.current?.abort();
       map.setTarget(undefined);
       mapRef.current = null;
+      queryHighlightLayerRef.current = null;
     };
     // The empty list [] means this runs only once. Later center/zoom changes are handled in step 2.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync WMS layer visibility and the group's partial-selection checkbox state.
+  useEffect(() => {
+    Object.entries(visibleTantalisLayers).forEach(([name, isVisible]) => {
+      tantalisLayerRefs.current[name]?.setVisible(isVisible);
+    });
+
+    MAP_LAYER_GROUPS.forEach((group) => {
+      const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
+      const groupToggle = layerGroupToggleRefs.current[group.id];
+      if (groupToggle) {
+        groupToggle.indeterminate = enabledCount > 0 && enabledCount < group.layers.length;
+      }
+    });
+  }, [visibleTantalisLayers]);
+
+  // Apply each overlay's own published WMS style without changing its visibility.
+  useEffect(() => {
+    Object.entries(tantalisLayerRefs.current).forEach(([name, layer]) => {
+      layer.getSource()?.updateParams({ STYLES: selectedTantalisStyles[name] ?? "" });
+    });
+  }, [selectedTantalisStyles]);
 
   // 2. Move the map smoothly when the center or zoom props change.
   useEffect(() => {
@@ -363,6 +640,178 @@ const OLMap: FC<OLMapProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tantalisPreview]);
 
+  // Search only attribute fields first; the WMS overlay stays hidden unless its checkbox is enabled.
+  const searchTantalisLayer = async (
+    event: FormEvent<HTMLFormElement>,
+    targetLayer: MapLayerDefinition,
+    attributeFilter: { attribute: TantalisQueryAttribute; value: string }
+  ): Promise<void> => {
+    event.preventDefault();
+    queryAbortRef.current?.abort();
+    queryAbortRef.current = null;
+    setIsQuerying(false);
+    setActiveTantalisLayer(targetLayer.name);
+    const attributeValue = attributeFilter.value.trim();
+
+    if (attributeFilter.attribute.type === "number" && !isDigitsOnly(attributeValue)) {
+      setQueryStatus(`${attributeFilter.attribute.label} must contain numbers only.`);
+      setQueryResults([]);
+      return;
+    }
+    if (!attributeValue) {
+      setQueryStatus(`Enter a value for ${attributeFilter.attribute.label}.`);
+      setQueryResults([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    queryAbortRef.current = controller;
+    setQueryResults([]);
+    setQueryStatus(`Searching ${targetLayer.label}...`);
+    setIsQuerying(true);
+
+    const value =
+      attributeFilter.attribute.type === "number" ? attributeValue : `'${escapeCqlText(attributeValue)}'`;
+
+    const url = new URL(TANTALIS_WFS_URL);
+    url.searchParams.set("service", "WFS");
+    url.searchParams.set("version", "2.0.0");
+    url.searchParams.set("request", "GetFeature");
+    url.searchParams.set("typeNames", targetLayer.name);
+    url.searchParams.set("outputFormat", "application/json");
+    url.searchParams.set("srsName", "EPSG:4326");
+    url.searchParams.set("CQL_FILTER", `${attributeFilter.attribute.name}=${value}`);
+    url.searchParams.set("count", String(TANTALIS_QUERY_RESULT_LIMIT));
+    url.searchParams.set(
+      "propertyName",
+      [targetLayer.idAttribute.name, ...targetLayer.queryAttributes.map((attribute) => attribute.name)].join(",")
+    );
+
+    try {
+      const response = await fetch(url.toString(), { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`the map service returned status ${response.status}`);
+      }
+
+      const payload: unknown = await response.json();
+      if (!isTantalisQueryResponse(payload)) {
+        throw new Error("the map service returned an unexpected search response");
+      }
+
+      const results = payload.features.map((feature): TantalisQueryResult => {
+        const properties = feature.properties;
+        const objectId = asText(properties?.[targetLayer.idAttribute.name]);
+        if (
+          !objectId ||
+          (targetLayer.idAttribute.type === "number" && !isDigitsOnly(objectId))
+        ) {
+          throw new Error("a search result did not include a valid feature identifier");
+        }
+
+        return {
+          objectId,
+          layerName: targetLayer.name,
+          idAttribute: targetLayer.idAttribute,
+          queryAttributeName: attributeFilter.attribute.name,
+          attributes: targetLayer.queryAttributes.map((attribute) => ({
+            name: attribute.name,
+            label: attribute.label,
+            value: asText(properties?.[attribute.name]),
+          })),
+        };
+      });
+      setQueryResults(results);
+
+      const numberMatched = Number(payload.numberMatched);
+      const hasKnownTotal = Number.isFinite(numberMatched);
+      if (results.length === 0) {
+        setQueryStatus("No matching features found.");
+      } else if (hasKnownTotal && numberMatched > results.length) {
+        setQueryStatus(
+          `Showing the first ${results.length} of ${numberMatched} matches. Refine the identifiers to narrow the results.`
+        );
+      } else if (results.length === TANTALIS_QUERY_RESULT_LIMIT) {
+        setQueryStatus(`Showing up to ${results.length} matches. Refine the identifiers to narrow the results.`);
+      } else {
+        setQueryStatus(`${results.length} ${results.length === 1 ? "match" : "matches"} found.`);
+      }
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      const reason = error instanceof Error ? error.message : "unknown error";
+      setQueryStatus(`Could not search TANTALIS: ${reason}.`);
+    } finally {
+      if (queryAbortRef.current === controller) {
+        queryAbortRef.current = null;
+        setIsQuerying(false);
+      }
+    }
+  };
+
+  // Fetch geometry only for the chosen result, then highlight and zoom to that feature.
+  const zoomToQueryResult = async (result: TantalisQueryResult): Promise<void> => {
+    queryAbortRef.current?.abort();
+    const controller = new AbortController();
+    queryAbortRef.current = controller;
+    setZoomingObjectId(result.objectId);
+    setQueryStatus("Loading selected feature geometry...");
+
+    const url = new URL(TANTALIS_WFS_URL);
+    url.searchParams.set("service", "WFS");
+    url.searchParams.set("version", "2.0.0");
+    url.searchParams.set("request", "GetFeature");
+    url.searchParams.set("typeNames", result.layerName);
+    url.searchParams.set("outputFormat", "application/json");
+    url.searchParams.set("srsName", "EPSG:4326");
+    const objectIdValue =
+      result.idAttribute.type === "number" ? result.objectId : `'${escapeCqlText(result.objectId)}'`;
+    url.searchParams.set("CQL_FILTER", `${result.idAttribute.name}=${objectIdValue}`);
+    url.searchParams.set("count", "1");
+
+    try {
+      const response = await fetch(url.toString(), { signal: controller.signal });
+      if (!response.ok) {
+        throw new Error(`the map service returned status ${response.status}`);
+      }
+
+      const geoJson: unknown = await response.json();
+      if (!isTantalisQueryResponse(geoJson) || geoJson.features.length === 0) {
+        throw new Error("the selected feature geometry was not returned");
+      }
+      const features = new GeoJSON().readFeatures(geoJson, {
+        dataProjection: "EPSG:4326",
+        featureProjection: "EPSG:3857",
+      }) as Feature[];
+      const source = queryHighlightLayerRef.current?.getSource();
+      const map = mapRef.current;
+      if (!source || !map) {
+        throw new Error("the map is not ready to display the selected feature");
+      }
+
+      source.clear();
+      source.addFeatures(features);
+      const extent = source.getExtent();
+      if (!extent || !extent.every(Number.isFinite)) {
+        throw new Error("the selected feature has no usable geometry");
+      }
+
+      map.getView().fit(extent, { padding: [36, 36, 36, 36], maxZoom: 16, duration: 600 });
+      setQueryStatus("Zoomed to the selected feature. The full layer remains off unless enabled.");
+    } catch (error: unknown) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
+      const reason = error instanceof Error ? error.message : "unknown error";
+      setQueryStatus(`Could not load selected feature: ${reason}.`);
+    } finally {
+      if (queryAbortRef.current === controller) {
+        queryAbortRef.current = null;
+        setZoomingObjectId(null);
+      }
+    }
+  };
+
   // 6. Restyle the current preview shape when the colour or transparency slider moves.
   useEffect(() => {
     previewLayerRef.current?.setStyle(buildPreviewStyle(previewHue, previewOpacity));
@@ -423,7 +872,7 @@ const OLMap: FC<OLMapProps> = ({
   // What appears on the page.
   return (
     <div className="map-shell">
-      <div className="map-frame">
+      <div className="map-frame" ref={mapFrameRef}>
         {/* OpenLayers draws the map inside this div. */}
         <div ref={mapContainerRef} className="map-container" aria-label="Interactive map" />
 
@@ -435,8 +884,8 @@ const OLMap: FC<OLMapProps> = ({
           </div>
         )}
 
-        {/* Toolbar on the right side of the map. */}
-        <div className="map-controls map-controls--right">
+        {/* Compact, bordered tool panel; each action remains a distinct button. */}
+        <div className="map-controls map-controls--right" ref={mapControlsRef}>
           {/* Zoom in and zoom out buttons. */}
           <div className="map-zoom-panel">
             <button type="button" onClick={() => zoomBy(1)} aria-label="Zoom in" title="Zoom in">
@@ -447,24 +896,23 @@ const OLMap: FC<OLMapProps> = ({
             </button>
           </div>
 
-          {/* Basemap button and its picker. */}
+          {/* Selecting a tool closes the previously open popup. */}
           <div className="map-basemap-wrap">
-            {/* Opens or closes the picker. aria-expanded tells screen readers if it's open. */}
             <button
               type="button"
               className="map-tool-toggle map-basemap-toggle"
-              aria-expanded={showBasemapPanel}
+              aria-label="Basemap"
+              aria-expanded={openMapPanel === "basemap"}
               aria-controls="basemap-panel"
-              onClick={() => setShowBasemapPanel((isOpen) => !isOpen)}
+              onClick={() => toggleMapPanel("basemap")}
             >
               <span className="map-tool-toggle__icon" aria-hidden="true">
                 <PaperMapIcon />
               </span>
-              <span className="map-tool-toggle__label">Basemap</span>
             </button>
 
             {/* The picker. Only shown when open. */}
-            {showBasemapPanel && (
+            {openMapPanel === "basemap" && (
               <div id="basemap-panel" className="basemap-panel" role="group" aria-label="Basemap options">
                 {/* Picker title and close button. */}
                 <div className="basemap-panel__header">
@@ -473,7 +921,7 @@ const OLMap: FC<OLMapProps> = ({
                     type="button"
                     aria-label="Close basemap options"
                     title="Close basemap options"
-                    onClick={() => setShowBasemapPanel(false)}
+                    onClick={() => setOpenMapPanel(null)}
                   >
                     −
                   </button>
@@ -506,60 +954,247 @@ const OLMap: FC<OLMapProps> = ({
             )}
           </div>
 
-          {/* Shape symbology button. Only shown after the form has sent a TANTALIS lookup. */}
-          {tantalisPreview && (
-            <div className="map-shape-symbology-wrap">
-              {/* Opens or closes the colour/transparency panel. */}
-              <button
-                type="button"
-                className="map-tool-toggle"
-                aria-expanded={showShapeSymbologyPanel}
-                aria-controls="shape-symbology-panel"
-                onClick={() => setShowShapeSymbologyPanel((isOpen) => !isOpen)}
+          {/* Each layer checkbox controls its own visibility; enabling one also makes it active. */}
+          <div className="map-layers-wrap">
+            <button
+              type="button"
+              className="map-tool-toggle map-layer-toggle"
+              aria-label="Layers"
+              aria-expanded={openMapPanel === "layers"}
+              aria-controls="layer-panel"
+              onClick={() => toggleMapPanel("layers")}
+            >
+              <span className="map-tool-toggle__icon" aria-hidden="true">
+                <LayersIcon />
+              </span>
+            </button>
+
+            {openMapPanel === "layers" && (
+              <div
+                id="layer-panel"
+                className="map-layer-panel"
+                role="group"
+                aria-label="Map layers"
+                ref={layerPanelRef}
+                style={{ maxHeight: layerPanelMaxHeight }}
               >
-                <span className="map-tool-toggle__icon" aria-hidden="true">
-                  <PaintbrushIcon />
-                </span>
-                <span className="map-tool-toggle__label">Shape symbology</span>
-              </button>
+                <div className="map-layer-panel__title">Map layers</div>
+                {MAP_LAYER_GROUPS.map((group) => {
+                  const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
 
-              {/* The panel. Only shown when open. */}
-              {showShapeSymbologyPanel && (
-                <div
-                  id="shape-symbology-panel"
-                  className="map-preview-style-panel"
-                  role="group"
-                  aria-label="Shape symbology"
-                >
-                  {/* Colour slider: moves around the colour wheel (0-360). */}
-                  <label className="map-preview-control">
-                    <span>Colour</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="360"
-                      value={previewHue}
-                      onChange={(event) => setPreviewHue(Number(event.target.value))}
-                      className="map-preview-hue-slider"
-                    />
-                  </label>
+                  return (
+                    <fieldset className="map-layer-group" key={group.id}>
+                      <legend>{group.label}</legend>
+                      <label className="map-layer-option map-layer-option--group">
+                        <input
+                          ref={(element) => {
+                            layerGroupToggleRefs.current[group.id] = element;
+                          }}
+                          type="checkbox"
+                          checked={enabledCount === group.layers.length}
+                          aria-label={`Toggle all ${group.label} layers`}
+                          onChange={(event) => {
+                            const isVisible = event.currentTarget.checked;
+                            setVisibleTantalisLayers((current) => ({
+                              ...current,
+                              ...Object.fromEntries(group.layers.map((layer) => [layer.name, isVisible])),
+                            }));
+                          }}
+                        />
+                        <span>Show all</span>
+                      </label>
+                      {group.layers.map((layer) => {
+                        const selectedAttribute = layer.queryAttributes.find(
+                          (attribute) => attribute.name === selectedQueryAttributes[layer.name]
+                        );
+                        return (
+                          <div className="map-layer-entry" key={layer.name}>
+                            <div className="map-layer-row">
+                              <label className="map-layer-option map-layer-option--active">
+                                <input
+                                  type="checkbox"
+                                  checked={visibleTantalisLayers[layer.name]}
+                                  aria-label={`Toggle ${layer.label} layer`}
+                                  onChange={(event) => {
+                                    const isVisible = event.currentTarget.checked;
+                                    setVisibleTantalisLayers((current) => ({ ...current, [layer.name]: isVisible }));
+                                    if (isVisible) {
+                                      selectQueryLayer(layer.name);
+                                    }
+                                  }}
+                                />
+                                <span className="map-layer-name">{layer.label}</span>
+                              </label>
+                            </div>
+                            {visibleTantalisLayers[layer.name] && (
+                              <form
+                                className="map-layer-filter-row"
+                                onSubmit={(event) => {
+                                  if (!selectedAttribute) {
+                                    event.preventDefault();
+                                    return;
+                                  }
+                                  void searchTantalisLayer(event, layer, {
+                                    attribute: selectedAttribute,
+                                    value: queryAttributeValues[layer.name] ?? "",
+                                  });
+                                }}
+                              >
+                                <select
+                                  className="map-layer-style-select"
+                                  aria-label="Symbology"
+                                  title="Symbology"
+                                  value={selectedTantalisStyles[layer.name] ?? ""}
+                                  onChange={(event) => {
+                                    const styleName = event.currentTarget.value;
+                                    setSelectedTantalisStyles((current) => ({
+                                      ...current,
+                                      [layer.name]: styleName,
+                                    }));
+                                  }}
+                                >
+                                  {layer.styles.map((style) => (
+                                    <option value={style.name} key={style.name || "default"}>
+                                      {style.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <select
+                                  aria-label={`${layer.label} query field`}
+                                  title={`${layer.label} query fields`}
+                                  value={selectedQueryAttributes[layer.name] ?? ""}
+                                  onChange={(event) => {
+                                    const attributeName = event.currentTarget.value;
+                                    setSelectedQueryAttributes((current) => ({
+                                      ...current,
+                                      [layer.name]: attributeName,
+                                    }));
+                                  }}
+                                >
+                                  <option value="">Choose a field...</option>
+                                  {layer.queryAttributes.map((attribute) => (
+                                    <option value={attribute.name} key={attribute.name}>
+                                      {attribute.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  type={selectedAttribute?.type === "date" ? "date" : "text"}
+                                  inputMode={selectedAttribute?.type === "number" ? "numeric" : undefined}
+                                  aria-label={`${layer.label} ${selectedAttribute?.label ?? "attribute"} value`}
+                                  placeholder={selectedAttribute?.label ?? "Value"}
+                                  value={queryAttributeValues[layer.name] ?? ""}
+                                  disabled={!selectedAttribute}
+                                  onChange={(event) => {
+                                    const attributeValue = event.currentTarget.value;
+                                    setQueryAttributeValues((current) => ({
+                                      ...current,
+                                      [layer.name]: attributeValue,
+                                    }));
+                                  }}
+                                />
+                                <button
+                                  type="submit"
+                                  className="map-layer-filter-submit tantalis-preview-link"
+                                  aria-label="Search and Zoom to Layer"
+                                  title="Search and Zoom to Layer"
+                                  disabled={
+                                    !selectedQueryAttributes[layer.name] ||
+                                    !queryAttributeValues[layer.name]?.trim() ||
+                                    isQuerying
+                                  }
+                                >
+                                  <span>Search and</span>
+                                  <span>Zoom to Layer</span>
+                                </button>
+                              </form>
+                            )}
+                            {visibleTantalisLayers[layer.name] && tantalisPreview && layer.name === TANTALIS_LAYER && (
+                              <details className="map-query-symbology">
+                                <summary>Preview symbology</summary>
+                                <label className="map-preview-control">
+                                  <span>Colour</span>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="360"
+                                    value={previewHue}
+                                    onChange={(event) => setPreviewHue(Number(event.currentTarget.value))}
+                                    className="map-preview-hue-slider"
+                                  />
+                                </label>
+                                <label className="map-preview-control">
+                                  <span>Transparency: {previewOpacity}%</span>
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={previewOpacity}
+                                    onChange={(event) => setPreviewOpacity(Number(event.currentTarget.value))}
+                                    className="map-preview-transparency-slider"
+                                  />
+                                </label>
+                              </details>
+                            )}
+                            {visibleTantalisLayers[layer.name] && activeTantalisLayer === layer.name && queryStatus && (
+                              <div className="map-query-status" role="status" aria-live="polite">
+                                {queryStatus}
+                              </div>
+                            )}
+                            {visibleTantalisLayers[layer.name] &&
+                              activeTantalisLayer === layer.name &&
+                              queryResults.length > 0 && (
+                              <ul className="map-query-results">
+                                {queryResults.map((result) => {
+                                  const primaryAttribute =
+                                    result.attributes.find(
+                                      (attribute) =>
+                                        attribute.name === result.queryAttributeName && attribute.value
+                                    ) ?? result.attributes.find((attribute) => attribute.value);
+                                  const additionalAttributes = result.attributes
+                                    .filter(
+                                      (attribute) =>
+                                        attribute.value && attribute.name !== primaryAttribute?.name
+                                    )
+                                    .slice(0, 3);
 
-                  {/* Transparency slider: 0% = solid, 100% = invisible. */}
-                  <label className="map-preview-control">
-                    <span>Transparency: {previewOpacity}%</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max="100"
-                      value={previewOpacity}
-                      onChange={(event) => setPreviewOpacity(Number(event.target.value))}
-                      className="map-preview-transparency-slider"
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
-          )}
+                                  return (
+                                    <li key={`${result.layerName}-${result.objectId}`}>
+                                      <div className="map-query-result__details">
+                                        <strong>
+                                          {primaryAttribute
+                                            ? `${primaryAttribute.label}: ${primaryAttribute.value}`
+                                            : `${result.idAttribute.label}: ${result.objectId}`}
+                                        </strong>
+                                        {additionalAttributes.map((attribute) => (
+                                          <span key={attribute.name}>
+                                            {attribute.label}: {attribute.value}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="map-query-zoom"
+                                        disabled={zoomingObjectId !== null}
+                                        onClick={() => void zoomToQueryResult(result)}
+                                      >
+                                        {zoomingObjectId === result.objectId ? "Loading..." : "Zoom to"}
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </fieldset>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
         </div>
       </div>
     </div>
