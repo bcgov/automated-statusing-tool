@@ -1,12 +1,34 @@
 from copy import deepcopy
+import sys
+import os
+import getpass
 from .models import Registry, BaseDataset, SkippedDataset
 from pydantic import ValidationError
 import pandas as pd
 from pathlib import Path
 import yaml
+from ast_engine.config.settings import Settings
+
 
 import logging
 logger = logging.getLogger(__name__)
+
+settings = Settings()
+
+def get_credentials() -> tuple[str, str, str]:
+    '''BCGW credentials from the settings module, falling back to a prompt.'''
+    user = settings.oracle_user or input("BCGW username: ").strip()
+    if settings.oracle_password:
+        password = settings.oracle_password.get_secret_value()
+    else:
+        password = getpass.getpass("BCGW password: ")
+    if settings.oracle_host and settings.oracle_database:
+        host = f"{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}"
+    else:
+        host = input("BCGW host/DSN (e.g. bcgw.bcgov:1521/idwprod1.bcgov): ").strip()
+    if not (user and password and host):
+        sys.exit("Missing BCGW credentials; aborting.")
+    return user, password, host
 
 def load_yaml(file_path: Path, os_name:str|None = None) -> Registry:
     from os import name
@@ -164,6 +186,7 @@ def path_translate(in_path:str, path_dict:dict|None = None) -> str:
     elif name == "posix":
 
         if path_dict is not None:
+            in_path = in_path.lower()
             for old, new in path_dict.items():
                 in_path = in_path.replace(old, new)
         else:

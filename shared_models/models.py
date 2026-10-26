@@ -27,49 +27,34 @@ class JobBase(BaseModel):
     user: str
     date: str
 
-class JobSubmission(JobBase):
-    region: Regions
-    area_of_interest: str
-    crown_file_number: str
-    disposition_number: str
-    parcel_number: str
-
-    output_directory: str
-    retain_existing_outputs: bool = False
-    suppress_tab_3: bool = False
-    suppress_map_creation: bool = False
-    open_output_directory_on_completion: bool = False
-    enable_portable_spreadsheet: bool = False
-
-    registries: list[str]
-    aoi_id: str
-    aoi_name: str
-    aoi: dict
-
 class CreateJob(JobBase):
-    status: Optional [JobStatus]
-
-    region: Regions
+    region: Regions | str
     area_of_interest: str
     crown_file_number: str
     disposition_number: str
     parcel_number: str
-
     output_directory: str
     retain_existing_outputs: bool = False
     suppress_tab_3: bool = False
     suppress_map_creation: bool = False
     open_output_directory_on_completion: bool = False
     enable_portable_spreadsheet: bool = False
-
-
-class JobQueueItem(JobBase):
-    registries: list[str]
-    created_at: str | None = None
-
+    registries: list[str] = []
     aoi_id: str
     aoi_name: str
-    aoi: dict
+    aoi: dict[str, Any]
+    status: JobStatus = JobStatus.QUEUED
+
+
+class JobQueueItem(BaseModel):
+    job_id: str
+    user: str
+    date: str
+    region: str
+    aoi_id: str
+    aoi_name: str
+    output_directory: str
+    status: JobStatus = JobStatus.QUEUED
 
 class JobPayload(BaseModel):
     job: CreateJob

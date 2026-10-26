@@ -9,15 +9,10 @@ import { useCallback, useState } from "react";
 import ASTForm from "../components/ast-form";
 // The map (right side of the page).
 import OLMap from "../components/OLMap";
+import type { TantalisIdentifiers } from "../types/tantalis";
 import { LoginLogoutButton } from "../components/button-auth";
 import { useAuth } from '../auth/AuthContext';
 
-// The three TANTALIS identifiers. All values are kept as text (strings) in the app.
-interface TantalisIdentifiers {
-  fileNumber: string;
-  dispositionId: string;
-  parcelId: string;
-}
 
 // A shape clicked on the map.
 // clickedAt stores the time of the click, so clicking the same shape twice still counts as a new click.
@@ -47,7 +42,7 @@ const LandingPage = () => {
     setMapSelection({ ...selection, clickedAt: Date.now() });
   }, []);
 
-  // What appears on the page.
+ // What appears on the page.
   return (
     <>
       {isLoadingAuth ? ( // Show a loading message while authentication status is being determined
@@ -60,12 +55,18 @@ const LandingPage = () => {
                         mapSelection = the clicked shape, used to fill in the ID fields.
                         onViewTantalis = saves the identifiers when "View shape on map" is clicked.
                         setTantalisPreview is passed straight in, because saving the values is all it needs to do. */}
-                    <ASTForm mapSelection={mapSelection} onViewTantalis={setTantalisPreview} />
+                    <ASTForm
+                      mapSelection={mapSelection}
+                      onViewTantalis={setTantalisPreview}
+                    />
 
                     {/* The map.
                         onPolygonClick = runs when a shape is clicked.
                         tantalisPreview = the identifiers to look up and show. */}
-                    <OLMap onPolygonClick={handlePolygonClick} tantalisPreview={tantalisPreview} />
+                    <OLMap
+                      onPolygonClick={handlePolygonClick}
+                      tantalisPreview={tantalisPreview}
+                    />
                   </div>
 
                 ) : (

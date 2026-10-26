@@ -59,7 +59,8 @@ import yaml
 from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.settings import Settings
 from ast_engine.config.registry import utils as registry_utils
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
+from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.exceptions import AOIValidationError
 from ast_engine.core.data_adapters.base import BaseSpatialAdapter
 from ast_engine.core.data_adapters.oracle import OracleAdapter, OracleConnection, fetch_tantalis_aoi
 from ast_engine.core.execution import build_tasks, run_analysis
@@ -218,8 +219,14 @@ def build_aoi(args, connection):
         name = "Smoke AOI"
 
     request = AOIRequest(aoi_id=aoi_id, name=name, target_crs="EPSG:3005")
-    aoi = AOIBuilder().from_gdf(request, gdf)
-    print(f"AOI built: {aoi.footprint_area_ha:.1f} ha, {len(aoi.parts)} part(s), EPSG:{aoi.crs_epsg}")
+    built = AOIBuilder().build_from_request(AOIBuildRequest(spec=request, raw_gdf=gdf))
+    # Stop on AOI validation errors, as the old from_gdf did; show the warnings.
+    for issue in built.warnings:
+        print(f"AOI warning {issue.code}: {issue.message}")
+    if built.has_errors:
+        raise AOIValidationError("; ".join(f"{issue.code}: {issue.message}" for issue in built.errors))
+    aoi = built.aoi
+    print(f"AOI built: {aoi.footprint_area_ha:.1f} ha, {len(aoi.gdf)} part(s) (one per AOI row), EPSG:{aoi.crs_epsg}")
     return aoi
 
 
@@ -283,10 +290,10 @@ def get_oracle_connection(tasks, needed_for_aoi: bool = False):
 
 
 def warn_about_duplicate_outputs(tasks) -> None:
-    """Warn when two datasets in the SAME registry would be saved to one GeoPackage.
+    """Warn when two datasets in the SAME registry would be saved to the same files.
 
-    The spatial output goes to <folder>/<registry>/<operator>/<dataset name>.gpkg,
-    so two registries carrying the same dataset name each keep their own file.
+    The spatial output goes to <folder>/<registry>/<operator>/<dataset name>_<part id>.gpkg,
+    so two registries carrying the same dataset name each keep their own files.
     What is still not separated is the same name twice inside one registry -
     usually a duplicated row in the source spreadsheet. The second write replaces
     the first, and both results end up pointing at whatever survived.
@@ -299,9 +306,9 @@ def warn_about_duplicate_outputs(tasks) -> None:
     clashes = {path: group for path, group in by_path.items() if len(group) > 1}
     if not clashes:
         return
-    print("\n*** WARNING: datasets that would share one spatial output file ***")
+    print("\n*** WARNING: datasets that would share spatial output files ***")
     for (registry, operator, filename), group in clashes.items():
-        print(f"  {registry}/{operator}/{filename}.gpkg  <- {len(group)} datasets:")
+        print(f"  {registry}/{operator}/{filename}_<part id>.gpkg  <- {len(group)} datasets:")
         for task in group:
             print(f"      {task.dataset_name}   (datasource: {task.datasource})")
     print("Only the last one written will survive - most likely a duplicated "
@@ -340,7 +347,7 @@ def print_run_summary(tasks, results, tracker: DiagnosticTracker, wall_seconds: 
         row = (task, group, seconds)
         if group.status == "failure":
             failed.append(row)
-        elif group.results and group.results[0].feature_count > 0:
+        elif any(part.result.feature_count > 0 for part in group.parts):
             ok_with_features.append(row)
         else:
             ok_no_overlap.append(row)
@@ -374,7 +381,8 @@ def print_run_summary(tasks, results, tracker: DiagnosticTracker, wall_seconds: 
 
     print("\nSlowest 10 datasets:")
     for task, group, seconds in sorted(all_rows, key=lambda row: row[2], reverse=True)[:10]:
-        features = group.results[0].feature_count if group.results else 0
+        # summed over the AOI parts; a failed dataset has no parts, so 0
+        features = sum(part.result.feature_count for part in group.parts)
         print(f"  {seconds:7.2f} s  {task.source_type:<7} {task.operator:<16} "
               f"{features:>6} feat  {task.dataset_name}")
 
@@ -402,13 +410,16 @@ def print_run_summary(tasks, results, tracker: DiagnosticTracker, wall_seconds: 
 def write_results_spreadsheet(tasks, results, tracker: DiagnosticTracker, out_path: Path) -> None:
     """Write the run to an .xlsx with two sheets.
 
-    summary  - one row per analysis: which registry it came from, dataset,
-               operator, status, feature count, the headline measure (+ its unit),
-               how long it took, where the spatial output went, and the error for
-               anything that failed.
-    features - one row per matched feature: its id, its own measure (distance /
-               overlap / shared border), and the report fields (aggregate_columns)
-               as text.
+    summary  - one row per analysis and AOI part: which registry it came from,
+               dataset, AOI part, operator, status, feature count, the headline
+               measure (+ its unit), how long it took, where the spatial output
+               went, and the error for anything that failed. A failed dataset has
+               no parts but still gets one row. The dataset is read once for all
+               its parts, so its seconds go on its first row only - the column
+               still adds up to the run time.
+    features - one row per matched feature and AOI part: its id, its own measure
+               (distance / overlap / shared border), and the report fields
+               (aggregate_columns) as text.
     """
     dataset_snaps = [s for s in tracker.snapshots if s.step in ("dataset_done", "dataset_failed")]
 
@@ -417,36 +428,47 @@ def write_results_spreadsheet(tasks, results, tracker: DiagnosticTracker, out_pa
     for i, (task, group) in enumerate(zip(tasks, results.results)):
         snap = dataset_snaps[i] if i < len(dataset_snaps) else None
         seconds = snap.extra.get("seconds") if snap else None
-        result = group.results[0] if group.results else None
 
-        summary_rows.append({
-            "registry": task.source_registry,
-            "dataset": task.dataset_name,
-            "datasource": task.datasource,
-            "source": task.source_type,
-            "operator": task.operator,
-            "status": group.status,
-            "features": result.feature_count if result else 0,
-            "measure_value": result.measure_value if result else None,
-            "measure_unit": result.measure_unit if result else None,
-            "seconds": seconds,
-            "spatial_link": result.spatial_link if result else None,
-            "error": group.error,
-        })
+        # One row per AOI part. A failed dataset has no parts, but still gets one
+        # row (with no part) so its error shows up in the sheet.
+        parts = group.parts if group.parts else [None]
+        for part in parts:
+            result = part.result if part else None
 
-        if result:
-            for feature in result.features:
-                feature_rows.append({
-                    "registry": task.source_registry,
-                    "dataset": task.dataset_name,
-                    "operator": result.operator_type.value,
-                    "feature_id": feature.feature_id,
-                    "measure": feature.measure,
-                    "properties": "; ".join(f"{k}={v}" for k, v in feature.properties.items()),
-                })
+            summary_rows.append({
+                "registry": task.source_registry,
+                "dataset": task.dataset_name,
+                "aoi_part_id": part.aoi_part_id if part else None,
+                # the AOI row's own attributes, e.g. the dissolve field value naming the part
+                "aoi_part_attributes": "; ".join(f"{k}={v}" for k, v in part.part_attributes.items()) if part else None,
+                "datasource": task.datasource,
+                "source": task.source_type,
+                "operator": task.operator,
+                "status": group.status,
+                "features": result.feature_count if result else 0,
+                "measure_value": result.measure_value if result else None,
+                "measure_unit": result.measure_unit if result else None,
+                "seconds": seconds,
+                "spatial_link": result.spatial_link if result else None,
+                "error": group.error,
+            })
+            # the dataset's time is on its first row only
+            seconds = None
+
+            if result:
+                for feature in result.features:
+                    feature_rows.append({
+                        "registry": task.source_registry,
+                        "dataset": task.dataset_name,
+                        "aoi_part_id": part.aoi_part_id,
+                        "operator": result.operator_type.value,
+                        "feature_id": feature.feature_id,
+                        "measure": feature.measure,
+                        "properties": "; ".join(f"{k}={v}" for k, v in feature.properties.items()),
+                    })
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    feature_cols = ["registry", "dataset", "operator", "feature_id", "measure", "properties"]
+    feature_cols = ["registry", "dataset", "aoi_part_id", "operator", "feature_id", "measure", "properties"]
     with pd.ExcelWriter(out_path, engine="openpyxl") as writer:
         pd.DataFrame(summary_rows).to_excel(writer, sheet_name="summary", index=False)
         # features can be empty (nothing intersected the AOI); still write the sheet

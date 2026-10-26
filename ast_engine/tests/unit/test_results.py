@@ -32,10 +32,14 @@ def test_bundle_roundtrip_json()
 """
 
 import pytest
+from types import SimpleNamespace
 from uuid import UUID
+import geopandas as gpd
+from shapely.geometry import box
 from ast_engine.core.results import (
     AstResults, PointOverlayResult, PolyOverlayResult, LineOverlayResult,
-    ProximityResult, AdjacencyResult, FeatureRecord, DatasetResultGroup
+    ProximityResult, AdjacencyResult, FeatureRecord, DatasetResultGroup,
+    AOIPartResult, part_result,
 )
 
 # Tags every test in this file as "unit"
@@ -98,7 +102,15 @@ def test_bundle_roundtrip_json():
             DatasetResultGroup(
                 dataset_id="ds1",
                 dataset_name="Test Dataset",
-                results=[PointOverlayResult(features=[FeatureRecord(feature_id="p1")])]
+                parts=[
+                    AOIPartResult(
+                        aoi_part_id="test_aoi_part_1",
+                        part_index=1,
+                        part_area_ha=12.5,
+                        part_attributes={"part_id": "A"},
+                        result=PointOverlayResult(features=[FeatureRecord(feature_id="p1")]),
+                    )
+                ],
             )
         ]
     )
@@ -106,9 +118,11 @@ def test_bundle_roundtrip_json():
     json_str = bundle.model_dump_json()
     # Deserialize
     restored = AstResults.model_validate_json(json_str)
-    
+
     assert restored.job_id == job_id
     assert len(restored.results) > 0
+    part = restored.results[0].parts[0]
+    assert (part.aoi_part_id, part.part_area_ha, part.part_attributes) == ("test_aoi_part_1", 12.5, {"part_id": "A"})
 
 
 # ---------------------------------------------------------------------------
@@ -138,24 +152,29 @@ def test_empty_adjacency_reports_zero():
 def test_roundtrip_preserves_each_result_type():
     """A bundle holding all five result types survives JSON, and each one comes
     back as the right type with its measure intact (what operator_type is for)."""
-    group = DatasetResultGroup(
-        dataset_id="ds1",
-        dataset_name="Mixed",
-        results=[
-            PolyOverlayResult(total_area=1500.5),
-            LineOverlayResult(total_length=2000.0),
-            PointOverlayResult(features=[
-                FeatureRecord(feature_id="p1"), FeatureRecord(feature_id="p2"),
-            ]),
-            ProximityResult(features=[FeatureRecord(feature_id="f1", measure=50.0)]),
-            AdjacencyResult(is_adjacent=True, features=[FeatureRecord(feature_id="n1", measure=10.0)]),
-        ],
-    )
+    kinds = [
+        PolyOverlayResult(total_area=1500.5),
+        LineOverlayResult(total_length=2000.0),
+        PointOverlayResult(features=[
+            FeatureRecord(feature_id="p1"), FeatureRecord(feature_id="p2"),
+        ]),
+        ProximityResult(features=[FeatureRecord(feature_id="f1", measure=50.0)]),
+        AdjacencyResult(is_adjacent=True, features=[FeatureRecord(feature_id="n1", measure=10.0)]),
+    ]
+    # one dataset per result type, each with a single AOI part
+    groups = [
+        DatasetResultGroup(
+            dataset_id=f"ds{i}",
+            dataset_name=f"Dataset {i}",
+            parts=[AOIPartResult(aoi_part_id="aoi_part_1", part_index=1, part_area_ha=1.0, result=kind)],
+        )
+        for i, kind in enumerate(kinds, start=1)
+    ]
     job_id = UUID("12345678-1234-5678-1234-567812345678")
-    bundle = AstResults(job_id=job_id, aoi_id="aoi", results=[group])
+    bundle = AstResults(job_id=job_id, aoi_id="aoi", results=groups)
 
     restored = AstResults.model_validate_json(bundle.model_dump_json())
-    results = restored.results[0].results
+    results = [group.parts[0].result for group in restored.results]
 
     # each result keeps its type through the round-trip
     assert [type(r) for r in results] == [
@@ -164,3 +183,24 @@ def test_roundtrip_preserves_each_result_type():
     ]
     # and its headline measure is still correct
     assert [r.measure_value for r in results] == [1500.5, 2000.0, 2.0, 50.0, 10.0]
+
+
+def test_part_result_takes_id_area_and_label_from_the_aoi_row():
+    """part_result numbers the parts from 1, takes the area from the row's geometry
+    and the label from the row's own fields (empty values are left out)."""
+    gdf = gpd.GeoDataFrame(
+        {"part_id": ["A", "B"], "note": [None, "north"], "count": [3, 4]},
+        geometry=[box(0, 0, 100, 100), box(200, 0, 400, 100)],
+        crs="EPSG:3005",
+    )
+    aoi = SimpleNamespace(aoi_id="aoi", gdf=gdf)   # part_result only reads aoi_id and gdf
+
+    first = part_result(aoi, 0, PointOverlayResult())
+    second = part_result(aoi, 1, PointOverlayResult())
+
+    assert (first.aoi_part_id, first.part_index) == ("aoi_part_1", 1)
+    assert (second.aoi_part_id, second.part_index) == ("aoi_part_2", 2)
+    assert first.part_area_ha == pytest.approx(1.0)      # 100 m x 100 m = 1 ha
+    assert second.part_area_ha == pytest.approx(2.0)
+    assert first.part_attributes == {"part_id": "A", "count": 3}    # the empty note is left out
+    assert second.part_attributes == {"part_id": "B", "note": "north", "count": 4}

@@ -86,3 +86,15 @@
     box-shadow: none; // No shadow
 }
 
+@media (max-width: 640px) {
+    .landing-page > .map-shell {
+        position: relative;
+        z-index: 1;
+        overflow: visible;
+    }
+
+    .landing-page > .map-shell > .map-frame {
+        min-height: 0;
+        overflow: visible;
+    }
+}
