@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 import redis
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.middleware.cors import CORSMiddleware 
 
 from .database import create_job, create_table, get_jobs
 from shared_models.models import CreateJob, JobQueueItem, JobStatus
@@ -15,14 +16,20 @@ logger = logging.getLogger("ast_api.main")
 
 redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_table()
     yield
 
-
 app = FastAPI(lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=False,
+    allow_methods=["GET"],
+    allow_headers=["*"],
+)
 
 @app.post("/api/jobs", status_code=status.HTTP_201_CREATED)
 def create_job_in_queue_and_db(

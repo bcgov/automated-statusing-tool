@@ -74,6 +74,9 @@ const REGION_ITEMS = [
 
 // The AST form component.
 const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState("");
+  
   // All current field values, stored together in one object.
   const [inputs, setInputs] = useState<FormInputs>(INITIAL_INPUTS);
   // Message shown under the "View shape on map" button. Empty = no message.
@@ -150,6 +153,36 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     setPreviewMessage("");
     onViewTantalis({ fileNumber, dispositionId, parcelId });
   };
+
+
+  // Handler for returning dummy ast object 
+  async function fetchResults() {
+    try {
+      const response = await fetch("http://localhost:8000/api/results");
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      const blob = new Blob(
+        [JSON.stringify(data, null, 2)],
+        { type: "application/json" }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = "results.json";
+      link.click();
+
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download failed:", error);
+    }
+  }
 
   // What appears on the page.
   return (
@@ -295,6 +328,11 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
         <Button variant="secondary" type="button" onPress={handleClearAll}>
           Clear Form
         </Button>
+        <Button onClick={fetchResults}>
+          Fetch data
+        </Button>
+        {data !== null && <pre>{JSON.stringify(data, null, 2)}</pre>}
+        {error && <p>Error: {error}</p>}
       </div>
     </div>
   );
