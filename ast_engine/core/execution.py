@@ -208,6 +208,8 @@ def run_analysis(
                                  s3_secret_key=settings.results_s3_key,s3_use_ssl=settings.s3_use_ssl)
     file_adapter = FileSpatialAdapter()
     oracle_adapter = _oracle_adapter(tasks, oracle_connection)
+    duckdb_geoparquet_adapter = DuckDBAdapter(config=duckdb_config)
+    
     # Results come back one per AOI part (one row of the AOI). An AOI with no rows
     # would make every dataset look like a success with nothing in it, so stop
     # before the run.
