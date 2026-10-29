@@ -7,7 +7,7 @@ from uuid import uuid4
 import geopandas as gpd
 
 from ast_engine.config.registry import utils
-from ast_engine.workers.worker import AstJob, JobStatus, run_worker
+from ..workers.worker import AstJob, JobStatus, run_worker
 
 
 def process_job(payload: dict) -> dict:
