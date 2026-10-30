@@ -38,11 +38,13 @@ import geopandas as gpd
 from .aoi import AreaOfInterest
 from .data_adapters.base import BaseSpatialAdapter
 from .data_adapters.file.adapter import FileSpatialAdapter
+from .data_adapters.duckdb.adapter import DuckDBAdapter, DuckDBConfig
 from .data_adapters.oracle import OracleAdapter, OracleConnection
 from .operator import adjacent, overlay, proximity
 from .results import AstResults, DatasetResultGroup, OperatorOutcome
 from ..utils.diagnostics import DiagnosticTracker
 from ..config.settings import Settings
+from ..config.registry.models import DataAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,7 @@ ADJACENCY = "adjacency"
 # Source types, from the registry data_adapter value (lower-cased).
 ORACLE = "oracle"
 FILE = "file"
+DUCKDB_GEOPARQUET = "duckdb_geoparquet"
 
 
 @dataclass
@@ -149,7 +152,7 @@ def _task_from_dataset(dataset: Any, source_registry: Optional[str]) -> Analysis
     return AnalysisTask(
         dataset_id=str(dataset.id),
         dataset_name=dataset.name,
-        source_type=str(dataset.data_adapter).lower(),
+        source_type=dataset.data_adapter,
         datasource=dataset.datasource,
         operator=op.type,
         geom_type=(str(dataset.geometry_type).lower() or None) if dataset.geometry_type else None,
@@ -200,8 +203,13 @@ def run_analysis(
     tasks = list(tasks)
     tracker = tracker or DiagnosticTracker()
     settings = settings or Settings()
+    duckdb_config = DuckDBConfig(s3_endpoint_url=settings.results_s3_endpoint_url,
+                                 s3_access_key=settings.results_s3_access_id,
+                                 s3_secret_key=settings.results_s3_key,s3_use_ssl=settings.s3_use_ssl)
     file_adapter = FileSpatialAdapter()
     oracle_adapter = _oracle_adapter(tasks, oracle_connection)
+    duckdb_geoparquet_adapter = DuckDBAdapter(config=duckdb_config)
+    
     # Results come back one per AOI part (one row of the AOI). An AOI with no rows
     # would make every dataset look like a success with nothing in it, so stop
     # before the run.
@@ -211,7 +219,7 @@ def run_analysis(
     timings: list[tuple[str, float]] = []
     tracker.log("run_start", job_id=job_id, aoi_id=aoi.aoi_id, task_count=len(tasks))
     groups = [
-        _run_one_task(task, aoi, file_adapter, oracle_adapter, tracker, timings, settings)
+        _run_one_task(task, aoi, file_adapter, oracle_adapter, duckdb_geoparquet_adapter, tracker, timings, settings)
         for task in tasks
     ]
     _log_timing_summary(timings, tracker)
@@ -231,7 +239,7 @@ def _oracle_adapter(
     """
     if oracle_connection is not None:
         return OracleAdapter(oracle_connection.connection, oracle_connection.cursor)
-    if any(task.source_type == ORACLE for task in tasks):
+    if any(task.source_type == DataAdapter.ORACLE for task in tasks):
         raise RuntimeError(
             "Oracle-backed tasks need an open connection; pass oracle_connection= "
             "to run_analysis (open one with OracleConnection)."
@@ -244,6 +252,7 @@ def _run_one_task(
     aoi: AreaOfInterest,
     file_adapter: FileSpatialAdapter,
     oracle_adapter: Optional[OracleAdapter],
+    duckdb_geoparquet_adapter: Optional[DuckDBAdapter],
     tracker: DiagnosticTracker,
     timings: list[tuple[str, float]],
     settings: Settings,
@@ -262,7 +271,7 @@ def _run_one_task(
     """
     start = time.perf_counter()
     try:
-        adapter = _pick_adapter(task, file_adapter, oracle_adapter)
+        adapter = _pick_adapter(task, file_adapter, oracle_adapter, duckdb_geoparquet_adapter)
         outcome = _run_operator(task, aoi, adapter)
 
         for part in outcome.parts:
@@ -337,16 +346,23 @@ def _pick_adapter(
     task: AnalysisTask,
     file_adapter: FileSpatialAdapter,
     oracle_adapter: Optional[OracleAdapter],
+    duckdb_geoparquet_adapter: Optional[DuckDBAdapter]
 ) -> BaseSpatialAdapter:
     """Pick the reused adapter for a task's source type."""
-    if task.source_type == FILE:
+    if task.source_type == DataAdapter.FILE:
         return file_adapter
-    if task.source_type == ORACLE:
+    if task.source_type == DataAdapter.ORACLE:
         if oracle_adapter is None:
             raise RuntimeError(
                 f"dataset {task.dataset_name!r} needs an Oracle connection but none is available"
             )
         return oracle_adapter
+    if task.source_type == DataAdapter.DUCKDB_GEOPARQUET:
+        if duckdb_geoparquet_adapter is None:
+            raise RuntimeError(
+                f"dataset {task.dataset_name!r} needs an S3 connection but none is available"
+            )
+        return duckdb_geoparquet_adapter
     raise ValueError(
         f"unknown source type {task.source_type!r} for dataset {task.dataset_name!r}"
     )
@@ -354,8 +370,10 @@ def _pick_adapter(
 
 def _source_kwargs(task: AnalysisTask) -> dict[str, str]:
     """Dataset identity for the adapter read: table for Oracle, path for files."""
-    if task.source_type == ORACLE:
+    if task.source_type == DataAdapter.ORACLE:
         return {"table": task.datasource}
+    if task.source_type == DataAdapter.DUCKDB_GEOPARQUET:
+        return {"source": task.datasource}
     return {"path": task.datasource}
 
 
