@@ -52,8 +52,9 @@ from ast_engine.core.results import (
     PolyOverlayResult,
     ProximityResult,
 )
-from ast_engine.config.registry.models import Registry, RegistryDataset
+from ast_engine.config.registry.models import Registry, RegistryDataset, DataAdapter
 from ast_engine.core.data_adapters.file.adapter import FileSpatialAdapter
+from ast_engine.core.data_adapters.duckdb.adapter import DuckDBAdapter
 from ast_engine.utils.diagnostics import DiagnosticTracker
 from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
 from ast_engine.tests.helpers.aoi_cases import (
@@ -94,7 +95,7 @@ def _file_task(dataset_id, name, datasource, operator, **kwargs) -> AnalysisTask
     return AnalysisTask(
         dataset_id=dataset_id,
         dataset_name=name,
-        source_type="file",
+        source_type=DataAdapter.FILE,
         datasource=str(datasource),
         operator=operator,
         **kwargs,
@@ -400,8 +401,8 @@ def test_run_events_are_written_to_jsonl(tmp_path):
 
 # --- Routing helpers --------------------------------------------------------
 def test_source_kwargs_oracle_vs_file():
-    oracle = AnalysisTask("1", "t", "oracle", "WHSE.ABC", "overlay")
-    file = AnalysisTask("2", "t", "file", "C:/data/x.shp", "overlay")
+    oracle = AnalysisTask("1", "t", DataAdapter.ORACLE, "WHSE.ABC", "overlay")
+    file = AnalysisTask("2", "t", DataAdapter.FILE, "C:/data/x.shp", "overlay")
     assert _source_kwargs(oracle) == {"table": "WHSE.ABC"}
     assert _source_kwargs(file) == {"path": "C:/data/x.shp"}
 
@@ -409,8 +410,8 @@ def test_source_kwargs_oracle_vs_file():
 def test_pick_adapter_routes_by_source_type():
     file_adapter = FileSpatialAdapter()
     oracle_adapter = InMemorySpatialAdapter()  # stand-in object
-    file_task = AnalysisTask("1", "t", "file", "x.shp", "overlay")
-    oracle_task = AnalysisTask("2", "t", "oracle", "WHSE.ABC", "overlay")
+    file_task = AnalysisTask("1", "t", DataAdapter.FILE, "x.shp", "overlay")
+    oracle_task = AnalysisTask("2", "t", DataAdapter.ORACLE, "WHSE.ABC", "overlay")
 
     assert _pick_adapter(file_task, file_adapter, oracle_adapter) is file_adapter
     assert _pick_adapter(oracle_task, file_adapter, oracle_adapter) is oracle_adapter
@@ -418,7 +419,7 @@ def test_pick_adapter_routes_by_source_type():
 
 def test_pick_adapter_oracle_without_connection_raises():
     file_task = FileSpatialAdapter()
-    oracle_task = AnalysisTask("2", "t", "oracle", "WHSE.ABC", "overlay")
+    oracle_task = AnalysisTask("2", "t", DataAdapter.ORACLE, "WHSE.ABC", "overlay")
     with pytest.raises(RuntimeError):
         _pick_adapter(oracle_task, file_task, None)
 
@@ -427,7 +428,7 @@ def test_run_operator_passes_table_and_where_for_oracle():
     """An Oracle task hands the adapter table=... and the attribute filter."""
     adapter = InMemorySpatialAdapter()
     task = AnalysisTask(
-        "1", "t", "oracle", "WHSE.ABC", "overlay",
+        "1", "t", DataAdapter.ORACLE, "WHSE.ABC", "overlay",
         geom_type="polygon", where={"conditions": [{"field": "FCODE", "op": "=", "value": "RG90"}]},
     )
     aoi = projected_execution_aoi()
@@ -456,7 +457,7 @@ def test_tasks_from_registry_maps_fields_and_lowercases_geom():
 
     districts, roads = tasks
     assert districts.operator == "overlay"
-    assert districts.source_type == "oracle"             # data_adapter lower-cased
+    assert districts.source_type == DataAdapter.ORACLE
     assert districts.geom_type == "polygon"              # geometry_type lower-cased
     assert districts.feature_id_field == "OBJECTID"
     assert districts.keep_properties == ["NAME"]
@@ -464,7 +465,7 @@ def test_tasks_from_registry_maps_fields_and_lowercases_geom():
 
     assert roads.operator == "within_distance"
     assert roads.distance_m == 50.0
-    assert roads.source_type == "file"
+    assert roads.source_type == DataAdapter.FILE
     assert roads.datasource == "C:/data/roads.shp"
 
 
