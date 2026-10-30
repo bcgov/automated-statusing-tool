@@ -85,7 +85,7 @@ class AnalysisTask:
 
     dataset_id: str
     dataset_name: str
-    source_type: str
+    source_type: DataAdapter
     datasource: str
     operator: str
     geom_type: Optional[str] = None
@@ -345,8 +345,8 @@ def _run_one_task(
 def _pick_adapter(
     task: AnalysisTask,
     file_adapter: FileSpatialAdapter,
-    oracle_adapter: Optional[OracleAdapter],
-    duckdb_geoparquet_adapter: Optional[DuckDBAdapter]
+    oracle_adapter: Optional[OracleAdapter] = None,
+    duckdb_geoparquet_adapter: Optional[DuckDBAdapter] = None,
 ) -> BaseSpatialAdapter:
     """Pick the reused adapter for a task's source type."""
     if task.source_type == DataAdapter.FILE:
