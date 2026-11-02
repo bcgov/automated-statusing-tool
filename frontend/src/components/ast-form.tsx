@@ -151,6 +151,29 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     onViewTantalis({ fileNumber, dispositionId, parcelId });
   };
 
+  async function handleSubmission() {
+    try {
+      const response = await fetch("http://localhost:8000/api/jobs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(inputs),
+      }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      console.log(data);
+      
+    } catch (error) {
+      console.error("Download failed:", error);
+    }
+  }
   // What appears on the page.
   return (
     <div className="form-container">
@@ -287,7 +310,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
       <div className="button-container">
         {/* Submit button. Note: there is no <form> around these fields and no submit
             function yet, so this button doesn't do anything at the moment. */}
-        <Button variant="primary" type="submit">
+        <Button onClick={handleSubmission} variant="primary" type="button">
           Submit
         </Button>
         {/* Clear button. type="button" so it never submits.
