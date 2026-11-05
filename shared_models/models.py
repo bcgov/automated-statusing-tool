@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict, Field
-from enum import Enum 
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from enum import Enum
 from typing import Literal, Any, Dict, Optional
 from dataclasses import dataclass, field
 import yaml
@@ -23,6 +23,56 @@ class JobStatus(str, Enum):
     FAILED = "Failed"
 
 
+# How the AOI is turned into parts, and so how its results are reported (#219).
+# The values match AOIRequest in ast_engine/core/aoi/models.py.
+DissolveMode = Literal["full_union", "by_fields", "preserve_features"]
+PartPolicy = Literal["multi_part", "exploded"]
+
+
+class AOIOptions(BaseModel):
+    """How the job's AOI is turned into parts. Each part gets its own results.
+
+    dissolve_mode:
+        full_union         all rows merged into one area (one result per dataset)
+        by_fields          one part per value of dissolve_fields
+        preserve_features  one part per row of the AOI
+    dissolve_fields: the field(s) to group by. Only with by_fields.
+    allow_overlaps: when False, a job whose parts overlap fails.
+    part_policy:
+        multi_part  a row made of several polygons stays one part
+        exploded    one part per polygon. Not available yet (#237).
+
+    A job that leaves the options out gets the defaults: one area, as before.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    dissolve_mode: DissolveMode = "full_union"
+    dissolve_fields: list[str] = Field(default_factory=list)
+    allow_overlaps: bool = False
+    part_policy: PartPolicy = "multi_part"
+
+    @field_validator("dissolve_fields")
+    @classmethod
+    def _clean_dissolve_fields(cls, fields: list[str]) -> list[str]:
+        # Same rules as AOIRequest: blank names are dropped, a name given twice is refused.
+        cleaned = [name.strip() for name in fields if name.strip()]
+        if len(set(cleaned)) != len(cleaned):
+            raise ValueError("dissolve_fields cannot name the same field twice")
+        return cleaned
+
+    @model_validator(mode="after")
+    def _check_combination(self) -> "AOIOptions":
+        if self.dissolve_mode == "by_fields" and not self.dissolve_fields:
+            raise ValueError("dissolve_mode 'by_fields' needs at least one dissolve field")
+        if self.dissolve_mode != "by_fields" and self.dissolve_fields:
+            raise ValueError("dissolve_fields can only be used with dissolve_mode 'by_fields'")
+        if self.part_policy == "exploded":
+            # Waiting on the AOI part builder (#237).
+            raise ValueError("part_policy 'exploded' (one part per polygon) is not available yet")
+        return self
+
+
 class JobBase(BaseModel):
     user: str
     date: str
@@ -43,7 +93,18 @@ class CreateJob(JobBase):
     aoi_id: str
     aoi_name: str
     aoi: dict[str, Any]
+    aoi_options: AOIOptions = Field(default_factory=AOIOptions)
     status: JobStatus = JobStatus.QUEUED
+
+    @model_validator(mode="after")
+    def _check_dissolve_fields_in_aoi(self) -> "CreateJob":
+        # Refuse a dissolve field the AOI's features don't have, before the job is queued.
+        features = self.aoi.get("features") or []
+        present = {name for feature in features for name in (feature.get("properties") or {})}
+        missing = [name for name in self.aoi_options.dissolve_fields if name not in present]
+        if features and missing:
+            raise ValueError(f"dissolve field(s) not found in the AOI: {', '.join(missing)}")
+        return self
 
 
 class JobQueueItem(BaseModel):
@@ -54,6 +115,7 @@ class JobQueueItem(BaseModel):
     aoi_id: str
     aoi_name: str
     output_directory: str
+    aoi_options: AOIOptions = Field(default_factory=AOIOptions)
     status: JobStatus = JobStatus.QUEUED
 
 class JobPayload(BaseModel):
