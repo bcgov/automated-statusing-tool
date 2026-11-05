@@ -39,6 +39,7 @@ def create_job_in_queue_and_db(
         aoi_id=job.aoi_id,
         aoi_name=job.aoi_name,
         output_directory=job.output_directory,
+        aoi_options=job.aoi_options,
         status=job.status or JobStatus.QUEUED,
     )
 

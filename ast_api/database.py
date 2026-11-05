@@ -32,11 +32,17 @@ def create_table():
             aoi_id TEXT NOT NULL,
             aoi_name TEXT NOT NULL,
             aoi TEXT NOT NULL,
+            aoi_options TEXT NOT NULL DEFAULT '{}',
             status TEXT NOT NULL
                 CHECK (status IN ('Queued', 'Processing', 'Publishing', 'Completed', 'Failed'))
         )
         """
     )
+    # A jobs.db made before aoi_options existed keeps its old table (CREATE TABLE IF NOT
+    # EXISTS leaves it alone), so add the column to it here.
+    columns = [row[1] for row in cursor.execute("PRAGMA table_info(jobs)")]
+    if "aoi_options" not in columns:
+        cursor.execute("ALTER TABLE jobs ADD COLUMN aoi_options TEXT NOT NULL DEFAULT '{}'")
     connection.commit()
     connection.close()
 
@@ -62,6 +68,7 @@ def create_job(job: CreateJob) -> int:
         "aoi_id": data["aoi_id"],
         "aoi_name": data["aoi_name"],
         "aoi": json.dumps(data["aoi"]),
+        "aoi_options": json.dumps(data["aoi_options"]),
         "status": (job.status or JobStatus.QUEUED).value,
     }
 
@@ -73,10 +80,10 @@ def create_job(job: CreateJob) -> int:
             user, date, region, area_of_interest, crown_file_number, disposition_number,
             parcel_number, output_directory, retain_existing_outputs, suppress_tab_3,
             suppress_map_creation, open_output_directory_on_completion,
-            enable_portable_spreadsheet, registries, aoi_id, aoi_name, aoi, status
+            enable_portable_spreadsheet, registries, aoi_id, aoi_name, aoi, aoi_options, status
         )
         VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         """,
         tuple(row.values()),
