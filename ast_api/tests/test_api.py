@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 import ast_api.database as database
 import ast_api.main as api_main
-from shared_models.models import JobStatus
+from shared_models.models import CreateJob, JobStatus
 
 pytestmark = pytest.mark.unit
 
@@ -90,3 +90,62 @@ def test_get_job_by_id_returns_404_for_missing_job(client):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Job not found"
+
+
+def _feature(properties):
+    return {"type": "Feature", "properties": properties, "geometry": {"type": "Point", "coordinates": [0.0, 0.0]}}
+
+
+def test_create_job_without_aoi_options_stores_and_queues_the_defaults(client, sample_job_payload, temp_db):
+    response = client.post("/api/jobs", json=sample_job_payload)
+
+    defaults = {"dissolve_mode": "full_union", "dissolve_fields": [], "allow_overlaps": False, "part_policy": "multi_part"}
+    assert response.status_code == 201
+    assert response.json()["item"]["aoi_options"] == defaults
+    connection = sqlite3.connect(temp_db)
+    stored = connection.execute("SELECT aoi_options FROM jobs").fetchone()[0]
+    connection.close()
+    assert json.loads(stored) == defaults
+
+
+def test_create_job_sends_the_aoi_options_to_the_queue(client, sample_job_payload):
+    sample_job_payload["aoi"] = {"type": "FeatureCollection", "features": [_feature({"BLOCK": "A"}), _feature({"BLOCK": "B"})]}
+    sample_job_payload["aoi_options"] = {"dissolve_mode": "by_fields", "dissolve_fields": ["BLOCK"]}
+
+    response = client.post("/api/jobs", json=sample_job_payload)
+
+    assert response.status_code == 201
+    queued = json.loads(api_main.redis_client.lrange("jobs_queue", 0, -1)[0])
+    assert queued["aoi_options"]["dissolve_mode"] == "by_fields"
+    assert queued["aoi_options"]["dissolve_fields"] == ["BLOCK"]
+
+
+@pytest.mark.parametrize(
+    "aoi_options, reason",
+    [
+        ({"dissolve_mode": "by_fields"}, "needs at least one dissolve field"),
+        ({"dissolve_mode": "by_fields", "dissolve_fields": ["ZONE"]}, "not found in the AOI: ZONE"),
+        ({"part_policy": "exploded"}, "not available yet"),
+    ],
+)
+def test_create_job_refuses_bad_aoi_options_before_queueing(client, sample_job_payload, aoi_options, reason):
+    sample_job_payload["aoi"] = {"type": "FeatureCollection", "features": [_feature({"BLOCK": "A"})]}
+    sample_job_payload["aoi_options"] = aoi_options
+
+    response = client.post("/api/jobs", json=sample_job_payload)
+
+    assert response.status_code == 422
+    assert reason in response.text
+    assert api_main.redis_client.lrange("jobs_queue", 0, -1) == []
+
+
+def test_create_table_adds_aoi_options_to_an_existing_jobs_db(temp_db, sample_job_payload):
+    # A jobs.db made before #219 has no aoi_options column.
+    connection = sqlite3.connect(temp_db)
+    connection.execute("ALTER TABLE jobs DROP COLUMN aoi_options")
+    connection.commit()
+    connection.close()
+
+    database.create_table()
+
+    assert database.create_job(CreateJob(**sample_job_payload)) == 1
