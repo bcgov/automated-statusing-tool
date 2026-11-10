@@ -153,14 +153,24 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
 
   async function handleSubmission() {
     try {
+      const formData = new FormData();
+      formData.append("name", inputs.name.trim());
+      formData.append("email", inputs.email.trim());
+      formData.append("region", inputs.region);
+      formData.append("source", inputs.source);
+      formData.append("crown_file_number", inputs.fileNumber.trim());
+      formData.append("disposition_number", inputs.dispositionId.trim());
+      formData.append("parcel_number", inputs.parcelId.trim());
+      formData.append("generate_maps", String(inputs.maps));
+      formData.append("export_overlap_results", String(inputs.overlaps));
+      if (inputs.uploadFile) {
+        formData.append("upload_file", inputs.uploadFile);
+      }
+
       const response = await fetch("http://localhost:8000/api/jobs", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(inputs),
-      }
-      );
+        body: formData,
+      });
 
       if (!response.ok) {
         throw new Error(`Request failed: ${response.status}`);
