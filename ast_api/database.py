@@ -1,11 +1,15 @@
 import json
+from pathlib import Path
 import sqlite3
+
 
 from shared_models.models import CreateJob, JobStatus
 
+#create path anchored to the current file's directory
+DB_PATH = Path(__file__).resolve().parent / "jobs.db"
 
 def create_connection():
-    return sqlite3.connect("jobs.db")
+    return sqlite3.connect(DB_PATH)
 
 
 def create_table():

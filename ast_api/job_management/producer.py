@@ -16,5 +16,5 @@ with jobs_path.open("r", encoding="utf-8") as f:
     jobs = json.load(f)
 
 for job in jobs:
-    print ("Enqueueing job:", job["user"], job["aoi_id"])
+    print ("Enqueueing job:", job["user"], job["job_id"])
     rq_queue.enqueue("ast_api.job_management.test.process_job", job)
