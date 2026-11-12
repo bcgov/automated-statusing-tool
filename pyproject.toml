@@ -28,7 +28,10 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ast_engine*"]
+include = [
+    "ast_engine",
+    "shared_models",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
