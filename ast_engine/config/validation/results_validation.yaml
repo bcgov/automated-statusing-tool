@@ -1,0 +1,5 @@
+# Results validation remains a separate integration task in core/execution.py.
+# Supply the intended result rules before enabling its loader flags.
+schema_version: 1
+geometry: null
+spatial: null

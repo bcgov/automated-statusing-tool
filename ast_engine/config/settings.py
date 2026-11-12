@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import SecretStr
 from typing import Literal
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     # App environment
@@ -9,7 +10,7 @@ class Settings(BaseSettings):
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     log_file: str | None = None
-    
+
     # System validation flags
     validate_oracle_connection: bool = True
     validate_required_paths: list[str] = []  # Paths to check exist
@@ -20,7 +21,7 @@ class Settings(BaseSettings):
     oracle_port: int | None = 1521
     oracle_user: str | None = None
     oracle_password: SecretStr | None = None
-    
+
     # S3 Connections
     s3_max_retries: int = 5
     s3_retry_mode: Literal["standard"] = "standard"
@@ -55,6 +56,16 @@ class Settings(BaseSettings):
 
     # engine settings
     system_crs: str = "EPSG:3005"
+
+    # AOI validation config
+    aoi_validation_config_path: str | None = "ast_engine/config/validation/aoi_validation.yaml"
+    validate_aoi_geometry: bool = True
+    validate_aoi_spatial: bool = True
+
+    # results validation config
+    results_validation_config_path: str | None = "ast_engine/config/validation/results_validation.yaml"
+    validate_results_geometry: bool = False
+    validate_results_spatial: bool = False
 
     model_config = SettingsConfigDict(
         env_file=".env",
