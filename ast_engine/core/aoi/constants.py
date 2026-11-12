@@ -1,2 +1,3 @@
 DEFAULT_CRS = "EPSG:3005"
 DEFAULT_GEOM_FIELD = "geometry"
+SOURCE_ROW_COLUMN = "__aoi_source_row"

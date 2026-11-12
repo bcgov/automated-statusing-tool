@@ -16,16 +16,19 @@ from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
 from shapely.validation import make_valid
 
-from .normalization_reporter import AOINormalizationReportBuilder
-from .exceptions import (
-    AOINormalizationError,
-    AOIRequestError,
+from ast_engine.core.exceptions import (
     DataCRSError,
     SpatialDataError,
     SpatialGeometryError,
 )
+from ast_engine.utils.spatial_checks import check_frame, check_polygon_frame, parse_crs
+from .normalization_reporter import AOINormalizationReportBuilder
+from .exceptions import (
+    AOINormalizationError,
+    AOIRequestError
+)
 from .models import AOIRequest, NormalizedAOI
-from .utils import check_gdf, parse_crs, has_area_overlaps
+from .utils import has_area_overlaps
 from .constants import DEFAULT_GEOM_FIELD
 
 
@@ -57,12 +60,8 @@ class AOINormalizer:
         Unexpected programming/system errors are allowed to bubble up to the builder.
         """
         try:
-            check_gdf(
-                gdf,
-                req_projected_crs=False,
-                strict=False,
-                context="Raw AOI input",
-            )
+            # Softer check to ensure it has the components the normalizer needs.
+            check_frame(gdf, label="Raw AOI input")
 
             reporter = AOINormalizationReportBuilder.from_input_gdf(gdf)
 
@@ -78,11 +77,10 @@ class AOINormalizer:
                 require_projected=True,
             )
 
-            check_gdf(
+            check_polygon_frame(
                 work_gdf,
-                req_projected_crs=True,
-                strict=True,
-                context="Cleaned AOI before policy",
+                label="Cleaned AOI before policy",
+                require_metric=True
             )
 
             normalized_gdf = self._apply_aoi_policy(
@@ -91,11 +89,10 @@ class AOINormalizer:
                 reporter=reporter,
             )
 
-            check_gdf(
+            check_polygon_frame(
                 normalized_gdf,
-                req_projected_crs=True,
-                strict=True,
-                context="Normalized AOI",
+                label="Normalized AOI",
+                require_metric=True,
             )
 
             report = reporter.build(normalized_gdf)

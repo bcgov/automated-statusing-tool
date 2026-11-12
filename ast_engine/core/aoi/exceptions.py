@@ -22,18 +22,6 @@ class AOIBuildError(AOIError):
         self.aoi_id = aoi_id
 
 
-class SpatialDataError(AOIError):
-    """Raised when spatial input data is missing, malformed, or unusable."""
-
-
-class DataCRSError(SpatialDataError):
-    """Raised when spatial data has a missing, invalid, or incompatible CRS."""
-
-
-class SpatialGeometryError(SpatialDataError):
-    """Raised when spatial geometry is missing, empty, invalid, or unsupported."""
-
-
 class AOIRequestError(AOIError):
     """Raised when an AOI request is invalid."""
 

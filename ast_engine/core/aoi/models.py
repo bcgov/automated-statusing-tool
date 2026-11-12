@@ -1,15 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal, Any, cast, get_args
-from pyproj import CRS
+from types import MappingProxyType
+from typing import Any, Literal, Mapping, Sequence, cast, get_args
+
 import geopandas as gpd
+from pyproj import CRS
 from shapely.geometry.base import BaseGeometry
 
-from .exceptions import AOIRequestError, DataCRSError, SpatialDataError, SpatialGeometryError, AOIPartBuildError
-from .utils import count_vertices, has_m, has_z
-from .constants import DEFAULT_CRS
 
+from ast_engine.core.validation.models import ValidationIssue
+from ast_engine.core.validation.schema import ValidationSeverity, ValidationProfile
+from ast_engine.core.validation.common import checked_unit_ids
+from ast_engine.core.exceptions import (
+    DataCRSError,
+    SpatialDataError,
+    SpatialGeometryError,
+)
+
+from .constants import DEFAULT_CRS
+from .exceptions import (
+    AOIPartBuildError,
+    AOIRequestError,
+)
+from .utils import count_vertices, has_m, has_z
 
 # ============================================================
 # AOI Request model
@@ -21,9 +35,7 @@ DissolveMode = Literal[
     "preserve_features",
 ]
 
-SUPPORTED_DISSOLVE_MODES: frozenset[str] = frozenset(
-    get_args(DissolveMode)
-)
+SUPPORTED_DISSOLVE_MODES: frozenset[str] = frozenset(get_args(DissolveMode))
 
 
 @dataclass(frozen=True)
@@ -31,6 +43,10 @@ class AOIRequest:
     aoi_id: str
     name: str
     target_crs: str = DEFAULT_CRS
+    validation_parameters: Mapping[str, Sequence[str | int]] | None = field(
+        default=None,
+        kw_only=True,
+    )
 
     dissolve_mode: DissolveMode = "full_union"
     dissolve_fields: tuple[str, ...] = field(default_factory=tuple)
@@ -44,42 +60,29 @@ class AOIRequest:
 
     def __post_init__(self) -> None:
         if not isinstance(self.aoi_id, str):
-            raise AOIRequestError(
-                "AOIRequest.aoi_id must be a string."
-            )
+            raise AOIRequestError("AOIRequest.aoi_id must be a string.")
 
         if not isinstance(self.name, str):
-            raise AOIRequestError(
-                "AOIRequest.name must be a string."
-            )
+            raise AOIRequestError("AOIRequest.name must be a string.")
 
         if not isinstance(self.dissolve_mode, str):
-            raise AOIRequestError(
-                "AOIRequest.dissolve_mode must be a string."
-            )
+            raise AOIRequestError("AOIRequest.dissolve_mode must be a string.")
 
         if not isinstance(self.dissolve_fields, (tuple, list)):
             raise AOIRequestError(
                 "AOIRequest.dissolve_fields must be a sequence of strings."
             )
 
-        if not all(
-            isinstance(field_name, str)
-            for field_name in self.dissolve_fields
-        ):
+        if not all(isinstance(field_name, str) for field_name in self.dissolve_fields):
             raise AOIRequestError(
                 "AOIRequest.dissolve_fields must contain only strings."
             )
 
         if not isinstance(self.target_crs, str):
-            raise AOIRequestError(
-                "AOIRequest.target_crs must be a string."
-            )
+            raise AOIRequestError("AOIRequest.target_crs must be a string.")
 
         if not isinstance(self.allow_overlaps, bool):
-            raise AOIRequestError(
-                "AOIRequest.allow_overlaps must be a boolean."
-            )
+            raise AOIRequestError("AOIRequest.allow_overlaps must be a boolean.")
 
         # Normalize values.
         aoi_id = self.aoi_id.strip()
@@ -92,14 +95,10 @@ class AOIRequest:
         )
 
         if not aoi_id:
-            raise AOIRequestError(
-                "AOIRequest.aoi_id cannot be empty."
-            )
+            raise AOIRequestError("AOIRequest.aoi_id cannot be empty.")
 
         if not name:
-            raise AOIRequestError(
-                "AOIRequest.name cannot be empty."
-            )
+            raise AOIRequestError("AOIRequest.name cannot be empty.")
 
         if dissolve_mode not in SUPPORTED_DISSOLVE_MODES:
             raise AOIRequestError(
@@ -137,15 +136,38 @@ class AOIRequest:
                 "AOIRequest.target_crs must be projected. "
                 f"Received: {self.target_crs!r}."
             )
-        
+
         if not crs.axis_info[0].unit_name in {
-                "metre",
-                "meter",
-            }:
+            "metre",
+            "meter",
+        }:
+            raise AOIRequestError(
+                "AOIRequest.target_crs must use metres as its unit. "
+                f"Received: {self.target_crs!r}."
+            )
+
+        parameters = self.validation_parameters
+
+        if parameters is not None:
+            if not isinstance(parameters, Mapping):
                 raise AOIRequestError(
-                    "AOIRequest.target_crs must use metres as its unit. "
-                    f"Received: {self.target_crs!r}."
+                    "AOIRequest.validation_parameters must be a mapping or None."
                 )
+
+            normalized: dict[str, tuple[str | int, ...]] = {}
+
+            for key, values in parameters.items():
+                if not isinstance(key, str) or not key.strip():
+                    raise AOIRequestError("Validation parameter names must be nonblank strings.")
+
+                try:
+                    normalized[key] = checked_unit_ids(values)
+                except ValueError as exc:
+                    raise AOIRequestError(
+                        f"Invalid validation_parameters[{key!r}]: {exc}"
+                    ) from exc
+
+            object.__setattr__(self, "validation_parameters", MappingProxyType(normalized))
 
         object.__setattr__(self, "aoi_id", aoi_id)
         object.__setattr__(self, "name", name)
@@ -172,7 +194,7 @@ class AOIRequest:
     @property
     def is_projected(self) -> bool:
         return self.target_crs_obj.is_projected
-    
+
 
 @dataclass(frozen=True)
 class AOIBuildRequest:
@@ -199,6 +221,7 @@ class AOIBuildRequest:
 # Area of Interest models
 # ============================================================
 
+
 @dataclass
 class AreaOfInterest:
     aoi_id: str
@@ -206,7 +229,6 @@ class AreaOfInterest:
     gdf: gpd.GeoDataFrame
     properties: AOIProperties
     parts: tuple[AOIPart, ...] = field(default_factory=tuple)
-
 
     def __post_init__(self) -> None:
         if self.gdf.crs is None:
@@ -224,15 +246,15 @@ class AreaOfInterest:
     @property
     def footprint_area_ha(self) -> float:
         return self.properties.footprint_area_ha
-    
+
     @property
     def parts_area_ha(self) -> float:
         return self.properties.parts_area_ha
-    
+
     @property
     def part_count(self) -> int:
         return self.properties.part_count
-    
+
 
 @dataclass(frozen=True)
 class AOIProperties:
@@ -259,6 +281,7 @@ class AOIProperties:
 # ============================================================
 # Area of Interest parts models
 # ============================================================
+
 
 @dataclass(frozen=True)
 class AOIPart:
@@ -302,7 +325,9 @@ class AOIPart:
         geom = gdf.geometry.iloc[0]
 
         if geom is None or geom.is_empty:
-            raise SpatialGeometryError("Cannot build AOIPart from null or empty geometry.")
+            raise SpatialGeometryError(
+                "Cannot build AOIPart from null or empty geometry."
+            )
 
         resolved_part_id = part_id or f"{parent_aoi_id}_part_{part_index:04d}"
 
@@ -326,9 +351,7 @@ class AOIPart:
         Return the single Shapely geometry for this AOI part.
         """
         if self.gdf.empty:
-            raise ValueError(
-                f"AOIPart {self.part_id!r} has an empty GeoDataFrame."
-            )
+            raise ValueError(f"AOIPart {self.part_id!r} has an empty GeoDataFrame.")
 
         return self.gdf.geometry.iloc[0]
 
@@ -343,6 +366,7 @@ class AOIPart:
 # ============================================================
 # Normalization results models
 # ============================================================
+
 
 @dataclass(frozen=True)
 class AOINormalizationReport:
@@ -391,40 +415,15 @@ class NormalizedAOI:
 # ============================================================
 # Validation results models
 # ============================================================
-ValidationSeverity = Literal["error", "warning", "info"]
-
-@dataclass(frozen=True)
-class ValidationIssue:
-    severity: ValidationSeverity
-    code: str
-    message: str
-
-    def __post_init__(self) -> None:
-        severity = self.severity.strip().lower()
-        code = self.code.strip().upper()
-
-        allowed = {"error", "warning", "info"}
-
-        if severity not in allowed:
-            raise ValueError(
-                f"Invalid validation severity: {self.severity!r}. "
-                f"Expected one of: {sorted(allowed)}"
-            )
-
-        if not code:
-            raise ValueError("ValidationIssue.code cannot be empty")
-
-        if not self.message.strip():
-            raise ValueError("ValidationIssue.message cannot be empty")
-
-        object.__setattr__(self, "severity", severity)
-        object.__setattr__(self, "code", code)
-        object.__setattr__(self, "message", self.message.strip())
 
 
 @dataclass(frozen=True)
 class AOIValidationResult:
     issues: tuple[ValidationIssue, ...] = field(default_factory=tuple)
+    spatial_checks_run: bool = False
+    geometry_checks_run: bool = False
+    checked_spatial_layers: tuple[str, ...] = ()
+    profile: str = ValidationProfile.RUNTIME
 
     @property
     def is_valid(self) -> bool:
@@ -432,27 +431,29 @@ class AOIValidationResult:
 
     @property
     def has_errors(self) -> bool:
-        return any(i.severity == "error" for i in self.issues)
+        return any(i.severity == ValidationSeverity.ERROR for i in self.issues)
 
     @property
     def has_warnings(self) -> bool:
-        return any(i.severity == "warning" for i in self.issues)
+        return any(i.severity == ValidationSeverity.WARNING for i in self.issues)
 
     @property
     def errors(self) -> tuple[ValidationIssue, ...]:
-        return tuple(i for i in self.issues if i.severity == "error")
+        return tuple(i for i in self.issues if i.severity == ValidationSeverity.ERROR)
 
     @property
     def warnings(self) -> tuple[ValidationIssue, ...]:
-        return tuple(i for i in self.issues if i.severity == "warning")
+        return tuple(i for i in self.issues if i.severity == ValidationSeverity.WARNING)
 
     @property
     def infos(self) -> tuple[ValidationIssue, ...]:
-        return tuple(i for i in self.issues if i.severity == "info")
+        return tuple(i for i in self.issues if i.severity == ValidationSeverity.INFO)
+
 
 # ============================================================
 # Validation results models
 # ============================================================
+
 
 @dataclass(frozen=True)
 class AOIBuildResult:

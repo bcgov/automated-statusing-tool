@@ -5,7 +5,10 @@ from typing import Any
 
 import geopandas as gpd
 
-from .exceptions import AOINormalizationError, DataCRSError
+from ast_engine.core.exceptions import (
+    DataCRSError,
+)
+from .exceptions import AOINormalizationError
 from .models import AOIRequest, AOINormalizationReport
 
 
