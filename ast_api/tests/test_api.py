@@ -67,13 +67,19 @@ def test_create_job_in_queue_and_db(client, sample_job_payload):
     assert len(queue_items) == 1
     assert queue_items[0]["name"] == "Alice"
     assert queue_items[0]["job_id"] == body["item"]["job_id"]
-    assert database.get_jobs()[0][:5] == (
+    assert database.get_jobs() == [(
         1,
         "Alice",
         "alice@example.com",
         "Cariboo",
         "1",
-    )
+        "CF-1001",
+        "DISP-2002",
+        "PARCEL-3003",
+        1,
+        0,
+        JobStatus.QUEUED.value,
+    )]
 
 
 def test_jobs_table_does_not_include_area_of_interest(temp_db):
@@ -86,21 +92,52 @@ def test_jobs_table_does_not_include_area_of_interest(temp_db):
     assert "area_of_interest" not in columns
 
 
-def test_create_table_migrates_existing_job_columns(temp_db):
+def test_create_table_adds_source_to_existing_jobs_table(temp_db):
     with sqlite3.connect(temp_db) as connection:
-        connection.execute("ALTER TABLE jobs RENAME COLUMN export_overlap_results TO export_overap_results")
         connection.execute("ALTER TABLE jobs DROP COLUMN source")
 
     database.create_table()
 
     with sqlite3.connect(temp_db) as connection:
         columns = {
-            row[1] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+            row[1] for row in connection.execute("PRAGMA table_info(jobs)")
         }
 
     assert "source" in columns
-    assert "export_overlap_results" in columns
-    assert "export_overap_results" not in columns
+
+
+@pytest.mark.parametrize(
+    "missing_identifier",
+    ["crown_file_number", "disposition_number", "parcel_number"],
+)
+def test_tantalis_source_requires_all_identifiers(
+    client,
+    sample_job_payload,
+    missing_identifier,
+):
+    payload = {**sample_job_payload, missing_identifier: ""}
+
+    response = client.post("/api/jobs", data=payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "TANTALIS source requires file, disposition, and parcel identifiers"
+    )
+    assert database.get_jobs() == []
+    assert api_main.redis_client.lrange("jobs_queue", 0, -1) == []
+
+
+def test_invalid_source_is_rejected_without_creating_job(
+    client,
+    sample_job_payload,
+):
+    payload = {**sample_job_payload, "source": "3"}
+
+    response = client.post("/api/jobs", data=payload)
+
+    assert response.status_code == 422
+    assert database.get_jobs() == []
+    assert api_main.redis_client.lrange("jobs_queue", 0, -1) == []
 
 
 def test_get_job_by_id_returns_queue_item(client, sample_job_payload):
@@ -155,3 +192,7 @@ def test_upload_source_requires_file(client):
     )
 
     assert response.status_code == 422
+
+
+def test_get_jobs_returns_empty_list_when_table_has_no_jobs(temp_db):
+    assert database.get_jobs() == []
