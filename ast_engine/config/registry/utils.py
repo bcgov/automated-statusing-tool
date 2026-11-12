@@ -47,7 +47,10 @@ def dump_yaml(registry: Registry, file_path: Path):
         # by_alias=True so a where LogicalGroup is written with its 'and' / 'or'
         # keys (not the Python field names 'and_' / 'or_'); otherwise load_yaml
         # cannot parse the where back. Matches enrichment.build()'s dump.
-        yaml.dump(registry.model_dump(by_alias=True), f, sort_keys=False)
+        yaml.dump(registry.model_dump(mode="json",
+                                      by_alias=True),
+                                      f,
+                                      sort_keys=False)
 
 def short_reason(exc: Exception) -> str:
     '''Turn an error into one readable line for the build report.
@@ -172,7 +175,8 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
 
 def path_translate(in_path:str, path_dict:dict|None = None) -> str:
     '''
-    Translates paths from nt (windows) to posix (linux) or vice versa
+    Translates paths from nt (windows) to posix (linux) or vice versa.
+    This process currently gets applied to both file paths and database strings. It hasn't caused issues, but exclusion logic may be required in the future.
         in_path: the path to translate
         path_dict: string replaces to do
                     Usually to translate a windows share to a mount location on linux
@@ -186,9 +190,12 @@ def path_translate(in_path:str, path_dict:dict|None = None) -> str:
     elif name == "posix":
 
         if path_dict is not None:
-            in_path = in_path.lower()
             for old, new in path_dict.items():
                 in_path = in_path.replace(old, new)
+                in_path_lower = in_path.lower().replace(old.lower(), new)
+                if not exists(dirname(in_path)):
+                    if exists(dirname(in_path_lower)):
+                        in_path = in_path_lower
         else:
             logger.warning("Warning: No path translation provided. Absolute paths may be invalid")
         in_path = in_path.replace("\\", "/")
