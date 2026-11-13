@@ -21,6 +21,7 @@ dependencies = [
     "redis>=8.1.0",
     "fastapi[standard]>=0.156.2",
     "rq>=3.0.0",
+    "duckdb==1.5.5",
 ]
 
 [build-system]
