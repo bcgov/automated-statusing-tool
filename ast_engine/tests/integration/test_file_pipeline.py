@@ -26,7 +26,7 @@ from ast_engine.core.results import (
     PolyOverlayResult,
     ProximityResult,
 )
-
+from ast_engine.config.registry.models import DataAdapter
 
 # --- Test data --------------------------------------------------------------
 DATA_DIR = Path(__file__).parents[1] / "data"
@@ -62,7 +62,7 @@ def _file_task(name: str, datasource, operator: str, **params) -> AnalysisTask:
     return AnalysisTask(
         dataset_id=name,
         dataset_name=name,
-        source_type="file",
+        source_type=DataAdapter.FILE,
         datasource=str(datasource),
         operator=operator,
         **params,

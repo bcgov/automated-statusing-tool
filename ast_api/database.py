@@ -1,11 +1,15 @@
 import json
+from pathlib import Path
 import sqlite3
+
 
 from shared_models.models import CreateJob, JobStatus
 
+#create path anchored to the current file's directory
+DB_PATH = Path(__file__).resolve().parent / "jobs.db"
 
 def create_connection():
-    return sqlite3.connect("jobs.db")
+    return sqlite3.connect(DB_PATH)
 
 
 def create_table():
@@ -15,28 +19,27 @@ def create_table():
         """
         CREATE TABLE IF NOT EXISTS jobs (
             job_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user TEXT NOT NULL,
-            date TEXT NOT NULL,
+            name TEXT NOT NULL, 
+            email TEXT NOT NULL,
             region TEXT NOT NULL,
-            area_of_interest TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT '1',
             crown_file_number TEXT,
             disposition_number TEXT,
             parcel_number TEXT,
-            output_directory TEXT NOT NULL,
-            retain_existing_outputs INTEGER NOT NULL DEFAULT 0,
-            suppress_tab_3 INTEGER NOT NULL DEFAULT 0,
-            suppress_map_creation INTEGER NOT NULL DEFAULT 0,
-            open_output_directory_on_completion INTEGER NOT NULL DEFAULT 0,
-            enable_portable_spreadsheet INTEGER NOT NULL DEFAULT 0,
-            registries TEXT NOT NULL,
-            aoi_id TEXT NOT NULL,
-            aoi_name TEXT NOT NULL,
-            aoi TEXT NOT NULL,
+            generate_maps BOOLEAN DEFAULT FALSE,
+            export_overlap_results BOOLEAN DEFAULT FALSE,
             status TEXT NOT NULL
                 CHECK (status IN ('Queued', 'Processing', 'Publishing', 'Completed', 'Failed'))
         )
         """
     )
+    columns = {
+        row[1] for row in cursor.execute("PRAGMA table_info(jobs)").fetchall()
+    }
+    if "source" not in columns:
+        cursor.execute(
+            "ALTER TABLE jobs ADD COLUMN source TEXT NOT NULL DEFAULT '1'"
+        )
     connection.commit()
     connection.close()
 
@@ -45,23 +48,15 @@ def create_job(job: CreateJob) -> int:
     data = job.model_dump(mode="json")
 
     row = {
-        "user": data["user"],
-        "date": data["date"],
+        "name": data["name"],
+        "email": data["email"],
         "region": data["region"].value if hasattr(data["region"], "value") else str(data["region"]),
-        "area_of_interest": data["area_of_interest"],
+        "source": data["source"],
         "crown_file_number": data["crown_file_number"],
         "disposition_number": data["disposition_number"],
         "parcel_number": data["parcel_number"],
-        "output_directory": data["output_directory"],
-        "retain_existing_outputs": int(data["retain_existing_outputs"]),
-        "suppress_tab_3": int(data["suppress_tab_3"]),
-        "suppress_map_creation": int(data["suppress_map_creation"]),
-        "open_output_directory_on_completion": int(data["open_output_directory_on_completion"]),
-        "enable_portable_spreadsheet": int(data["enable_portable_spreadsheet"]),
-        "registries": json.dumps(data["registries"]),
-        "aoi_id": data["aoi_id"],
-        "aoi_name": data["aoi_name"],
-        "aoi": json.dumps(data["aoi"]),
+        "generate_maps": data["generate_maps"],
+        "export_overlap_results": data["export_overlap_results"],
         "status": (job.status or JobStatus.QUEUED).value,
     }
 
@@ -70,16 +65,16 @@ def create_job(job: CreateJob) -> int:
     cursor.execute(
         """
         INSERT INTO jobs (
-            user, date, region, area_of_interest, crown_file_number, disposition_number,
-            parcel_number, output_directory, retain_existing_outputs, suppress_tab_3,
-            suppress_map_creation, open_output_directory_on_completion,
-            enable_portable_spreadsheet, registries, aoi_id, aoi_name, aoi, status
+            name, email, region, source, crown_file_number, disposition_number,
+            parcel_number, generate_maps, export_overlap_results, status
         )
         VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            :name, :email, :region, :source, :crown_file_number,
+            :disposition_number, :parcel_number, :generate_maps,
+            :export_overlap_results, :status
         )
         """,
-        tuple(row.values()),
+        row,
     )
     conn.commit()
     job_id = int(cursor.lastrowid)
@@ -94,9 +89,15 @@ def get_jobs():
         """
         SELECT
             job_id,
-            user,
-            date,
+            name,
+            email,
             region,
+            source,
+            crown_file_number,
+            disposition_number,
+            parcel_number,
+            generate_maps,
+            export_overlap_results,
             status
         FROM jobs
         ORDER BY job_id DESC
@@ -105,4 +106,3 @@ def get_jobs():
     jobs = cursor.fetchall()
     conn.close()
     return jobs
-

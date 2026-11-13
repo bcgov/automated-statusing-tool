@@ -1,0 +1,29 @@
+[
+  {
+    "user": "bob",
+    "date": "2026-09-29",
+    "region": "South Coast",
+    "area_of_interest": "Harbour Ridge",
+    "crown_file_number": "CF-2002",
+    "disposition_number": "DISP-2002",
+    "parcel_number": "PARCEL-2002",
+    "output_directory": "/tmp/ast_jobs/job_002",
+    "retain_existing_outputs": true,
+    "suppress_tab_3": false,
+    "suppress_map_creation": true,
+    "open_output_directory_on_completion": false,
+    "enable_portable_spreadsheet": true,
+    "registries": ["fcbc", "pmbc"],
+    "aoi_id": "AOI-2002",
+    "aoi_name": "Harbour Ridge",
+    "aoi": {
+      "type": "FeatureCollection",
+      "name": "aoi3",
+      "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+      "features": [
+      { "type": "Feature", "properties": { "test": "1" }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -128.157726717862516, 56.52342182216816 ], [ -128.12880266134718, 56.515180743797607 ], [ -128.050930201498176, 56.488516473601734 ], [ -127.99912117719046, 56.43864613156812 ], [ -127.963204491627465, 56.418609330286735 ], [ -127.913302547969124, 56.427222933355907 ], [ -127.96670080615128, 56.432319861217778 ], [ -127.968607886800669, 56.442335969786683 ], [ -127.993399935242394, 56.459901714313141 ], [ -128.019781217558574, 56.484480115190024 ], [ -128.062690532169256, 56.498166894023377 ], [ -128.096064443533123, 56.515531464493051 ], [ -128.149144854940403, 56.533413916925255 ], [ -128.157726717862516, 56.52342182216816 ] ] ] } }
+      ]
+    },
+    "status": "Queued"
+  }
+]
