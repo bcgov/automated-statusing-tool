@@ -28,7 +28,7 @@ const LandingPage = () => {
   // The identifiers sent from the form. The map watches this and runs the TANTALIS lookup when it changes.
   // Starts as null because nothing has been sent yet.
   const [tantalisPreview, setTantalisPreview] = useState<TantalisIdentifiers | null>(null);
-  const [tantalisShapeLoaded, setTantalisShapeLoaded] = useState(false);
+  const [shapeLoaded, setShapeLoaded] = useState(false);
   const [criticalConflictsRequest, setCriticalConflictsRequest] = useState<CriticalConflictsRequest | null>(null);
   const [isCriticalConflictsOpen, setIsCriticalConflictsOpen] = useState(false);
 
@@ -39,8 +39,8 @@ const LandingPage = () => {
     setMapSelection({ ...selection, clickedAt: Date.now() });
   }, []);
 
-  const handlePreviewCriticalConflicts = useCallback((request: TantalisIdentifiers): void => {
-    setCriticalConflictsRequest({ ...request, clickedAt: Date.now() });
+  const handlePreviewCriticalConflicts = useCallback((): void => {
+    setCriticalConflictsRequest({ clickedAt: Date.now() });
     setIsCriticalConflictsOpen(true);
   }, []);
 
@@ -59,7 +59,7 @@ const LandingPage = () => {
       <ASTForm
         mapSelection={mapSelection}
         onViewTantalis={setTantalisPreview}
-        isTantalisShapeLoaded={tantalisShapeLoaded}
+        isShapeLoaded={shapeLoaded}
         isCriticalConflictsOpen={isCriticalConflictsOpen}
         onPreviewCriticalConflicts={handlePreviewCriticalConflicts}
         onClearCriticalConflicts={handleCloseCriticalConflicts}
@@ -71,7 +71,7 @@ const LandingPage = () => {
       <OLMap
         onPolygonClick={handlePolygonClick}
         tantalisPreview={tantalisPreview}
-        onTantalisShapeLoaded={setTantalisShapeLoaded}
+        onShapeLoaded={setShapeLoaded}
         criticalConflictsRequest={criticalConflictsRequest}
         isCriticalConflictsOpen={isCriticalConflictsOpen}
         onCloseCriticalConflicts={handleCloseCriticalConflicts}

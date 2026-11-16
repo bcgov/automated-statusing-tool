@@ -25,9 +25,9 @@ interface ASTFormProps {
   // Sends the three identifiers up to LandingPage so the map can show the shape.
   // Required, because the "View shape on map" button can't work without it.
   onViewTantalis: (request: TantalisIdentifiers | null) => void;
-  isTantalisShapeLoaded: boolean;
+  isShapeLoaded: boolean;
   isCriticalConflictsOpen: boolean;
-  onPreviewCriticalConflicts: (request: TantalisIdentifiers) => void;
+  onPreviewCriticalConflicts: () => void;
   onClearCriticalConflicts: () => void;
 }
 
@@ -40,7 +40,7 @@ interface FormInputs {
   fileNumber: string;
   dispositionId: string;
   parcelId: string;
-  uploadFile: File | null;
+  uploadFiles: File[];
   maps: boolean; // Generate Maps switch (true = on)
   overlaps: boolean; // Export results by default; false opts out
 }
@@ -59,7 +59,7 @@ const INITIAL_INPUTS: FormInputs = {
   fileNumber: "",
   dispositionId: "",
   parcelId: "",
-  uploadFile: null,
+  uploadFiles: [],
   maps: false,
   overlaps: true,
 };
@@ -80,17 +80,18 @@ const REGION_ITEMS = [
 const ASTForm: FC<ASTFormProps> = ({
   mapSelection,
   onViewTantalis,
-  isTantalisShapeLoaded,
+  isShapeLoaded,
   isCriticalConflictsOpen,
   onPreviewCriticalConflicts,
   onClearCriticalConflicts,
 }) => {
   // All current field values, stored together in one object.
   const [inputs, setInputs] = useState<FormInputs>(INITIAL_INPUTS);
-  const [isTantalisPreviewEnabled, setIsTantalisPreviewEnabled] = useState(false);
+  const [isShapePreviewEnabled, setIsShapePreviewEnabled] = useState(false);
   // Message shown under the "View shape on map" button. Empty = no message.
   const [previewMessage, setPreviewMessage] = useState<string>("");
-  // Direct link to the file picker, so it can be emptied.
+  const [selectedUploadPath, setSelectedUploadPath] = useState("");
+  // Direct link to the file picker, so it can be reset.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Updates one field and keeps all the others.
@@ -108,21 +109,26 @@ const ASTForm: FC<ASTFormProps> = ({
     }
   };
 
-  // Saves the file the user picked. If they cancel, saves null.
+  // Saves the selected spatial file.
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
-    updateField("uploadFile", event.target.files?.[0] ?? null);
+    const files = Array.from(event.target.files ?? []).slice(0, 1);
+    updateField("uploadFiles", files);
+    const selectedPath = files[0]?.name ?? "";
+    setSelectedUploadPath(selectedPath);
   };
 
   // Removes the chosen file.
   const handleRemoveFile = (): void => {
-    updateField("uploadFile", null);
+    updateField("uploadFiles", []);
+    setSelectedUploadPath("");
     clearFileInput();
   };
 
   // Resets the whole form back to its starting values.
   const handleClearAll = (): void => {
     setInputs(INITIAL_INPUTS);
-    setIsTantalisPreviewEnabled(false);
+    setSelectedUploadPath("");
+    setIsShapePreviewEnabled(false);
     setPreviewMessage("");
     clearFileInput();
     onViewTantalis(null);
@@ -147,11 +153,17 @@ const ASTForm: FC<ASTFormProps> = ({
     setPreviewMessage("");
   }, [mapSelection]); // Runs every time a new shape is clicked.
 
-  const handleViewTantalisToggle = (isEnabled: boolean): void => {
+  const handleViewShapeToggle = (isEnabled: boolean): void => {
     if (!isEnabled) {
-      setIsTantalisPreviewEnabled(false);
+      setIsShapePreviewEnabled(false);
       setPreviewMessage("");
       onViewTantalis(null);
+      onClearCriticalConflicts();
+      return;
+    }
+
+    onClearCriticalConflicts();
+    if (inputs.source !== SOURCE_TANTALIS) {
       return;
     }
 
@@ -167,7 +179,7 @@ const ASTForm: FC<ASTFormProps> = ({
     }
 
     // Clear any old message and send the values up.
-    setIsTantalisPreviewEnabled(true);
+    setIsShapePreviewEnabled(true);
     setPreviewMessage("");
     onViewTantalis({ fileNumber, dispositionId, parcelId });
   };
@@ -177,11 +189,15 @@ const ASTForm: FC<ASTFormProps> = ({
       onClearCriticalConflicts();
       return;
     }
-    onPreviewCriticalConflicts({
-      fileNumber: inputs.fileNumber.trim(),
-      dispositionId: inputs.dispositionId.trim(),
-      parcelId: inputs.parcelId.trim(),
-    });
+    onPreviewCriticalConflicts();
+  };
+
+  const handleSourceChange = (source: string): void => {
+    updateField("source", source);
+    setIsShapePreviewEnabled(false);
+    setPreviewMessage("");
+    onViewTantalis(null);
+    onClearCriticalConflicts();
   };
 
   // What appears on the page.
@@ -230,7 +246,7 @@ const ASTForm: FC<ASTFormProps> = ({
           orientation="horizontal"
           name="source"
           value={inputs.source}
-          onChange={(value) => updateField("source", value)}
+          onChange={handleSourceChange}
         >
           <Radio value={SOURCE_TANTALIS}>TANTALIS</Radio>
           <Radio value={SOURCE_UPLOAD}>Upload</Radio>
@@ -266,12 +282,6 @@ const ASTForm: FC<ASTFormProps> = ({
               value={inputs.parcelId}
               onChange={(event) => updateField("parcelId", event.currentTarget.value)}
             />
-
-            {previewMessage && (
-              <p className="tantalis-preview-message" role="status" aria-live="polite">
-                {previewMessage}
-              </p>
-            )}
           </div>
         </div>
 
@@ -281,24 +291,33 @@ const ASTForm: FC<ASTFormProps> = ({
             <hr />
             <p>Select File:</p>
             <div className="upload-input-row">
-              {/* File picker. accept limits it to these spatial file types. */}
+              <button type="button" onClick={() => fileInputRef.current?.click()}>
+                Choose File
+              </button>
               <input
-                type="file"
-                accept=".geojson,.json,.kml,.shp"
                 ref={fileInputRef}
+                type="file"
+                className="upload-file-input"
+                accept=".shp,.zip,.geojson,.json,.kml"
                 onChange={handleFileChange}
               />
-              {/* Name of the chosen file. Only shown once a file is picked. */}
-              {inputs.uploadFile && <span className="upload-file-name">{inputs.uploadFile.name}</span>}
+              {inputs.uploadFiles.length > 0 && (
+                <span className="upload-file-name">{selectedUploadPath}</span>
+              )}
             </div>
             {/* Remove button. Only shown once a file is picked. */}
-            {inputs.uploadFile && (
+            {inputs.uploadFiles.length > 0 && (
               <button type="button" onClick={handleRemoveFile}>
                 Remove file
               </button>
             )}
           </div>
         </div>
+        {previewMessage && (
+          <p className="tantalis-preview-message" role="status" aria-live="polite">
+            {previewMessage}
+          </p>
+        )}
       </div>
 
       {/* On/off switches for the output options. */}
@@ -324,18 +343,18 @@ const ASTForm: FC<ASTFormProps> = ({
         <Switch
           labelPosition="right"
           name="viewTantalis"
-          isSelected={isTantalisPreviewEnabled}
+          isSelected={isShapePreviewEnabled}
           isDisabled={inputs.source !== SOURCE_TANTALIS}
-          onChange={handleViewTantalisToggle}
+          onChange={handleViewShapeToggle}
         >
-          View Shape on Map
+          View TANTALIS Shape on Map
         </Switch>
 
         <Switch
           labelPosition="right"
           name="criticalConflicts"
           isSelected={isCriticalConflictsOpen}
-          isDisabled={!isTantalisShapeLoaded && !isCriticalConflictsOpen}
+          isDisabled={!isShapeLoaded && !isCriticalConflictsOpen}
           onChange={handlePreviewCriticalConflictsToggle}
         >
           Preview Critical Conflicts

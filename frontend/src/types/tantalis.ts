@@ -4,7 +4,7 @@ export interface TantalisIdentifiers {
   parcelId: string;
 }
 
-export interface CriticalConflictsRequest extends TantalisIdentifiers {
+export interface CriticalConflictsRequest {
   clickedAt: number;
 }
 
