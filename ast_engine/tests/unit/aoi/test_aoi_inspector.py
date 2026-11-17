@@ -9,11 +9,13 @@ from geopandas.testing import assert_geodataframe_equal
 from pyproj import CRS
 from shapely.geometry import GeometryCollection, LineString, MultiPolygon, Point, Polygon
 
-from ast_engine.core.aoi.exceptions import (
-    AOIInspectionError,
+from ast_engine.core.exceptions import (
     DataCRSError,
     SpatialDataError,
     SpatialGeometryError,
+)
+from ast_engine.core.aoi.exceptions import (
+    AOIInspectionError,
 )
 from ast_engine.core.aoi.inspector import AOIInspector
 from ast_engine.core.aoi.models import AOIPart, AOIProperties

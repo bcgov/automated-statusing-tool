@@ -5,6 +5,9 @@ from unittest.mock import Mock, create_autospec
 
 import pytest
 
+from ast_engine.core.exceptions import (
+    SpatialGeometryError,
+)
 import ast_engine.core.aoi.aoi_builder as builder_module
 from ast_engine.core.aoi.aoi_builder import AOIBuilder
 from ast_engine.core.aoi.exceptions import (
@@ -13,7 +16,6 @@ from ast_engine.core.aoi.exceptions import (
     AOINormalizationError,
     AOIPartBuildError,
     AOIValidationError,
-    SpatialGeometryError,
 )
 from ast_engine.core.aoi.inspector import AOIInspector
 from ast_engine.core.aoi.models import (
@@ -209,11 +211,11 @@ def test_builder_passes_stage_outputs_forward_and_assembles_the_result(builder_c
     validate = case.stages["validation"]
     validate.assert_called_once()
     args = validate.call_args.kwargs
-    assert set(args) == {"gdf", "report", "parts", "properties"}
+    assert set(args) == {"gdf", "parts", "aoi_id", "parameters"}
     assert args["gdf"] is case.normalized.gdf
-    assert args["report"] is case.normalized.report
+    # assert args["report"] is case.normalized.report
     assert args["parts"] is case.parts
-    assert args["properties"] is case.properties
+    # assert args["properties"] is case.properties
 
     # The real output objects should expose the supplied request identity and
     # the outputs from the stages, including the complete normalization report.
@@ -253,6 +255,12 @@ def test_validation_issues_return_a_complete_result_without_raising(
                 severity=severity,
                 code=f"TEST_{severity.upper()}",
                 message=f"Controlled {severity} finding.",
+                category="spatial",
+                scope="footprint",
+                subject_id="test-aoi",
+                rule_id="manual",
+                tags=["test", "validation"],
+
             )
             for severity in severities
         )
@@ -427,9 +435,7 @@ def test_reusing_a_builder_does_not_mix_results_from_different_requests(builder_
     assert args["parts"] is second_parts
     args = case.stages["validation"].call_args.kwargs
     assert args["gdf"] is second_normalized.gdf
-    assert args["report"] is second_normalized.report
     assert args["parts"] is second_parts
-    assert args["properties"] is second_properties
 
 
 @pytest.mark.parametrize("missing_dependency", tuple(DEPENDENCY_TYPES))

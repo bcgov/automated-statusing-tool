@@ -5,7 +5,8 @@ from dataclasses import FrozenInstanceError, asdict
 import geopandas as gpd
 import pytest
 
-from ast_engine.core.aoi.exceptions import AOINormalizationError, DataCRSError
+from ast_engine.core.exceptions import DataCRSError
+from ast_engine.core.aoi.exceptions import AOINormalizationError
 from ast_engine.core.aoi.models import AOINormalizationReport, AOIRequest
 from ast_engine.core.aoi.normalization_reporter import AOINormalizationReportBuilder
 from ast_engine.tests.helpers.aoi_geometry import aoi_gdf, rect
