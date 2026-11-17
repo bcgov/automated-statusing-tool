@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     # engine settings
     system_crs: str = "EPSG:3005"
 
+    # The address people reach the API at, e.g. "https://ast.example.gov.bc.ca".
+    # When set, the status report links to a job's maps through the API, so the
+    # links work from a downloaded copy of the report. When not set the links
+    # are relative ("maps/<name>.html") and work in a copy of the job's folder.
+    api_public_url: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

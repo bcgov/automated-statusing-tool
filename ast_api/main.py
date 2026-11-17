@@ -21,6 +21,8 @@ from ast_engine.storage import (
     MANIFEST_KEY,
     MAP_ARTIFACT_PREFIX,
     RAW_RESULTS_KEY,
+    REPORT_CONTENT_TYPE,
+    REPORT_KEY,
     ResultsStorageReader,
     create_results_reader,
     created_date,
@@ -247,6 +249,30 @@ def get_job_results(job_id: str, store: JobStatusStore = Depends(get_job_store))
         ) from exc
     # Already JSON, as published - passed through without being parsed again.
     return Response(content=results, media_type="application/json")
+
+
+@app.get("/api/jobs/{job_id}/report")
+def get_job_report(job_id: str, store: JobStatusStore = Depends(get_job_store)):
+    """The status report (an Excel workbook) published for one completed job.
+
+    Sent as a download, named after the job so two reports saved to the same
+    folder do not overwrite each other.
+    """
+    reader = _published_job_reader(job_id, store)
+    try:
+        report = reader.get_bytes(REPORT_KEY)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found",
+        ) from exc
+    return Response(
+        content=report,
+        media_type=REPORT_CONTENT_TYPE,
+        # job_id is the id of a job that was found in the store, so it is safe
+        # to put in a header.
+        headers={"Content-Disposition": f'attachment; filename="status-report-{job_id}.xlsx"'},
+    )
 
 
 @app.get("/api/jobs/{job_id}/maps")

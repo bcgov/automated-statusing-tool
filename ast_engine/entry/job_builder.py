@@ -163,4 +163,9 @@ def build_ast_job(
         status=JobStatus.QUEUED,
         generate_maps=item.generate_maps,
         export_overlap_results=item.export_overlap_results,
+        region=item.region,
+        crown_file_number=item.crown_file_number,
+        disposition_number=item.disposition_number,
+        parcel_number=item.parcel_number,
+        report_exclude_registries=(TAB1_REGISTRY,),
     )

@@ -460,10 +460,15 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
             Job {job.jobId}: <strong>{job.status}</strong>
           </p>
           {job.status === JOB_STATUS_FAILED && job.error && <p>{job.error}</p>}
+          {/* The job's outputs. The status report is the Excel workbook, sent as a download.
+              "View results" opens the same findings as data (JSON). */}
           {job.status === JOB_STATUS_COMPLETED && (
-            <a href={`/api/jobs/${job.jobId}/results`} target="_blank" rel="noreferrer">
-              View results
-            </a>
+            <p className="job-links">
+              <a href={`/api/jobs/${job.jobId}/report`}>Download status report</a>
+              <a href={`/api/jobs/${job.jobId}/results`} target="_blank" rel="noreferrer">
+                View results
+              </a>
+            </p>
           )}
           {/* The job's maps, the overview first. Each opens in a new tab.
               Only shown when the job made maps. */}

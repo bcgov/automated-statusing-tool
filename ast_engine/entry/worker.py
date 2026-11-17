@@ -3,7 +3,7 @@ import logging
 import tempfile
 from pathlib import Path
 import geopandas as gpd
-from datetime import datetime, UTC
+from datetime import date, datetime, UTC
 from uuid import UUID
 from enum import StrEnum
 from typing import Optional, Any, Iterable
@@ -15,7 +15,16 @@ from ast_engine.core.execution import run_analysis, build_tasks
 from ast_engine.core.results import AstResults
 from ast_engine.core.data_adapters.oracle import OracleConnection
 from ast_engine.utils.diagnostics import DiagnosticTracker
-from ast_engine.reporting import MapOutput, build_map_layers, generate_html_maps
+from ast_engine.reporting import (
+    OVERVIEW_MAP_NAME,
+    MapOutput,
+    ReportHeader,
+    aoi_part_names,
+    build_dataset_reports,
+    build_map_layers,
+    generate_html_maps,
+    write_conflicts_report,
+)
 from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, created_date, JobStorageContext
 from ast_engine.storage.models import MapArtifact, OperatorArtifact
@@ -51,6 +60,14 @@ class AstJob(BaseModel):
     generate_maps: bool = False
     # publish the features each dataset matched, as GeoPackages
     export_overlap_results: bool = False
+    # What the status was asked for, printed at the top of the status report.
+    region: Optional[str] = None
+    crown_file_number: Optional[str] = None
+    disposition_number: Optional[str] = None
+    parcel_number: Optional[str] = None
+    # Registries whose datasets are left off the Conflicts & Constraints report
+    # (Tab 1: its datasets belong on the status sheet's first tabs).
+    report_exclude_registries: tuple[str, ...] = ()
 
 
 def open_oracle_connection(settings: Settings) -> Optional[OracleConnection]:
@@ -123,15 +140,68 @@ def _generate_maps(job: AstJob, aoi, tasks, ast_results: AstResults) -> list[Map
         return []
 
 
+def _map_link(job: AstJob, map_name: str) -> str:
+    """The link the status report uses for one of the job's maps.
+
+    Through the API when its public address is configured, so the link works
+    from a downloaded report. Otherwise relative to the report, which works in a
+    copy of the job's published folder.
+    """
+    if settings.api_public_url:
+        return f"{settings.api_public_url.rstrip('/')}/api/jobs/{job.job_id}/maps/{map_name}"
+    return f"maps/{map_name}.html"
+
+
+def _write_report(
+    job: AstJob,
+    registries: list[tuple[str, Any]],
+    aoi,
+    tasks,
+    ast_results: AstResults,
+    maps: list[MapOutput],
+) -> Optional[Path]:
+    """Write the job's status report (the Excel workbook) and return its path.
+
+    Returns None if it cannot be written. Like the maps, the report is built on
+    top of the results: the job still completes with its results without it,
+    and the reason is in the log.
+    """
+    try:
+        links = {item.name: _map_link(job, item.name) for item in maps}
+        header = ReportHeader(
+            report_date=date.fromisoformat(created_date(job.created_at)),
+            region=job.region or "",
+            aoi_name=job.aoi_name,
+            crown_file_number=job.crown_file_number,
+            disposition_number=job.disposition_number,
+            parcel_number=job.parcel_number,
+            registries=tuple(name for name, _ in registries),
+            part_names=aoi_part_names(aoi.gdf),
+            overview_map_link=links.get(OVERVIEW_MAP_NAME),
+        )
+        datasets = build_dataset_reports(
+            tasks,
+            ast_results,
+            map_links={item.key: links[item.name] for item in maps if item.key},
+            exclude_registries=job.report_exclude_registries,
+        )
+        return write_conflicts_report(_job_work_dir(job.job_id) / "status-report.xlsx", header, datasets)
+    except Exception:
+        logger.exception("Could not write the status report for job %s; publishing without it", job.job_id)
+        return None
+
+
 def publish_results(
     job: AstJob,
     ast_results: AstResults,
     maps: Optional[list[MapOutput]] = None,
     publish_spatial: bool = True,
+    report: Optional[Path] = None,
 ):
     # Publishes AstResults to local disk storage or S3
     #
     # maps: the job's HTML maps, published alongside the results.
+    # report: the job's status report (the Excel workbook).
     # publish_spatial: False leaves the saved features (GeoPackages) unpublished -
     # for a job that had them saved only to draw its maps from.
 
@@ -172,6 +242,7 @@ def publish_results(
         raw_results_json=raw_results_file,
         operator_outputs=operator_outputs,
         map_outputs=[MapArtifact(name=item.name, title=item.title, path=item.path) for item in maps or []],
+        report_xlsx=report,
         # Include other optional paths as they become available:
         # extracted_gpkg=..., 
         # aoi_geojson=...,
@@ -233,7 +304,10 @@ def run_worker(
             raise AOIValidationError("; ".join(f"{issue.code}: {issue.message}" for issue in built.errors))
         aoi = built.aoi
 
-        tasks = build_tasks(job.registries)
+        # Read into a list once: the job's registries may be handed over as a
+        # one-pass iterable, and both the run and the report go through them.
+        registries = list(job.registries)
+        tasks = build_tasks(registries)
         tracker = DiagnosticTracker()
         # engage engine
         ast_results = run_analysis(
@@ -254,6 +328,7 @@ def run_worker(
                 job=job,
                 ast_results=ast_results,
                 maps=maps,
+                report=_write_report(job, registries, aoi, tasks, ast_results, maps),
                 # The saved features are published when the job asked for them, or
                 # when the worker is set to keep them for every job.
                 publish_spatial=job.export_overlap_results or settings.record_spatial,

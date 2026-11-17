@@ -148,6 +148,11 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
     This assumes a flat dictionary and does not recurse
     '''
     inp_df = pd.read_excel(inp_xlsx)
+    # The spreadsheet names a category once, on the first dataset under it, and
+    # leaves it blank on the rest. Fill it down so every dataset carries its own.
+    category_column = template.get("category")
+    if isinstance(category_column, str) and category_column in inp_df.columns:
+        inp_df[category_column] = inp_df[category_column].ffill()
     dataset_list = []
     for index, row in inp_df.iterrows():
         row_dataset = {}

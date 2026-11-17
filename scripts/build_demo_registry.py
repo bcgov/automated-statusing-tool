@@ -35,12 +35,14 @@ def demo_datasets() -> list[BaseDataset]:
     roads = DATA_DIR / "Test_Data_FOREST_TENURE_ROAD_shp" / "WHSE_FOREST_TENURE_FTEN_ROAD_SECTION_LINES_SVW.shp"
     return [
         BaseDataset(
+            category="Land Interests",
             name="Parcel Fabric",
             datasource=parcels.as_posix(),
             aggregate_columns=["OWNER_TYPE"],
             operator={"type": "overlay"},
         ),
         BaseDataset(
+            category="Land Interests",
             name="Private Parcels",
             datasource=parcels.as_posix(),
             definition_query="OWNER_TYPE = 'Private'",
@@ -48,11 +50,13 @@ def demo_datasets() -> list[BaseDataset]:
             operator={"type": "overlay"},
         ),
         BaseDataset(
+            category="Forestry Interests",
             name="Forest Tenure Roads",
             datasource=roads.as_posix(),
             operator={"type": "overlay"},
         ),
         BaseDataset(
+            category="Forestry Interests",
             name="Forest Tenure Roads within 100 m",
             datasource=roads.as_posix(),
             operator={"type": "within_distance", "distance_m": 100},

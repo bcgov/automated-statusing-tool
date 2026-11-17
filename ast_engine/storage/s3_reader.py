@@ -25,7 +25,7 @@ class S3ResultsStorageReader(ResultsStorageReader):
             use_ssl=config.use_ssl,
         )
 
-    def get_text(self, relative_key: str) -> str:
+    def get_bytes(self, relative_key: str) -> bytes:
         object_key = self.keys.key(relative_key)
 
         try:
@@ -40,4 +40,4 @@ class S3ResultsStorageReader(ResultsStorageReader):
                 ) from exc
             raise
 
-        return response["Body"].read().decode("utf-8")
+        return response["Body"].read()

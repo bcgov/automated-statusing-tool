@@ -77,9 +77,33 @@ login. It is built by `scripts/build_demo_registry.py`.
 | `POST /api/jobs` | `201` with the queued job. `422` when the form or the uploaded file cannot be used, `413` when the file is over `max_upload_bytes`. |
 | `GET /api/jobs/{job_id}` | The job and its status: `Queued`, `Processing`, `Completed` or `Failed` (with `error`). `404` when there is no such job. |
 | `GET /api/jobs/{job_id}/results` | The published results of a completed job. `409` while the job has not completed or when it failed, `404` when there is no such job. |
+| `GET /api/jobs/{job_id}/report` | The status report of a completed job, as an Excel workbook to download. |
 | `GET /api/jobs/{job_id}/maps` | The HTML maps published for a completed job, as `name` and `title`, the overview first. Empty when the job made none. |
 | `GET /api/jobs/{job_id}/maps/{map_name}` | One map, as a page to open in the browser. |
 | `GET /api/jobs` | The jobs still waiting on the queue. |
+
+## The status report
+
+Every published job gets a status report: an Excel workbook with a
+**Conflicts & Constraints** sheet and a **Data Sources** sheet. It is "Tab 3" of
+the ArcGIS Pro Automated Status Tool, in the Front Counter BC layout, written by
+`ast_engine/reporting/conflicts_report.py`; its module docstring lists what is
+the same and what differs.
+
+Each dataset is listed under its category with one of: the values found (one
+line per different combination of its report fields), `overlaps with this
+value`, `No data to display`, or `Unsuccessful` when it could not be checked.
+
+A dataset's category comes from the spreadsheet's `Category` column, which the
+spreadsheet ingestion now carries into the registry. A registry built before
+that has no categories, and its datasets are listed under the registry's name
+until it is rebuilt. Datasets of the `tab1` registry are left off this sheet:
+they belong on the status sheet's first two tabs.
+
+When the job made maps the report links to them. The links are relative
+(`maps/<name>.html`), which works in a copy of the job's published folder. Set
+`API_PUBLIC_URL` on the worker to have them go through the API instead, so they
+work from a downloaded report.
 
 ## Maps and exported overlap results
 
@@ -113,6 +137,7 @@ worker must be given the same Redis and results-storage values.
 | `REGISTRY_OUTPUT_PATH` | worker | Folder holding the registry yaml files. |
 | `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_HOST`, `ORACLE_DATABASE` | worker | BCGW login. Without it only file and GeoParquet datasets run, and TANTALIS jobs fail with a message saying so. |
 | `MAX_UPLOAD_BYTES` | API | Largest uploaded file accepted. Default 20 MB. |
+| `API_PUBLIC_URL` | worker | The address people reach the API at. When set, the status report's map links go through the API. |
 
 ## Run locally
 
@@ -147,8 +172,8 @@ fake and results storage on local disk.
 ## Not done yet
 
 - The API does not check the login token the frontend holds.
-- The spreadsheet report (the ArcGIS Pro tool's three tabs) is not produced;
-  the published results are the `AstResults` document and, when asked for,
-  the maps and GeoPackages.
+- The status report has the Conflicts & Constraints sheet only. The ArcGIS Pro
+  tool's first two tabs (Crown Land Status and Status of Conflict) are not
+  produced yet.
 - The `jobs` table in SQLite keeps the status a job was created with; the live
   status is the record in Redis.

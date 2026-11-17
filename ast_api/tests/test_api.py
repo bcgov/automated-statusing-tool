@@ -15,6 +15,8 @@ from ast_engine.storage import (
     JobStorageContext,
     MANIFEST_KEY,
     RAW_RESULTS_KEY,
+    REPORT_CONTENT_TYPE,
+    REPORT_KEY,
     create_results_writer,
     map_key,
 )
@@ -510,3 +512,40 @@ def test_maps_return_404_for_missing_job(client, route):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Job not found"
+
+
+# --- Status report -----------------------------------------------------------
+def test_report_is_sent_as_a_download(client, sample_job_payload, local_results, tmp_path):
+    item = client.post("/api/jobs", data=sample_job_payload).json()["item"]
+    workbook = tmp_path / "status-report.xlsx"
+    workbook.write_bytes(b"PK\x03\x04 not really a workbook")
+    context = JobStorageContext(job_id=item["job_id"], created_date=item["created_at"][:10])
+    create_results_writer(context).put_file(workbook, REPORT_KEY, content_type=REPORT_CONTENT_TYPE)
+    _set_status(item["job_id"], status=JobStatus.COMPLETED)
+
+    response = client.get(f"/api/jobs/{item['job_id']}/report")
+
+    assert response.status_code == 200
+    assert response.content == workbook.read_bytes()
+    assert response.headers["content-type"] == REPORT_CONTENT_TYPE
+    assert response.headers["content-disposition"] == (
+        f'attachment; filename="status-report-{item["job_id"]}.xlsx"'
+    )
+
+
+def test_report_returns_404_when_none_was_published(client, sample_job_payload, local_results):
+    job_id = client.post("/api/jobs", data=sample_job_payload).json()["item"]["job_id"]
+    _set_status(job_id, status=JobStatus.COMPLETED)
+
+    response = client.get(f"/api/jobs/{job_id}/report")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Report not found"
+
+
+def test_report_is_not_ready_until_the_job_completes(client, sample_job_payload):
+    job_id = client.post("/api/jobs", data=sample_job_payload).json()["item"]["job_id"]
+
+    response = client.get(f"/api/jobs/{job_id}/report")
+
+    assert response.status_code == 409

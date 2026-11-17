@@ -57,6 +57,10 @@ OperatorSpec = Annotated[
 class BaseDataset(BaseModel):
     # Core identifiers
     name: str
+    # The heading the dataset is reported under (the spreadsheet's Category
+    # column, e.g. "Critical Conflicts"). None for a dataset that has none; the
+    # reports then group it under the name of its registry.
+    category: Optional[str] = None
     # data definition
     datasource: str
     definition_query: Optional[str] = None

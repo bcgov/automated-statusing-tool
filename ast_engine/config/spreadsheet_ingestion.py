@@ -95,6 +95,7 @@ def main() -> None:
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
+        "category": "Category",
         "name": "Featureclass_Name(valid characters only)",
         "datasource": "Datasource",
         "aggregate_columns": [

@@ -11,9 +11,11 @@ the sample datasets in ast_engine/tests/data, publishing, and the results route.
 No database is needed.
 """
 
+import io
 import sqlite3
 from pathlib import Path
 
+import openpyxl
 import pytest
 from fastapi.testclient import TestClient
 
@@ -116,6 +118,13 @@ def test_an_uploaded_job_runs_from_submission_to_results(client, redis_client, w
     assert all(group["status"] == "success" for group in by_dataset.values())
     assert by_dataset["Parcels"]["parts"][0]["result"]["feature_count"] == PARCELS_IN_AOI
     assert by_dataset["Roads"]["parts"][0]["result"]["feature_count"] == ROADS_WITHIN_100M
+
+    # 4. The browser downloads the status report, which lists both datasets.
+    report = client.get(f"/api/jobs/{job_id}/report")
+    assert report.status_code == 200
+    sheet = openpyxl.load_workbook(io.BytesIO(report.content))["Conflicts & Constraints"]
+    listed = [cell.value for cell in sheet["C"] if cell.value]
+    assert "Parcels" in listed and "Roads" in listed
 
 
 def test_a_job_that_asks_for_maps_gets_them(client, redis_client, worker_settings):

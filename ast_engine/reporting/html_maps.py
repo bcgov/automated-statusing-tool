@@ -14,7 +14,7 @@ mapping/fc_to_html.py), carried over. The pages look and behave the same way:
 
   - the features are coloured by their first report field, with a legend, when
     that field has 20 or fewer different values; otherwise the layer is one colour;
-  - hovering a feature shows its layer, report value, registry and source;
+  - hovering a feature shows its layer, report value, category and source;
   - clicking the map lists every feature under the click in a panel at the
     bottom left, and highlights them (clicking empty ground shows the lat/long);
   - the AOI is always on, and its buffers can be switched on.
@@ -23,7 +23,8 @@ What is different, because the engine gives the maps different inputs:
 
   - the features come from the GeoPackages the run saves (one per dataset per
     AOI part) rather than a file geodatabase of clipped feature classes;
-  - the overview is grouped by registry: a registry carries no category;
+  - a dataset whose registry gives it no category is grouped, on the overview,
+    under the name of its registry;
   - colours come from a fixed palette, in order, so the same data always makes
     the same map (the ArcGIS Pro tool picked them at random);
   - a file dataset's source is shown by file name only, so a map does not carry
@@ -122,7 +123,7 @@ FOOTER_OFFSET_PX = 20
 # with a dataset's own columns.
 _COLOUR_COL = "__colour__"
 _TITLE_COL = "__layer__"
-_GROUP_COL = "__registry__"
+_GROUP_COL = "__category__"
 _SOURCE_COL = "__source__"
 
 # Columns the operators add to the saved features: a feature's own overlap or
@@ -135,8 +136,10 @@ class MapLayer:
     """One dataset to map: what to call it and where its features are.
 
     title             the dataset's name, shown as the map title and layer name.
-    group             the registry the dataset came from; the overview map
-                      groups its layers by this.
+    group             the heading the overview map lists the dataset under: its
+                      category, or the registry it came from when it has none.
+    key               the caller's own id for the dataset, handed back on the
+                      map that is written for it so the two can be matched up.
     datasource        the table or file the dataset was read from.
     paths             the GeoPackages holding the features the run matched, one
                       per AOI part (the run's spatial output).
@@ -153,6 +156,7 @@ class MapLayer:
     paths: tuple[Path, ...]
     summarize_fields: tuple[str, ...] = ()
     buffer_m: Optional[float] = None
+    key: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -163,11 +167,13 @@ class MapOutput:
            underscores only, so it is safe in a URL and a storage key.
     title  the title shown on the map.
     path   where the file is.
+    key    the key of the MapLayer the map was made from; None for the overview.
     """
 
     name: str
     title: str
     path: Path
+    key: Optional[str] = None
 
 
 def generate_html_maps(
@@ -220,7 +226,7 @@ def generate_html_maps(
             name = _unique_name(_slug(f"{layer.group}__{layer.title}"), used_names)
             path = out_dir / f"{name}.html"
             _write_dataset_map(path, layer, prepared, aoi_web, buffers_web, logo, map_date)
-            outputs.append(MapOutput(name=name, title=layer.title, path=path))
+            outputs.append(MapOutput(name=name, title=layer.title, path=path, key=layer.key))
 
             group = _add_overview_layer(overview, layer, prepared)
             overview_groups.setdefault(layer.group.upper(), []).append(group)
@@ -293,7 +299,7 @@ def _prepare_layer(layer: MapLayer) -> Optional[_PreparedLayer]:
     gdf[_GROUP_COL] = _html_text(layer.group)
     gdf[_SOURCE_COL] = _html_text(_display_source(layer.datasource))
     hover_fields = [_TITLE_COL, _GROUP_COL, _SOURCE_COL]
-    hover_aliases = ["LAYER", "REGISTRY", "SOURCE"]
+    hover_aliases = ["LAYER", "CATEGORY", "SOURCE"]
     display_columns = [_COLOUR_COL, *hover_fields]
     if label_field:
         hover_label = f"__hover_{label_field}__"

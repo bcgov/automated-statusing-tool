@@ -11,6 +11,8 @@ from .models import (
     RAW_RESULTS_KEY,
     MANIFEST_KEY,
     MAP_ARTIFACT_PREFIX,
+    REPORT_KEY,
+    REPORT_CONTENT_TYPE,
     map_key,
 )
 from .writer import ResultsStorageWriter
@@ -35,6 +37,7 @@ class ResultsPublisher:
         validation_report_json: Optional[Path] = None,
         operator_outputs: Optional[List[OperatorArtifact]] = None,
         map_outputs: Optional[List[MapArtifact]] = None,
+        report_xlsx: Optional[Path] = None,
         extracted_pmtiles: Optional[Path] = None,
         request_parameters_yaml: Optional[Path] = None,
         aoi_geojson: Optional[Path] = None,
@@ -136,6 +139,14 @@ class ResultsPublisher:
                     checksum=True,
                     extra_metadata=item_metadata,
                 )
+
+        if report_xlsx:
+            upload_artifact(
+                "report",
+                report_xlsx,
+                REPORT_KEY,
+                REPORT_CONTENT_TYPE,
+            )
 
         if map_outputs:
             for item in map_outputs:

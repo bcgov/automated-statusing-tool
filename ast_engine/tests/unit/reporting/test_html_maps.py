@@ -61,6 +61,7 @@ def _layer(path: Path, **overrides) -> MapLayer:
         "datasource": "WHSE_PARKS.PARKS_SVW",
         "paths": (path,),
         "summarize_fields": ("PARK_CLASS",),
+        "key": "parks-id",
     }
     values.update(overrides)
     return MapLayer(**values)
@@ -77,6 +78,8 @@ def test_writes_the_overview_first_then_one_map_per_dataset(aoi, tmp_path):
     assert [output.name for output in outputs] == [OVERVIEW_MAP_NAME, "provincial__Parks"]
     assert [output.title for output in outputs] == ["Overview Map - All Overlaps", "Parks"]
     assert all(output.path.is_file() for output in outputs)
+    # Each dataset's map carries its layer's key back; the overview has none.
+    assert [output.key for output in outputs] == [None, "parks-id"]
     assert outputs[1].path == tmp_path / "maps" / "provincial__Parks.html"
 
 

@@ -10,6 +10,8 @@ from .models import (
     RAW_RESULTS_KEY,
     MANIFEST_KEY,
     MAP_ARTIFACT_PREFIX,
+    REPORT_KEY,
+    REPORT_CONTENT_TYPE,
     map_key,
 )
 from .s3_writer import S3ResultsStorageWriter

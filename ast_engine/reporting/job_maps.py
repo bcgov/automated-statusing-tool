@@ -16,7 +16,7 @@ from ast_engine.core.results import AstResults
 
 from .html_maps import MapLayer
 
-# The group a hand-built task is mapped under: it came from no registry.
+# The group a task is mapped under when it has no category and came from no registry.
 UNGROUPED = "datasets"
 
 
@@ -41,11 +41,12 @@ def build_map_layers(tasks: Sequence[AnalysisTask], results: AstResults) -> list
         layers.append(
             MapLayer(
                 title=task.dataset_name,
-                group=task.source_registry or UNGROUPED,
+                group=task.category or task.source_registry or UNGROUPED,
                 datasource=task.datasource,
                 paths=paths,
                 summarize_fields=tuple(task.keep_properties),
                 buffer_m=task.distance_m,
+                key=task.dataset_id,
             )
         )
     return layers

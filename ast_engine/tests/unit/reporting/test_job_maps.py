@@ -56,6 +56,7 @@ def test_a_dataset_becomes_a_layer_over_its_saved_features():
     [layer] = build_map_layers([task], results)
 
     assert layer.title == "Parks"
+    assert layer.key == "Parks"
     assert layer.group == "provincial"
     assert layer.datasource == "WHSE.PARKS"
     assert layer.paths == (Path("/work/Parks_part_1.gpkg"), Path("/work/Parks_part_2.gpkg"))
@@ -82,6 +83,15 @@ def test_a_dataset_with_no_saved_features_is_left_out():
     )
 
     assert [layer.title for layer in build_map_layers(tasks, results)] == ["Parks"]
+
+
+def test_a_dataset_is_grouped_by_its_category_when_it_has_one():
+    task = _task("Parks", category="Critical Conflicts", source_registry="provincial")
+    results = _results(_group("Parks", "/work/Parks_part_1.gpkg", total_area=1.0))
+
+    [layer] = build_map_layers([task], results)
+
+    assert layer.group == "Critical Conflicts"
 
 
 def test_a_task_built_by_hand_is_mapped_under_a_default_group():

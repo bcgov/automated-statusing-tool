@@ -18,8 +18,8 @@ class LocalResultsStorageReader(ResultsStorageReader):
         self.context = context
         self.keys = ResultsKeyBuilder(config, context)
 
-    def get_text(self, relative_key: str) -> str:
+    def get_bytes(self, relative_key: str) -> bytes:
         source = self.config.local_root / self.keys.key(relative_key)
 
-        # Path.read_text already raises FileNotFoundError for a missing file.
-        return source.read_text(encoding="utf-8")
+        # Path.read_bytes already raises FileNotFoundError for a missing file.
+        return source.read_bytes()

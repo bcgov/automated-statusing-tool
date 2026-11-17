@@ -13,10 +13,18 @@ class ResultsStorageReader(ABC):
     """
 
     @abstractmethod
+    def get_bytes(self, relative_key: str) -> bytes:
+        """
+        Return the bytes stored under a key relative to the job's folder.
+
+        Raises FileNotFoundError when nothing is stored under that key.
+        """
+        raise NotImplementedError
+
     def get_text(self, relative_key: str) -> str:
         """
         Return the text stored under a key relative to the job's folder.
 
         Raises FileNotFoundError when nothing is stored under that key.
         """
-        raise NotImplementedError
+        return self.get_bytes(relative_key).decode("utf-8")

@@ -16,6 +16,12 @@ RETRY_MODE = "standard"
 # publisher writes them here and whatever serves them reads them from here.
 RAW_RESULTS_KEY = "results/results.raw.json"
 
+# The job's status report (the Excel workbook). It sits at the top of the job's
+# folder, beside the maps folder, so its "maps/<name>.html" links still work in
+# a copy of the folder.
+REPORT_KEY = "status-report.xlsx"
+REPORT_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
 # The job's manifest: the list of everything published for it.
 MANIFEST_KEY = "manifest.json"
 

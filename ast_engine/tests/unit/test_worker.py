@@ -6,12 +6,14 @@ The worker's settings are replaced with ones that carry no BCGW login, so these
 tests never open a real connection whatever is in the developer's own .env.
 """
 
+import io
 import json
 from datetime import UTC, datetime
 from unittest.mock import MagicMock
 from uuid import uuid4
 
 import geopandas as gpd
+import openpyxl
 import pytest
 
 from ast_engine.config.registry import enrichment, utils
@@ -23,6 +25,7 @@ from ast_engine.entry.worker import AstJob, JobStatus, run_worker
 from ast_engine.storage import (
     MANIFEST_KEY,
     RAW_RESULTS_KEY,
+    REPORT_KEY,
     JobStorageContext,
     create_results_reader,
     created_date,
@@ -193,11 +196,13 @@ def test_a_job_that_asks_to_export_overlap_results_publishes_the_features(
     assert [name for name in artifacts if name.startswith("map_")] == []
 
 
-def test_a_job_that_asks_for_neither_publishes_the_results_only(worker_settings, file_registry, aoi_geojson):
+def test_a_job_that_asks_for_neither_publishes_the_results_and_the_report(
+    worker_settings, file_registry, aoi_geojson
+):
     job = run_worker(_job(file_registry, aoi_geojson), publish=True)
 
     _, artifacts = _published(job)
-    assert artifacts == ["raw_results"]
+    assert artifacts == ["raw_results", "report"]
 
 
 def test_a_job_still_completes_when_its_maps_cannot_be_made(
@@ -210,6 +215,83 @@ def test_a_job_still_completes_when_its_maps_cannot_be_made(
     monkeypatch.setattr(worker, "generate_html_maps", broken)
 
     job = run_worker(_job(file_registry, aoi_geojson, generate_maps=True), publish=True)
+
+    assert job.status == JobStatus.COMPLETED
+    _, artifacts = _published(job)
+    assert artifacts == ["raw_results", "report"]
+
+
+# --- The status report -------------------------------------------------------
+def _report(job: AstJob) -> openpyxl.Workbook:
+    """The status report the job published, opened as a workbook."""
+    reader, _ = _published(job)
+    return openpyxl.load_workbook(io.BytesIO(reader.get_bytes(REPORT_KEY)))
+
+
+def _cells(sheet) -> dict[str, str]:
+    """Every filled cell of a sheet, as {coordinate: value}."""
+    return {cell.coordinate: cell.value for row in sheet.iter_rows() for cell in row if cell.value is not None}
+
+
+def test_a_published_job_has_a_status_report(worker_settings, file_registry, aoi_geojson):
+    job = run_worker(
+        _job(file_registry, aoi_geojson, region="Cariboo", crown_file_number="7410123"),
+        publish=True,
+    )
+
+    book = _report(job)
+    assert book.sheetnames == ["Conflicts & Constraints", "Data Sources"]
+    values = list(_cells(book["Conflicts & Constraints"]).values())
+    assert "Cariboo" in values and "7410123" in values
+    # The dataset is listed under its registry, having no category of its own.
+    assert "demo" in values and "Test polygons" in values
+    assert "demo" in _cells(book["Data Sources"]).values()
+
+
+def test_the_report_links_to_the_maps_the_job_made(worker_settings, file_registry, aoi_geojson):
+    job = run_worker(_job(file_registry, aoi_geojson, generate_maps=True), publish=True)
+
+    sheet = _report(job)["Conflicts & Constraints"]
+    links = {cell.value: cell.hyperlink.target for row in sheet.iter_rows() for cell in row if cell.hyperlink}
+
+    assert links == {
+        "Overview Map": "maps/00overview.html",
+        "View Map": "maps/demo__Test_polygons.html",
+    }
+
+
+def test_the_report_links_through_the_api_when_its_address_is_known(
+    monkeypatch, worker_settings, file_registry, aoi_geojson
+):
+    """A relative link only works beside the maps folder. With the API's public
+    address configured the links work from a downloaded report."""
+    monkeypatch.setattr(worker_settings, "api_public_url", "https://ast.example.gov.bc.ca/")
+
+    job = run_worker(_job(file_registry, aoi_geojson, generate_maps=True), publish=True)
+
+    sheet = _report(job)["Conflicts & Constraints"]
+    links = {cell.value: cell.hyperlink.target for row in sheet.iter_rows() for cell in row if cell.hyperlink}
+    assert links["View Map"] == f"https://ast.example.gov.bc.ca/api/jobs/{job.job_id}/maps/demo__Test_polygons"
+
+
+def test_datasets_of_an_excluded_registry_are_left_off_the_report(worker_settings, file_registry, aoi_geojson):
+    job = run_worker(
+        _job(file_registry, aoi_geojson, report_exclude_registries=("demo",)),
+        publish=True,
+    )
+
+    assert "Test polygons" not in _cells(_report(job)["Conflicts & Constraints"]).values()
+
+
+def test_a_job_still_completes_when_its_report_cannot_be_written(
+    monkeypatch, worker_settings, file_registry, aoi_geojson
+):
+    def broken(*_, **__):
+        raise RuntimeError("no report today")
+
+    monkeypatch.setattr(worker, "write_conflicts_report", broken)
+
+    job = run_worker(_job(file_registry, aoi_geojson), publish=True)
 
     assert job.status == JobStatus.COMPLETED
     _, artifacts = _published(job)

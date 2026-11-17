@@ -126,3 +126,10 @@
   max-height: 200px; // a status can make a map for every dataset, so the list scrolls
   overflow-y: auto;
 }
+
+// The links to a finished job's outputs, side by side.
+.job-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
