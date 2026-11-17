@@ -118,3 +118,11 @@
     margin: 0 0 4px;
   }
 }
+
+// The list of a job's maps, under the results link.
+.job-maps {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  max-height: 200px; // a status can make a map for every dataset, so the list scrolls
+  overflow-y: auto;
+}

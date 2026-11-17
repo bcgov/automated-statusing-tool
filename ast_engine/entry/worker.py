@@ -15,9 +15,10 @@ from ast_engine.core.execution import run_analysis, build_tasks
 from ast_engine.core.results import AstResults
 from ast_engine.core.data_adapters.oracle import OracleConnection
 from ast_engine.utils.diagnostics import DiagnosticTracker
+from ast_engine.reporting import MapOutput, build_map_layers, generate_html_maps
 from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, created_date, JobStorageContext
-from ast_engine.storage.models import OperatorArtifact
+from ast_engine.storage.models import MapArtifact, OperatorArtifact
 from ast_engine.config.settings import Settings
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,10 @@ class AstJob(BaseModel):
     status: Optional [JobStatus]
     # why the job failed, in words a user can act on; None unless status is FAILED
     error: Optional[str] = None
+    # make an HTML map per dataset, plus an overview map, and publish them
+    generate_maps: bool = False
+    # publish the features each dataset matched, as GeoPackages
+    export_overlap_results: bool = False
 
 
 def open_oracle_connection(settings: Settings) -> Optional[OracleConnection]:
@@ -85,8 +90,50 @@ def _job_work_dir(job_id: UUID) -> Path:
     return root / str(job_id)
 
 
-def publish_results(job: AstJob, ast_results: AstResults):
+def _run_settings(job: AstJob) -> Optional[Settings]:
+    """The settings one job's analysis runs with, or None to use the defaults.
+
+    The features a dataset matched are only saved when record_spatial is on.
+    Maps are drawn from those saved features, and exporting the overlap results
+    publishes them, so a job that asks for either has them saved - into the
+    job's own work folder - whatever the worker's own setting is.
+    """
+    if not (job.generate_maps or job.export_overlap_results):
+        return None
+    return settings.model_copy(update={
+        "record_spatial": True,
+        "temp_dir": str(_job_work_dir(job.job_id) / "spatial"),
+    })
+
+
+def _generate_maps(job: AstJob, aoi, tasks, ast_results: AstResults) -> list[MapOutput]:
+    """Make the job's HTML maps and return them; an empty list if it cannot.
+
+    Maps are an extra on top of the results. If they cannot be made the job
+    still completes with its results, and the reason is in the log.
+    """
+    try:
+        return generate_html_maps(
+            aoi=aoi.gdf,
+            layers=build_map_layers(tasks, ast_results),
+            out_dir=_job_work_dir(job.job_id) / "maps",
+        )
+    except Exception:
+        logger.exception("Could not create the maps for job %s; publishing without them", job.job_id)
+        return []
+
+
+def publish_results(
+    job: AstJob,
+    ast_results: AstResults,
+    maps: Optional[list[MapOutput]] = None,
+    publish_spatial: bool = True,
+):
     # Publishes AstResults to local disk storage or S3
+    #
+    # maps: the job's HTML maps, published alongside the results.
+    # publish_spatial: False leaves the saved features (GeoPackages) unpublished -
+    # for a job that had them saved only to draw its maps from.
 
     logging.debug("Publish [job-id: %s]: Started",job.job_id)
     job.status = JobStatus.PUBLISHING
@@ -102,7 +149,7 @@ def publish_results(job: AstJob, ast_results: AstResults):
     for dataset_group in ast_results.results:
         for part in dataset_group.parts:
             result = part.result
-            if result.spatial_link:
+            if publish_spatial and result.spatial_link:
                 operator_output = OperatorArtifact(registry=result.registry,operator=result.operator_type.value,dataset_name=dataset_group.dataset_name,path=result.spatial_link,part_id=part.aoi_part_id)
                 operator_outputs.append(operator_output)
     
@@ -123,7 +170,8 @@ def publish_results(job: AstJob, ast_results: AstResults):
         status="success",
         engine_version="1.0.0", # TODO: draw from config
         raw_results_json=raw_results_file,
-        operator_outputs=operator_outputs
+        operator_outputs=operator_outputs,
+        map_outputs=[MapArtifact(name=item.name, title=item.title, path=item.path) for item in maps or []],
         # Include other optional paths as they become available:
         # extracted_gpkg=..., 
         # aoi_geojson=...,
@@ -194,13 +242,22 @@ def run_worker(
             job_id=job.job_id,
             oracle_connection=oracle_connection,
             tracker=tracker,
-            settings=None
+            settings=_run_settings(job)
         )
         # TODO: what to do with tracker info?
 
+        maps = _generate_maps(job, aoi, tasks, ast_results) if job.generate_maps else []
+
         # option pubilsh results
         if publish is True:
-            publish_results(job=job, ast_results=ast_results)
+            publish_results(
+                job=job,
+                ast_results=ast_results,
+                maps=maps,
+                # The saved features are published when the job asked for them, or
+                # when the worker is set to keep them for every job.
+                publish_spatial=job.export_overlap_results or settings.record_spatial,
+            )
         job.status = JobStatus.COMPLETED
     except AOIError as e:
         # The area of interest itself is the problem (no usable geometry, too

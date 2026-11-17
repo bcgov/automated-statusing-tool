@@ -77,7 +77,27 @@ login. It is built by `scripts/build_demo_registry.py`.
 | `POST /api/jobs` | `201` with the queued job. `422` when the form or the uploaded file cannot be used, `413` when the file is over `max_upload_bytes`. |
 | `GET /api/jobs/{job_id}` | The job and its status: `Queued`, `Processing`, `Completed` or `Failed` (with `error`). `404` when there is no such job. |
 | `GET /api/jobs/{job_id}/results` | The published results of a completed job. `409` while the job has not completed or when it failed, `404` when there is no such job. |
+| `GET /api/jobs/{job_id}/maps` | The HTML maps published for a completed job, as `name` and `title`, the overview first. Empty when the job made none. |
+| `GET /api/jobs/{job_id}/maps/{map_name}` | One map, as a page to open in the browser. |
 | `GET /api/jobs` | The jobs still waiting on the queue. |
+
+## Maps and exported overlap results
+
+Two switches on the form change what the worker publishes besides the results
+document:
+
+| Switch | What the worker does |
+| --- | --- |
+| Generate Maps | Writes one HTML map per dataset that found features, and an overview map of them all, and publishes them under `maps/`. |
+| Export Overlap Results | Publishes the features each dataset matched, as one GeoPackage per dataset per AOI part, under `data/`. |
+
+Both are built from the features a run saves, so a job that asks for either has
+them saved for that run whatever `RECORD_SPATIAL` is set to. The maps are made
+by `ast_engine/reporting/html_maps.py`, which carries over the map output of the
+ArcGIS Pro Automated Status Tool; its module docstring lists what is the same
+and what differs. A map is a single HTML file with its data inside it. It loads
+Leaflet, Turf and BC Sans from public CDNs and basemap tiles from GeoBC and
+Esri, so the browser opening it needs internet access.
 
 ## Settings
 
@@ -127,7 +147,8 @@ fake and results storage on local disk.
 ## Not done yet
 
 - The API does not check the login token the frontend holds.
-- `Generate Maps` and `Export Overlap Results` are carried on the job but
-  nothing acts on them: the worker publishes the results document only.
+- The spreadsheet report (the ArcGIS Pro tool's three tabs) is not produced;
+  the published results are the `AstResults` document and, when asked for,
+  the maps and GeoPackages.
 - The `jobs` table in SQLite keeps the status a job was created with; the live
   status is the record in Redis.

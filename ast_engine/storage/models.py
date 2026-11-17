@@ -16,6 +16,26 @@ RETRY_MODE = "standard"
 # publisher writes them here and whatever serves them reads them from here.
 RAW_RESULTS_KEY = "results/results.raw.json"
 
+# The job's manifest: the list of everything published for it.
+MANIFEST_KEY = "manifest.json"
+
+# Manifest names of a job's HTML maps start with this, followed by the map's name.
+MAP_ARTIFACT_PREFIX = "map_"
+
+
+def map_key(name: str) -> str:
+    """Where one HTML map sits, relative to the job's folder in storage."""
+    return f"maps/{name}.html"
+
+
+@dataclass
+class MapArtifact:
+    # the map's file name without ".html"; safe in a URL and a storage key
+    name: str
+    # the title shown on the map
+    title: str
+    path: Path
+
 @dataclass
 class OperatorArtifact:
     registry: str

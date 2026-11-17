@@ -11,7 +11,13 @@ from fastapi.testclient import TestClient
 import ast_api.database as database
 import ast_api.main as api_main
 from ast_api.tests.fakes import FakeRedis
-from ast_engine.storage import JobStorageContext, RAW_RESULTS_KEY, create_results_writer
+from ast_engine.storage import (
+    JobStorageContext,
+    MANIFEST_KEY,
+    RAW_RESULTS_KEY,
+    create_results_writer,
+    map_key,
+)
 from shared_models.job_store import JobStatusStore
 from shared_models.models import JobStatus
 
@@ -409,3 +415,98 @@ def test_results_returns_404_when_nothing_was_published(client, sample_job_paylo
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Results not found"
+
+
+# --- Maps --------------------------------------------------------------------
+def _publish_maps(item: dict, maps: dict[str, str]) -> None:
+    """Publish a completed job's maps the way the worker does: one page per map
+    and a manifest that lists them. maps is {name: title}."""
+    context = JobStorageContext(job_id=item["job_id"], created_date=item["created_at"][:10])
+    writer = create_results_writer(context)
+    artifacts = {"raw_results": {"key": RAW_RESULTS_KEY, "content_type": "application/json"}}
+    for name, title in maps.items():
+        writer.put_text(f"<html><title>{title}</title></html>", map_key(name), content_type="text/html")
+        artifacts[f"map_{name}"] = {
+            "key": map_key(name),
+            "content_type": "text/html",
+            "metadata": {"title": title},
+        }
+    writer.put_text(json.dumps({"artifacts": artifacts}), MANIFEST_KEY, content_type="application/json")
+    _set_status(item["job_id"], status=JobStatus.COMPLETED)
+
+
+def test_maps_lists_the_published_maps_in_order(client, sample_job_payload, local_results):
+    item = client.post("/api/jobs", data=sample_job_payload).json()["item"]
+    _publish_maps(item, {"00overview": "Overview Map - All Overlaps", "provincial__Parks": "Parks"})
+
+    response = client.get(f"/api/jobs/{item['job_id']}/maps")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "00overview", "title": "Overview Map - All Overlaps"},
+        {"name": "provincial__Parks", "title": "Parks"},
+    ]
+
+
+def test_maps_is_empty_for_a_job_published_without_maps(client, sample_job_payload, local_results):
+    item = client.post("/api/jobs", data=sample_job_payload).json()["item"]
+    _publish_maps(item, {})
+
+    assert client.get(f"/api/jobs/{item['job_id']}/maps").json() == []
+
+
+def test_map_returns_the_page(client, sample_job_payload, local_results):
+    item = client.post("/api/jobs", data=sample_job_payload).json()["item"]
+    _publish_maps(item, {"provincial__Parks": "Parks"})
+
+    response = client.get(f"/api/jobs/{item['job_id']}/maps/provincial__Parks")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert "<title>Parks</title>" in response.text
+
+
+def test_map_returns_404_for_a_map_the_job_does_not_have(client, sample_job_payload, local_results):
+    item = client.post("/api/jobs", data=sample_job_payload).json()["item"]
+    _publish_maps(item, {"provincial__Parks": "Parks"})
+
+    response = client.get(f"/api/jobs/{item['job_id']}/maps/provincial__Wells")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Map not found"
+
+
+@pytest.mark.parametrize("map_name", ["..", "../manifest", "a.b", "a/b", "", "name with space"])
+def test_map_name_pattern_accepts_plain_names_only(map_name):
+    assert api_main.MAP_NAME_PATTERN.fullmatch(map_name) is None
+    assert api_main.MAP_NAME_PATTERN.fullmatch("provincial__Parks-2")
+
+
+@pytest.mark.parametrize("map_name", ["a.b", "%2e%2e%2fmanifest", "name with space"])
+def test_map_name_cannot_reach_outside_the_maps_folder(client, sample_job_payload, local_results, map_name):
+    """The name becomes part of a storage key, so anything but a plain map name
+    is refused before storage is touched."""
+    item = client.post("/api/jobs", data=sample_job_payload).json()["item"]
+    _publish_maps(item, {"provincial__Parks": "Parks"})
+
+    response = client.get(f"/api/jobs/{item['job_id']}/maps/{map_name}")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("route", ["maps", "maps/provincial__Parks"])
+def test_maps_are_not_ready_until_the_job_completes(client, sample_job_payload, route):
+    job_id = client.post("/api/jobs", data=sample_job_payload).json()["item"]["job_id"]
+
+    response = client.get(f"/api/jobs/{job_id}/{route}")
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Job has no results yet (status: Queued)"
+
+
+@pytest.mark.parametrize("route", ["maps", "maps/provincial__Parks"])
+def test_maps_return_404_for_missing_job(client, route):
+    response = client.get(f"/api/jobs/missing-job-id/{route}")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Job not found"

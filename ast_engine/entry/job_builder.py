@@ -161,4 +161,6 @@ def build_ast_job(
         aoi_name=_aoi_name(item),
         aoi=resolve_aoi(item, oracle_connection),
         status=JobStatus.QUEUED,
+        generate_maps=item.generate_maps,
+        export_overlap_results=item.export_overlap_results,
     )

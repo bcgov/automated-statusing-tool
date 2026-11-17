@@ -118,6 +118,37 @@ def test_an_uploaded_job_runs_from_submission_to_results(client, redis_client, w
     assert by_dataset["Roads"]["parts"][0]["result"]["feature_count"] == ROADS_WITHIN_100M
 
 
+def test_a_job_that_asks_for_maps_gets_them(client, redis_client, worker_settings):
+    """Generate Maps on the form carries through to pages the browser can open."""
+    submitted = client.post(
+        "/api/jobs",
+        data={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "region": "Cariboo",
+            "source": "2",
+            "generate_maps": "true",
+        },
+        files={"upload_file": (AOI_FILE.name, AOI_FILE.read_bytes(), "application/vnd.google-earth.kml+xml")},
+    )
+    job_id = submitted.json()["item"]["job_id"]
+
+    record = handle_message(
+        redis_client.lpop(api_main.settings.job_queue),
+        JobStatusStore(redis_client),
+        worker_settings,
+    )
+    assert record.status == JobStatus.COMPLETED, record.error
+
+    maps = client.get(f"/api/jobs/{job_id}/maps").json()
+    assert [item["title"] for item in maps] == ["Overview Map - All Overlaps", "Parcels", "Roads"]
+
+    for item in maps:
+        page = client.get(f"/api/jobs/{job_id}/maps/{item['name']}")
+        assert page.status_code == 200
+        assert f"<title>{item['title']}</title>" in page.text
+
+
 def test_a_job_the_worker_cannot_run_is_reported_to_the_browser(client, redis_client, worker_settings):
     """A TANTALIS job needs BCGW. With no login on the worker the job fails, and
     the browser is told why rather than left waiting."""

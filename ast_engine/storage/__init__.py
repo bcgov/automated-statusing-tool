@@ -3,7 +3,15 @@
 import logging
 from pathlib import Path
 
-from .models import StorageConfig, JobStorageContext, RAW_RESULTS_KEY
+from .models import (
+    StorageConfig,
+    JobStorageContext,
+    MapArtifact,
+    RAW_RESULTS_KEY,
+    MANIFEST_KEY,
+    MAP_ARTIFACT_PREFIX,
+    map_key,
+)
 from .s3_writer import S3ResultsStorageWriter
 from .local_writer import LocalResultsStorageWriter
 from .writer import ResultsStorageWriter

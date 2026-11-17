@@ -231,6 +231,42 @@ def test_publisher_gives_each_aoi_part_its_own_file(tmp_path: Path):
     assert len(gpkg_entries) == 2
 
 
+@pytest.mark.unit
+def test_publisher_publishes_maps_under_their_names(tmp_path: Path):
+    """Each HTML map is uploaded to maps/<name>.html and listed in the manifest
+    as map_<name> with its title, which is how the API finds and labels it."""
+    from ast_engine.storage.models import MapArtifact
+
+    mock_writer = MagicMock()
+    mock_writer.put_file.return_value = "mock-uri"
+    publisher = ResultsPublisher(mock_writer)
+
+    raw_results = tmp_path / "raw_results.json"
+    raw_results.write_text("{}", encoding="utf-8")
+    overview = tmp_path / "00overview.html"
+    overview.write_text("<html></html>", encoding="utf-8")
+
+    publisher.publish_job_results(
+        job_id=UUID("12345678-1234-5678-1234-567812345678"),
+        user="tester",
+        created_at="2026-09-25T10:00:00Z",
+        completed_at="2026-09-25T10:01:00Z",
+        execution_time=60,
+        status="COMPLETED",
+        engine_version="0.1.0",
+        raw_results_json=raw_results,
+        map_outputs=[MapArtifact(name="00overview", title="Overview Map - All Overlaps", path=overview)],
+    )
+
+    keys = [call.args[1] for call in mock_writer.put_file.call_args_list]
+    assert "maps/00overview.html" in keys
+    manifest = json.loads(mock_writer.put_text.call_args.args[0])
+    entry = manifest["artifacts"]["map_00overview"]
+    assert entry["key"] == "maps/00overview.html"
+    assert entry["content_type"] == "text/html"
+    assert entry["metadata"] == {"title": "Overview Map - All Overlaps"}
+
+
 # ============================================================================
 # 6. Reader Tests
 # ============================================================================

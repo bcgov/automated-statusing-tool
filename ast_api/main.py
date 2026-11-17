@@ -1,6 +1,7 @@
 #main to run the fastapi backend connection to the ast_engine
 import json
 import logging
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
@@ -15,7 +16,16 @@ from fastapi.concurrency import run_in_threadpool
 from .aoi_upload import AoiUploadError, read_aoi_upload
 from .config.settings import Settings
 from .database import create_job, create_table, get_jobs
-from ast_engine.storage import JobStorageContext, RAW_RESULTS_KEY, create_results_reader, created_date
+from ast_engine.storage import (
+    JobStorageContext,
+    MANIFEST_KEY,
+    MAP_ARTIFACT_PREFIX,
+    RAW_RESULTS_KEY,
+    ResultsStorageReader,
+    create_results_reader,
+    created_date,
+    map_key,
+)
 from shared_models.job_store import JobStatusStore
 from shared_models.models import CreateJob, JobQueueItem, JobStatus
 
@@ -32,6 +42,11 @@ redis_client = redis.Redis(
     password=settings.redis_password.get_secret_value() if settings.redis_password else None,
     decode_responses=True,
 )
+
+
+# What a map's name may hold: the characters the engine names its maps with.
+# Checked before a name from the URL is used to build a storage key.
+MAP_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 def get_job_store() -> JobStatusStore:
@@ -190,12 +205,11 @@ def get_job_by_id(job_id: str, store: JobStatusStore = Depends(get_job_store)):
     return job
 
 
-@app.get("/api/jobs/{job_id}/results")
-def get_job_results(job_id: str, store: JobStatusStore = Depends(get_job_store)):
-    """The results the engine published for one completed job.
+def _published_job_reader(job_id: str, store: JobStatusStore) -> ResultsStorageReader:
+    """Return a reader over what the engine published for one completed job.
 
-    Returned as the worker wrote them (an AstResults document). A job that has
-    not completed has none: the response says where the job is, or why it failed.
+    A job that has not completed has nothing published: the error says where
+    the job is, or why it failed.
     """
     job = store.get(job_id)
     if not job:
@@ -214,8 +228,18 @@ def get_job_results(job_id: str, store: JobStatusStore = Depends(get_job_store))
     # The worker files a job's results by its id and the day it was created;
     # created_date() gives both sides the same day.
     context = JobStorageContext(job_id=job.job_id, created_date=created_date(job.created_at))
+    return create_results_reader(context)
+
+
+@app.get("/api/jobs/{job_id}/results")
+def get_job_results(job_id: str, store: JobStatusStore = Depends(get_job_store)):
+    """The results the engine published for one completed job.
+
+    Returned as the worker wrote them (an AstResults document).
+    """
+    reader = _published_job_reader(job_id, store)
     try:
-        results = create_results_reader(context).get_text(RAW_RESULTS_KEY)
+        results = reader.get_text(RAW_RESULTS_KEY)
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -223,6 +247,53 @@ def get_job_results(job_id: str, store: JobStatusStore = Depends(get_job_store))
         ) from exc
     # Already JSON, as published - passed through without being parsed again.
     return Response(content=results, media_type="application/json")
+
+
+@app.get("/api/jobs/{job_id}/maps")
+def get_job_maps(job_id: str, store: JobStatusStore = Depends(get_job_store)):
+    """The HTML maps published for one completed job, the overview first.
+
+    Each item is a map's name, to fetch it by, and its title, to show. The list
+    is empty for a job that was not asked for maps, or found nothing to map.
+    """
+    reader = _published_job_reader(job_id, store)
+    try:
+        manifest = json.loads(reader.get_text(MANIFEST_KEY))
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Results not found",
+        ) from exc
+
+    # The manifest lists every published artifact; the maps are the ones named
+    # "map_<name>", in the order the engine wrote them.
+    return [
+        {
+            "name": artifact_name.removeprefix(MAP_ARTIFACT_PREFIX),
+            "title": (artifact.get("metadata") or {}).get("title", ""),
+        }
+        for artifact_name, artifact in manifest.get("artifacts", {}).items()
+        if artifact_name.startswith(MAP_ARTIFACT_PREFIX)
+    ]
+
+
+@app.get("/api/jobs/{job_id}/maps/{map_name}")
+def get_job_map(job_id: str, map_name: str, store: JobStatusStore = Depends(get_job_store)):
+    """One of a completed job's HTML maps, as a page to open in the browser."""
+    # The name goes into a storage key, so it is held to the characters a map
+    # name can have before anything is read.
+    if not MAP_NAME_PATTERN.fullmatch(map_name):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map not found")
+
+    reader = _published_job_reader(job_id, store)
+    try:
+        page = reader.get_text(map_key(map_name))
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Map not found",
+        ) from exc
+    return Response(content=page, media_type="text/html")
 
 
 @app.get("/api/debug/queue")

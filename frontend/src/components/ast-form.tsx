@@ -50,6 +50,13 @@ interface SubmittedJob {
   error: string | null;
 }
 
+// One of a job's maps, as the API lists them.
+// name is used to open the map. title is the text shown for it.
+interface JobMap {
+  name: string;
+  title: string;
+}
+
 // Values for the two Source radio buttons.
 const SOURCE_TANTALIS = "1";
 const SOURCE_UPLOAD = "2";
@@ -102,6 +109,9 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
   const [previewMessage, setPreviewMessage] = useState<string>("");
   // The job created by the last Submit, or null if nothing has been submitted yet.
   const [job, setJob] = useState<SubmittedJob | null>(null);
+  // The maps made for the submitted job. Empty until the job completes, and for
+  // a job submitted with Generate Maps off.
+  const [jobMaps, setJobMaps] = useState<JobMap[]>([]);
   // Message shown under the buttons when a submission is refused. Empty = no message.
   const [submitMessage, setSubmitMessage] = useState<string>("");
   // True while a submission is being sent, so Submit can't be clicked twice.
@@ -141,6 +151,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     setPreviewMessage("");
     setSubmitMessage("");
     setJob(null);
+    setJobMaps([]);
     clearFileInput();
   };
 
@@ -208,9 +219,42 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     return () => window.clearTimeout(timer);
   }, [job]);
 
+  // Once the job completes, ask the API which maps were made for it.
+  // jobId and status are read into their own values so this runs when one of
+  // them changes, not on every status check.
+  const jobId = job?.jobId;
+  const jobStatus = job?.status;
+  useEffect(() => {
+    if (!jobId || jobStatus !== JOB_STATUS_COMPLETED) {
+      return;
+    }
+    // Lets a response that arrives after the form was cleared be ignored.
+    let cancelled = false;
+    fetch(`/api/jobs/${jobId}/maps`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then((maps: JobMap[]) => {
+        if (!cancelled) {
+          setJobMaps(maps);
+        }
+      })
+      .catch((error) => {
+        // The results are still available without the maps list.
+        console.error("Job maps request failed:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobId, jobStatus]);
+
   // Runs when Submit is clicked. Sends the form to the API, which queues the job.
   async function handleSubmission() {
     setSubmitMessage("");
+    setJobMaps([]);
     setIsSubmitting(true);
     try {
       const formData = new FormData();
@@ -420,6 +464,19 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
             <a href={`/api/jobs/${job.jobId}/results`} target="_blank" rel="noreferrer">
               View results
             </a>
+          )}
+          {/* The job's maps, the overview first. Each opens in a new tab.
+              Only shown when the job made maps. */}
+          {jobMaps.length > 0 && (
+            <ul className="job-maps">
+              {jobMaps.map((map) => (
+                <li key={map.name}>
+                  <a href={`/api/jobs/${job.jobId}/maps/${map.name}`} target="_blank" rel="noreferrer">
+                    {map.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
       )}

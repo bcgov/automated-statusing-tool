@@ -21,10 +21,12 @@ from ast_engine.core.results import AstResults
 from ast_engine.entry import worker
 from ast_engine.entry.worker import AstJob, JobStatus, run_worker
 from ast_engine.storage import (
+    MANIFEST_KEY,
     RAW_RESULTS_KEY,
     JobStorageContext,
     create_results_reader,
     created_date,
+    map_key,
 )
 
 pytestmark = pytest.mark.unit
@@ -65,7 +67,7 @@ def aoi_geojson(test_data_dir) -> dict:
     return json.loads(gdf[[gdf.geometry.name]].to_crs("EPSG:4326").to_json())
 
 
-def _job(registry: Registry, aoi: dict) -> AstJob:
+def _job(registry: Registry, aoi: dict, **options) -> AstJob:
     return AstJob(
         job_id=uuid4(),
         registries=[("demo", registry)],
@@ -75,7 +77,16 @@ def _job(registry: Registry, aoi: dict) -> AstJob:
         aoi_name="Test AOI",
         aoi=aoi,
         status=JobStatus.QUEUED,
+        **options,
     )
+
+
+def _published(job: AstJob):
+    """A reader over what the job published, and its manifest's artifact names."""
+    context = JobStorageContext(job_id=job.job_id, created_date=created_date(job.created_at))
+    reader = create_results_reader(context)
+    manifest = json.loads(reader.get_text(MANIFEST_KEY))
+    return reader, sorted(manifest["artifacts"])
 
 
 def test_run_worker_completes_a_file_job_without_a_bcgw_login(
@@ -150,3 +161,56 @@ def test_run_worker_closes_the_connection_it_opened(
 
 def test_open_oracle_connection_is_skipped_without_a_login(worker_settings):
     assert worker.open_oracle_connection(worker_settings) is None
+
+
+# --- Maps and exported overlap results ---------------------------------------
+def test_a_job_that_asks_for_maps_publishes_them(worker_settings, file_registry, aoi_geojson):
+    job = run_worker(_job(file_registry, aoi_geojson, generate_maps=True), publish=True)
+
+    assert job.status == JobStatus.COMPLETED
+    reader, artifacts = _published(job)
+    assert "map_00overview" in artifacts
+    assert "map_demo__Test_polygons" in artifacts
+    assert "<title>Test polygons</title>" in reader.get_text(map_key("demo__Test_polygons"))
+
+
+def test_maps_alone_do_not_publish_the_saved_features(worker_settings, file_registry, aoi_geojson):
+    """The features are saved to draw the maps from. They are only published
+    when the job asked to export its overlap results."""
+    job = run_worker(_job(file_registry, aoi_geojson, generate_maps=True), publish=True)
+
+    _, artifacts = _published(job)
+    assert [name for name in artifacts if name.startswith("gpkg_")] == []
+
+
+def test_a_job_that_asks_to_export_overlap_results_publishes_the_features(
+    worker_settings, file_registry, aoi_geojson
+):
+    job = run_worker(_job(file_registry, aoi_geojson, export_overlap_results=True), publish=True)
+
+    _, artifacts = _published(job)
+    assert [name for name in artifacts if name.startswith("gpkg_")] != []
+    assert [name for name in artifacts if name.startswith("map_")] == []
+
+
+def test_a_job_that_asks_for_neither_publishes_the_results_only(worker_settings, file_registry, aoi_geojson):
+    job = run_worker(_job(file_registry, aoi_geojson), publish=True)
+
+    _, artifacts = _published(job)
+    assert artifacts == ["raw_results"]
+
+
+def test_a_job_still_completes_when_its_maps_cannot_be_made(
+    monkeypatch, worker_settings, file_registry, aoi_geojson
+):
+    """Maps are an extra. Failing to draw them must not cost the job its results."""
+    def broken(**_):
+        raise RuntimeError("no maps today")
+
+    monkeypatch.setattr(worker, "generate_html_maps", broken)
+
+    job = run_worker(_job(file_registry, aoi_geojson, generate_maps=True), publish=True)
+
+    assert job.status == JobStatus.COMPLETED
+    _, artifacts = _published(job)
+    assert artifacts == ["raw_results"]
