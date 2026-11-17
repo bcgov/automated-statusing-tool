@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     s3_use_ssl: bool = True
 
     # Registry storage settings
+    # registry_output_path is where the spreadsheet ingestion writes the registry
+    # yaml files, and so also where the worker loads a job's registries from.
     registry_spreadsheet_path: str | None = None
     registry_output_path: str | None = None
 
@@ -52,6 +54,9 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_database: int = 0
     redis_password: SecretStr | None = None
+    # how long a job's status record is kept in Redis after its last update.
+    # The record holds the submitter's name and email, so it is not kept forever.
+    job_status_ttl_seconds: int = 7 * 24 * 60 * 60
 
     # engine settings
     system_crs: str = "EPSG:3005"

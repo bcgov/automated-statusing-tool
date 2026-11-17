@@ -38,8 +38,8 @@ def process_job(payload: dict) -> dict:
     )
 
     completed_job = run_worker(engine_job, publish=False)
-    if completed_job is None:
-        raise RuntimeError(f"Engine failed for AOI {payload['aoi_id']}")
+    if completed_job.status == JobStatus.FAILED:
+        raise RuntimeError(f"Engine failed for AOI {payload['aoi_id']}: {completed_job.error}")
 
     return {
         "job_id": str(completed_job.job_id),

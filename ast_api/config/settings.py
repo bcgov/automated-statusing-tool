@@ -51,9 +51,15 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_database: int = 0
     redis_password: SecretStr | None = None
+    # how long a job's status record is kept in Redis after its last update.
+    # The record holds the submitter's name and email, so it is not kept forever.
+    job_status_ttl_seconds: int = 7 * 24 * 60 * 60
 
     # engine settings
     system_crs: str = "EPSG:3005"
+
+    # largest uploaded area-of-interest file the API accepts, in bytes
+    max_upload_bytes: int = 20 * 1024 * 1024
 
     model_config = SettingsConfigDict(
         env_file=".env",

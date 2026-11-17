@@ -36,13 +36,52 @@ class CreateJob(BaseModel):
     status: JobStatus = JobStatus.QUEUED
 
 
+# Values of the job "source" field: where the area of interest comes from.
+SOURCE_TANTALIS = "1"
+SOURCE_UPLOAD = "2"
+
+
 class JobQueueItem(BaseModel):
+    """One statusing job, as it travels between the API and the engine worker.
+
+    This is the contract both sides share. The API builds one for every
+    submitted job and pushes it onto the Redis job queue; the worker pops it,
+    runs the analysis and reports back by updating the same record in the job
+    status store (see shared_models/job_store.py).
+
+    The area of interest arrives one of two ways, chosen by `source`:
+      - TANTALIS ("1"): the three identifiers are sent and the worker looks the
+        parcel up in BCGW, because the worker is the side that holds the
+        database connection;
+      - Upload ("2"): the API has already read the uploaded file, so `aoi`
+        carries the shape itself.
+
+    aoi          a GeoJSON FeatureCollection in EPSG:4326 (longitude/latitude),
+                 geometry only. It is on the queue message but is left out of
+                 the status record - nothing reads it back and it can be large.
+    created_at   when the API accepted the job, as an ISO 8601 UTC timestamp.
+    completed_at when the worker finished it, whether it completed or failed.
+    error        why the job failed, in words a user can act on; empty otherwise.
+
+    The fields added for the worker all have defaults, so a record written
+    before they existed still loads.
+    """
+
     job_id: str
     name: str
     email: str
     region: str
     source: Literal["1", "2"]
     status: JobStatus = JobStatus.QUEUED
+    crown_file_number: str | None = None
+    disposition_number: str | None = None
+    parcel_number: str | None = None
+    aoi: Dict[str, Any] | None = None
+    generate_maps: bool = False
+    export_overlap_results: bool = False
+    created_at: str | None = None
+    completed_at: str | None = None
+    error: str | None = None
 
 class JobPayload(BaseModel):
     job: CreateJob

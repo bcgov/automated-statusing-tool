@@ -12,6 +12,10 @@ EnvironmentName = Literal["dev", "test", "prod"]
 MAX_RETRIES = 5
 RETRY_MODE = "standard" 
 
+# Where a job's raw results sit, relative to the job's folder in storage. The
+# publisher writes them here and whatever serves them reads them from here.
+RAW_RESULTS_KEY = "results/results.raw.json"
+
 @dataclass
 class OperatorArtifact:
     registry: str

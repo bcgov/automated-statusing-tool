@@ -6,7 +6,7 @@ import pandas as pd
 from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.registry import utils
 import orchestrator_run
-from ast_engine.workers.worker import run_worker,AstJob,JobStatus
+from ast_engine.entry.worker import run_worker,AstJob,JobStatus
 import uuid
 from datetime import datetime, UTC
 import logging

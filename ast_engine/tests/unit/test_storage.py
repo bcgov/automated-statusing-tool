@@ -229,3 +229,68 @@ def test_publisher_gives_each_aoi_part_its_own_file(tmp_path: Path):
     manifest = json.loads(mock_writer.put_text.call_args.args[0])
     gpkg_entries = [name for name in manifest["artifacts"] if name.startswith("gpkg_")]
     assert len(gpkg_entries) == 2
+
+
+# ============================================================================
+# 6. Reader Tests
+# ============================================================================
+@pytest.mark.unit
+def test_local_reader_reads_what_the_local_writer_wrote(
+    storage_config: StorageConfig, storage_context: JobStorageContext
+):
+    from ast_engine.storage.local_reader import LocalResultsStorageReader
+
+    LocalResultsStorageWriter(storage_config, storage_context).put_text(
+        '{"hello": "world"}', "results/results.raw.json"
+    )
+
+    reader = LocalResultsStorageReader(storage_config, storage_context)
+
+    assert reader.get_text("results/results.raw.json") == '{"hello": "world"}'
+
+
+@pytest.mark.unit
+def test_local_reader_raises_for_a_missing_key(
+    storage_config: StorageConfig, storage_context: JobStorageContext
+):
+    from ast_engine.storage.local_reader import LocalResultsStorageReader
+
+    reader = LocalResultsStorageReader(storage_config, storage_context)
+
+    with pytest.raises(FileNotFoundError):
+        reader.get_text("results/results.raw.json")
+
+
+@pytest.mark.unit
+def test_s3_reader_reads_the_object_under_the_job_key(storage_context: JobStorageContext):
+    from pydantic import SecretStr
+    from ast_engine.storage.s3_reader import S3ResultsStorageReader
+
+    config = StorageConfig(bucket="test-bucket", environment="dev", access_id="id", access_key=SecretStr("key"))
+    with patch("ast_engine.storage.s3_reader.boto3.client") as client_factory:
+        client = client_factory.return_value
+        client.get_object.return_value = {"Body": MagicMock(read=lambda: b'{"hello": "world"}')}
+
+        text = S3ResultsStorageReader(config, storage_context).get_text("results/results.raw.json")
+
+    assert text == '{"hello": "world"}'
+    client.get_object.assert_called_once_with(
+        Bucket="test-bucket",
+        Key=ResultsKeyBuilder(config, storage_context).key("results/results.raw.json"),
+    )
+
+
+@pytest.mark.unit
+def test_s3_reader_raises_file_not_found_for_a_missing_object(storage_context: JobStorageContext):
+    from botocore.exceptions import ClientError
+    from pydantic import SecretStr
+    from ast_engine.storage.s3_reader import S3ResultsStorageReader
+
+    config = StorageConfig(bucket="test-bucket", environment="dev", access_id="id", access_key=SecretStr("key"))
+    with patch("ast_engine.storage.s3_reader.boto3.client") as client_factory:
+        client_factory.return_value.get_object.side_effect = ClientError(
+            {"Error": {"Code": "NoSuchKey", "Message": "not found"}}, "GetObject"
+        )
+
+        with pytest.raises(FileNotFoundError):
+            S3ResultsStorageReader(config, storage_context).get_text("results/results.raw.json")

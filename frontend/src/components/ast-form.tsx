@@ -41,9 +41,29 @@ interface FormInputs {
   overlaps: boolean; // Export Overlap Results switch (true = on)
 }
 
+// A submitted job, as the API reports it.
+// status is one of: Queued, Processing, Publishing, Completed, Failed.
+// error says why the job failed. It is null unless status is Failed.
+interface SubmittedJob {
+  jobId: string;
+  status: string;
+  error: string | null;
+}
+
 // Values for the two Source radio buttons.
 const SOURCE_TANTALIS = "1";
 const SOURCE_UPLOAD = "2";
+
+// The statuses a job ends on. Once a job reaches one of these it will not change again.
+const JOB_STATUS_COMPLETED = "Completed";
+const JOB_STATUS_FAILED = "Failed";
+
+// How often to ask the API how a running job is doing, in milliseconds.
+const JOB_POLL_INTERVAL_MS = 3000;
+
+// File types the API accepts for an uploaded shape.
+// A shapefile is several files, so it has to be uploaded as one .zip.
+const UPLOAD_FILE_TYPES = ".geojson,.json,.kml,.kmz,.gpkg,.zip";
 
 // Starting values for every field. Also used when the form is cleared.
 // Kept outside the component so it isn't rebuilt on every redraw.
@@ -61,9 +81,11 @@ const INITIAL_INPUTS: FormInputs = {
 };
 
 // Options for the Region dropdown. id = value stored, label = text shown.
+// The id is also sent to the API, which uses it to pick the region's list of datasets,
+// so each id has to match the region name used there (for example "kootenay_boundary").
 const REGION_ITEMS = [
   { id: "cariboo", label: "Cariboo" },
-  { id: "kootenay", label: "Kootenay" },
+  { id: "kootenay_boundary", label: "Kootenay Boundary" },
   { id: "northeast", label: "Northeast" },
   { id: "omineca", label: "Omineca" },
   { id: "skeena", label: "Skeena" },
@@ -78,6 +100,12 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
   const [inputs, setInputs] = useState<FormInputs>(INITIAL_INPUTS);
   // Message shown under the "View shape on map" button. Empty = no message.
   const [previewMessage, setPreviewMessage] = useState<string>("");
+  // The job created by the last Submit, or null if nothing has been submitted yet.
+  const [job, setJob] = useState<SubmittedJob | null>(null);
+  // Message shown under the buttons when a submission is refused. Empty = no message.
+  const [submitMessage, setSubmitMessage] = useState<string>("");
+  // True while a submission is being sent, so Submit can't be clicked twice.
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   // Direct link to the file picker, so it can be emptied.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -111,6 +139,8 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
   const handleClearAll = (): void => {
     setInputs(INITIAL_INPUTS);
     setPreviewMessage("");
+    setSubmitMessage("");
+    setJob(null);
     clearFileInput();
   };
 
@@ -151,7 +181,37 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     onViewTantalis({ fileNumber, dispositionId, parcelId });
   };
 
+  // While a job is running, ask the API for its status every few seconds.
+  // Stops once the job is Completed or Failed, and when the form is cleared.
+  useEffect(() => {
+    // Nothing submitted yet, or the job has already finished.
+    if (!job || job.status === JOB_STATUS_COMPLETED || job.status === JOB_STATUS_FAILED) {
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/jobs/${job.jobId}`);
+        if (!response.ok) {
+          throw new Error(`Request failed: ${response.status}`);
+        }
+        const data = await response.json();
+        // Saving a new object each time (even when the status is unchanged)
+        // makes this effect run again, which is what schedules the next check.
+        setJob({ jobId: job.jobId, status: data.status, error: data.error ?? null });
+      } catch (error) {
+        console.error("Job status check failed:", error);
+        // Keep checking. One failed request shouldn't stop the updates.
+        setJob({ ...job });
+      }
+    }, JOB_POLL_INTERVAL_MS);
+    // If the job changes or the form goes away before the timer fires, cancel it.
+    return () => window.clearTimeout(timer);
+  }, [job]);
+
+  // Runs when Submit is clicked. Sends the form to the API, which queues the job.
   async function handleSubmission() {
+    setSubmitMessage("");
+    setIsSubmitting(true);
     try {
       const formData = new FormData();
       formData.append("name", inputs.name.trim());
@@ -167,23 +227,35 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
         formData.append("upload_file", inputs.uploadFile);
       }
 
-      const response = await fetch("http://localhost:8000/api/jobs", {
+      // A path with no host, so the request goes to wherever this page was served from.
+      // In development, vite.config.js forwards anything under /api to the API.
+      const response = await fetch("/api/jobs", {
         method: "POST",
         body: formData,
       });
-
-      if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
-      }
-
       const data = await response.json();
 
-      console.log(data);
-      
+      if (!response.ok) {
+        // The API explains a refused job in "detail". When that is plain text
+        // (for example "The file holds no shapes.") show it. Otherwise a field
+        // is missing or wrong, and the detail is a list meant for developers.
+        setSubmitMessage(
+          typeof data.detail === "string"
+            ? data.detail
+            : "The job could not be submitted. Check that every field is filled in.",
+        );
+        return;
+      }
+
+      setJob({ jobId: data.item.job_id, status: data.item.status, error: null });
     } catch (error) {
-      console.error("Download failed:", error);
+      console.error("Submission failed:", error);
+      setSubmitMessage("The job could not be submitted. Try again in a moment.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
+
   // What appears on the page.
   return (
     <div className="form-container">
@@ -279,7 +351,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
               {/* File picker. accept limits it to these spatial file types. */}
               <input
                 type="file"
-                accept=".geojson,.json,.kml,.shp"
+                accept={UPLOAD_FILE_TYPES}
                 ref={fileInputRef}
                 onChange={handleFileChange}
               />
@@ -318,10 +390,9 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
       </div>
 
       <div className="button-container">
-        {/* Submit button. Note: there is no <form> around these fields and no submit
-            function yet, so this button doesn't do anything at the moment. */}
-        <Button onClick={handleSubmission} variant="primary" type="button">
-          Submit
+        {/* Submit button. Sends the form to the API. Turned off while a submission is being sent. */}
+        <Button onClick={handleSubmission} variant="primary" type="button" isDisabled={isSubmitting}>
+          {isSubmitting ? "Submitting..." : "Submit"}
         </Button>
         {/* Clear button. type="button" so it never submits.
             onPress is the design system's version of onClick. */}
@@ -329,6 +400,29 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
           Clear Form
         </Button>
       </div>
+
+      {/* Why the last submission was refused. Only shown when there is a message. */}
+      {submitMessage && (
+        <p className="job-status-message" role="alert">
+          {submitMessage}
+        </p>
+      )}
+
+      {/* The submitted job and how it is doing. Updates by itself while the job runs.
+          role="status" and aria-live let screen readers announce each change. */}
+      {job && (
+        <div className="job-status" role="status" aria-live="polite">
+          <p>
+            Job {job.jobId}: <strong>{job.status}</strong>
+          </p>
+          {job.status === JOB_STATUS_FAILED && job.error && <p>{job.error}</p>}
+          {job.status === JOB_STATUS_COMPLETED && (
+            <a href={`/api/jobs/${job.jobId}/results`} target="_blank" rel="noreferrer">
+              View results
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 };

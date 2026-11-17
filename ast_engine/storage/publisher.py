@@ -5,7 +5,7 @@ from typing import Dict, Optional,List
 
 from .checksums import sha256_file, write_sha256_sidecar
 from .manifest import ArtifactRecord, JobManifest
-from .models import OperatorArtifact
+from .models import OperatorArtifact, RAW_RESULTS_KEY
 from .writer import ResultsStorageWriter
 
 # TODO: Refine ResultsPublisher to match results
@@ -85,7 +85,7 @@ class ResultsPublisher:
         upload_artifact(
             "raw_results",
             raw_results_json,
-            "results/results.raw.json",
+            RAW_RESULTS_KEY,
             "application/json",
         )
 
