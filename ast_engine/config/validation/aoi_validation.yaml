@@ -56,8 +56,8 @@ geometry:
       check: max_vertices
       scope: part
       run_in: ["runtime", "submission"]
-      severity: warning
-      threshold: 5000
+      severity: error
+      threshold: 10000
       message: >-
         Part {subject_id} has {actual} vertices.
         More than {limit} vertices may increase processing time.
@@ -95,4 +95,4 @@ spatial:
 # For fixed allowed IDs, replace expected_from with expected_ids: [A, B].
 # IDs may be strings or integers; use the type of the source column.
 # For files, use data_adapter: file and datasource: boundaries/regions.gpkg.
-# Relative file datasources are interpreted relative to this YAML file.
+# Relative file datasources are interpreted relative to project root directory.
