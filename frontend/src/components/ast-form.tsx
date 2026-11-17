@@ -1,8 +1,7 @@
 // React tools:
-// useEffect = run code when something changes (for example, when a map shape is clicked).
 // useRef = keep a direct link to an element on the page (the file picker).
-// useState = store a value that redraws the form when it changes.
-import { useEffect, useRef, useState } from "react";
+// useState = store local UI values that redraw the form when they change.
+import { useRef, useState } from "react";
 // Types only. These add nothing to the final app.
 // ChangeEvent = the event from a normal HTML input. FC = "function component".
 import type { ChangeEvent, FC } from "react";
@@ -12,16 +11,15 @@ import type { TantalisIdentifiers } from "../types/tantalis";
 // Styles for this form.
 import "./ast-form.scss";
 
-// A shape clicked on the map, passed down from LandingPage.
-// clickedAt makes each click count as new, even if the same shape is clicked twice.
-interface MapSelection extends TantalisIdentifiers {
-  clickedAt: number;
-}
-
 // Everything LandingPage passes into this form. The ? means the value is optional.
 interface ASTFormProps {
-  // The shape most recently clicked on the map, or null if nothing has been clicked.
-  mapSelection?: MapSelection | null;
+  // Shared form values owned by LandingPage.
+  inputs: FormInputs;
+  onInputsChange: (updater: (values: FormInputs) => FormInputs) => void;
+  isShapePreviewEnabled: boolean;
+  onShapePreviewEnabledChange: (isEnabled: boolean) => void;
+  previewMessage: string;
+  onPreviewMessageChange: (message: string) => void;
   // Sends the three identifiers up to LandingPage so the map can show the shape.
   // Required, because the "View shape on map" button can't work without it.
   onViewTantalis: (request: TantalisIdentifiers | null) => void;
@@ -32,11 +30,11 @@ interface ASTFormProps {
 }
 
 // Every field in the form and the type of value it holds.
-interface FormInputs {
+export interface FormInputs {
   name: string;
   email: string;
   region: string; // Region id, for example "omineca". Empty = nothing picked.
-  source: string; // "1" = TANTALIS, "2" = Upload. Empty = nothing picked.
+  source: string; // "1" = Tantalis, "2" = Upload. Empty = nothing picked.
   fileNumber: string;
   dispositionId: string;
   parcelId: string;
@@ -51,7 +49,7 @@ const SOURCE_UPLOAD = "2";
 
 // Starting values for every field. Also used when the form is cleared.
 // Kept outside the component so it isn't rebuilt on every redraw.
-const INITIAL_INPUTS: FormInputs = {
+export const INITIAL_INPUTS: FormInputs = {
   name: "",
   email: "",
   region: "",
@@ -78,18 +76,18 @@ const REGION_ITEMS = [
 
 // The AST form component.
 const ASTForm: FC<ASTFormProps> = ({
-  mapSelection,
+  inputs,
+  onInputsChange,
+  isShapePreviewEnabled,
+  onShapePreviewEnabledChange,
+  previewMessage,
+  onPreviewMessageChange,
   onViewTantalis,
   isShapeLoaded,
   isCriticalConflictsOpen,
   onPreviewCriticalConflicts,
   onClearCriticalConflicts,
 }) => {
-  // All current field values, stored together in one object.
-  const [inputs, setInputs] = useState<FormInputs>(INITIAL_INPUTS);
-  const [isShapePreviewEnabled, setIsShapePreviewEnabled] = useState(false);
-  // Message shown under the "View shape on map" button. Empty = no message.
-  const [previewMessage, setPreviewMessage] = useState<string>("");
   const [selectedUploadPath, setSelectedUploadPath] = useState("");
   // Direct link to the file picker, so it can be reset.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -98,7 +96,7 @@ const ASTForm: FC<ASTFormProps> = ({
   // K is the field name. FormInputs[K] makes sure the value is the right type for that field
   // (for example, text for "name" and true/false for "maps").
   const updateField = <K extends keyof FormInputs>(field: K, value: FormInputs[K]): void => {
-    setInputs((values) => ({ ...values, [field]: value }));
+    onInputsChange((values) => ({ ...values, [field]: value }));
   };
 
   // Empties the file picker. The browser keeps its own copy of the chosen file,
@@ -126,37 +124,19 @@ const ASTForm: FC<ASTFormProps> = ({
 
   // Resets the whole form back to its starting values.
   const handleClearAll = (): void => {
-    setInputs(INITIAL_INPUTS);
+    onInputsChange(() => INITIAL_INPUTS);
     setSelectedUploadPath("");
-    setIsShapePreviewEnabled(false);
-    setPreviewMessage("");
+    onShapePreviewEnabledChange(false);
+    onPreviewMessageChange("");
     clearFileInput();
     onViewTantalis(null);
     onClearCriticalConflicts();
   };
 
-  // When a shape is clicked on the map, put each identifier in its matching field
-  // and switch Source to TANTALIS so those fields are visible.
-  useEffect(() => {
-    // Nothing clicked yet.
-    if (!mapSelection) {
-      return;
-    }
-
-    setInputs((values) => ({
-      ...values,
-      source: SOURCE_TANTALIS,
-      fileNumber: mapSelection.fileNumber,
-      dispositionId: mapSelection.dispositionId,
-      parcelId: mapSelection.parcelId,
-    }));
-    setPreviewMessage("");
-  }, [mapSelection]); // Runs every time a new shape is clicked.
-
   const handleViewShapeToggle = (isEnabled: boolean): void => {
     if (!isEnabled) {
-      setIsShapePreviewEnabled(false);
-      setPreviewMessage("");
+      onShapePreviewEnabledChange(false);
+      onPreviewMessageChange("");
       onViewTantalis(null);
       onClearCriticalConflicts();
       return;
@@ -174,13 +154,13 @@ const ASTForm: FC<ASTFormProps> = ({
 
     // All three are needed for the lookup. Show a message if any are empty.
     if (!fileNumber || !dispositionId || !parcelId) {
-      setPreviewMessage("Enter a File Number, Disposition ID and Parcel ID first.");
+      onPreviewMessageChange("Enter a File Number, Disposition ID and Parcel ID first.");
       return;
     }
 
     // Clear any old message and send the values up.
-    setIsShapePreviewEnabled(true);
-    setPreviewMessage("");
+    onShapePreviewEnabledChange(true);
+    onPreviewMessageChange("");
     onViewTantalis({ fileNumber, dispositionId, parcelId });
   };
 
@@ -194,8 +174,8 @@ const ASTForm: FC<ASTFormProps> = ({
 
   const handleSourceChange = (source: string): void => {
     updateField("source", source);
-    setIsShapePreviewEnabled(false);
-    setPreviewMessage("");
+    onShapePreviewEnabledChange(false);
+    onPreviewMessageChange("");
     onViewTantalis(null);
     onClearCriticalConflicts();
   };
@@ -240,7 +220,7 @@ const ASTForm: FC<ASTFormProps> = ({
       </div>
 
       <div className="source-container">
-        {/* Source: choose a TANTALIS lookup or an uploaded file. */}
+        {/* Source: choose a Tantalis lookup or an uploaded file. */}
         <RadioGroup
           label="Source"
           orientation="horizontal"
@@ -248,16 +228,16 @@ const ASTForm: FC<ASTFormProps> = ({
           value={inputs.source}
           onChange={handleSourceChange}
         >
-          <Radio value={SOURCE_TANTALIS}>TANTALIS</Radio>
+          <Radio value={SOURCE_TANTALIS}>Tantalis</Radio>
           <Radio value={SOURCE_UPLOAD}>Upload</Radio>
         </RadioGroup>
 
-        {/* TANTALIS section. Always on the page, but only opens (with a CSS animation)
-            when TANTALIS is picked. The "expanded" class is what opens it. */}
+        {/* Tantalis section. Always on the page, but only opens (with a CSS animation)
+            when Tantalis is picked. The "expanded" class is what opens it. */}
         <div className={`source-details ${inputs.source === SOURCE_TANTALIS ? "expanded" : ""}`}>
           <div className="source-details-inner">
             <hr />
-            {/* The three TANTALIS identifiers. Also filled in automatically when a map shape is clicked. */}
+            {/* The three Tantalis identifiers. Also filled in automatically when a map shape is clicked. */}
             <input
               className="ast-inline-input"
               aria-label="File Number"
@@ -347,7 +327,7 @@ const ASTForm: FC<ASTFormProps> = ({
           isDisabled={inputs.source !== SOURCE_TANTALIS}
           onChange={handleViewShapeToggle}
         >
-          View TANTALIS Shape on Map
+          View Tantalis Shape on Map
         </Switch>
 
         <Switch

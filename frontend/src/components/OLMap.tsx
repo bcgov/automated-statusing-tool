@@ -4,7 +4,7 @@
 // useState = store a value that redraws the page when it changes.
 import { useCallback, useEffect, useRef, useState } from "react";
 // FC = "function component". Used here only as a type, so it adds nothing to the final app.
-import type { FC, FormEvent } from "react";
+import type { FC, FormEvent, RefObject } from "react";
 // OpenLayers pieces used to build the map.
 import Map from "ol/Map";
 import View from "ol/View"; // Controls where the map looks (center and zoom)
@@ -18,7 +18,6 @@ import { GeoJSON, WKT } from "ol/format";
 import { fromLonLat, transformExtent } from "ol/proj"; // Converts coordinates and layer extents
 import { Fill, Stroke, Style } from "ol/style"; // Fill colour, outline and full shape style
 import { createEmpty, extend as extendExtent } from "ol/extent";
-import Attribution from "ol/control/Attribution";
 import ScaleLine from "ol/control/ScaleLine"; // The scale bar
 import { unByKey } from "ol/Observable"; // Removes an event listener that was added with map.on()
 // Feature = one shape on the map. Used only as a type.
@@ -112,7 +111,7 @@ const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = [
     layers: [
       {
         name: TANTALIS_LAYER,
-        label: "Crown tenures",
+        label: "Crown Tenures",
         idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
         styles: [
           { name: "2214", label: "Outlined" },
@@ -138,7 +137,7 @@ const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = [
       },
       {
         name: "pub:WHSE_TANTALIS.TA_CROWN_INVENTORY_SVW",
-        label: "Crown land inventory",
+        label: "Crown Land Inventory",
         idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
         styles: [
           { name: "2173", label: "Outlined" },
@@ -165,11 +164,11 @@ const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = [
   },
   {
     id: "critical-overlaps",
-    label: "Critical overlaps",
+    label: "FCBC Critical Overlaps",
     layers: [
       {
         name: "pub:WHSE_LEGAL_ADMIN_BOUNDARIES.FNT_TREATY_RELATED_LAND_SP",
-        label: "FCBC treaty-related lands",
+        label: "FCBC Treaty-Related Lands",
         idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
         styles: [
           { name: "217", label: "Outlined" },
@@ -400,6 +399,131 @@ const parseLayerDescriptions = (xmlText: string): globalThis.Map<string, string>
   return descriptions;
 };
 
+// Named hooks keep external OpenLayers and DOM synchronization in focused lifecycle boundaries.
+const useLayerPanelHeight = (
+  openMapPanel: "basemap" | "layers" | null,
+  panelRef: RefObject<HTMLDivElement | null>,
+  frameRef: RefObject<HTMLDivElement | null>,
+  controlsRef: RefObject<HTMLDivElement | null>,
+  setMaxHeight: (height: number) => void
+): void => {
+  useEffect(() => {
+    // Change: isolated the panel-size synchronization in a named effect hook.
+    if (openMapPanel !== "layers") return;
+
+    const panel = panelRef.current;
+    const frame = frameRef.current;
+    const controls = controlsRef.current;
+    if (!panel || !frame || !controls) return;
+
+    let observedFooter: HTMLElement | null = null;
+    let resizeObserver: ResizeObserver | undefined;
+    const updateLayerPanelHeight = (): void => {
+      const footer = document.querySelector<HTMLElement>(".bcgov-page-footer");
+      const panelTop = panel.getBoundingClientRect().top;
+      const availableBottom = footer?.getBoundingClientRect().top ?? window.innerHeight;
+      const availableHeight = Math.max(0, availableBottom - panelTop - 8);
+      setMaxHeight(Math.min(380, availableHeight));
+      if (footer !== observedFooter) {
+        if (observedFooter) resizeObserver?.unobserve(observedFooter);
+        observedFooter = footer;
+        if (footer) resizeObserver?.observe(footer);
+      }
+    };
+
+    resizeObserver = new ResizeObserver(updateLayerPanelHeight);
+    resizeObserver.observe(frame);
+    resizeObserver.observe(controls);
+    const mutationObserver = new MutationObserver(updateLayerPanelHeight);
+    mutationObserver.observe(document.querySelector("#root") ?? document.body, {
+      childList: true,
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    window.addEventListener("resize", updateLayerPanelHeight);
+    updateLayerPanelHeight();
+
+    return () => {
+      resizeObserver?.disconnect();
+      mutationObserver.disconnect();
+      window.removeEventListener("resize", updateLayerPanelHeight);
+    };
+  }, [openMapPanel, panelRef, frameRef, controlsRef, setMaxHeight]);
+};
+
+const useSyncTantalisLayers = (
+  visibleLayers: Record<string, boolean>,
+  selectedStyles: Record<string, string>,
+  layerRefs: RefObject<Record<string, TileLayer<TileWMS>>>,
+  toggleRefs: RefObject<Record<string, HTMLInputElement | null>>
+): void => {
+  useEffect(() => {
+    // Change: visibility and WMS style synchronization is now a named external-system hook.
+    Object.entries(visibleLayers).forEach(([name, isVisible]) => {
+      layerRefs.current[name]?.setVisible(isVisible);
+    });
+    Object.entries(layerRefs.current).forEach(([name, layer]) => {
+      layer.getSource()?.updateParams({ STYLES: selectedStyles[name] ?? "" });
+    });
+    MAP_LAYER_GROUPS.forEach((group) => {
+      const enabledCount = group.layers.filter((layer) => visibleLayers[layer.name]).length;
+      const groupToggle = toggleRefs.current[group.id];
+      if (groupToggle) {
+        groupToggle.indeterminate = enabledCount > 0 && enabledCount < group.layers.length;
+      }
+    });
+  }, [visibleLayers, selectedStyles, layerRefs, toggleRefs]);
+};
+
+const useSyncMapView = (
+  mapRef: RefObject<Map | null>,
+  center: [number, number],
+  zoom: number
+): void => {
+  useEffect(() => {
+    // Change: OpenLayers view synchronization is isolated from component rendering.
+    mapRef.current?.getView().animate({ center: fromLonLat(center), zoom, duration: 400 });
+  }, [center, zoom, mapRef]);
+};
+
+const useSyncBasemap = (
+  mapRef: RefObject<Map | null>,
+  selectedBasemap: BasemapId
+): void => {
+  useEffect(() => {
+    // Change: swapping external tile sources is explicit and independently testable.
+    const baseLayer = mapRef.current?.getLayers().item(0);
+    if (!(baseLayer instanceof TileLayer)) return;
+    const url = selectedBasemap === "street" ? STREET_URL : SATELLITE_URL;
+    baseLayer.setSource(createBasemapSource(url));
+  }, [selectedBasemap, mapRef]);
+};
+
+const useMapResize = (
+  mapContainerRef: RefObject<HTMLDivElement | null>,
+  mapRef: RefObject<Map | null>
+): void => {
+  useEffect(() => {
+    // Change: ResizeObserver lifecycle is named and no component-render logic is mixed into it.
+    const mapContainer = mapContainerRef.current;
+    if (!mapContainer) return;
+    const resizeObserver = new ResizeObserver(() => mapRef.current?.updateSize());
+    resizeObserver.observe(mapContainer);
+    return () => resizeObserver.disconnect();
+  }, [mapContainerRef, mapRef]);
+};
+
+const useSyncPreviewStyle = (
+  previewLayerRef: RefObject<VectorLayer<VectorSource> | null>,
+  previewHue: number,
+  previewOpacity: number
+): void => {
+  useEffect(() => {
+    // Change: restyling an external OpenLayers layer is kept in a named synchronization hook.
+    previewLayerRef.current?.setStyle(buildPreviewStyle(previewHue, previewOpacity));
+  }, [previewHue, previewOpacity, previewLayerRef]);
+};
+
 // The map component. It creates the OpenLayers map and handles everything the map does.
 const OLMap: FC<OLMapProps> = ({
   // If LandingPage doesn't send a center or zoom, use the defaults.
@@ -419,7 +543,7 @@ const OLMap: FC<OLMapProps> = ({
   const layerPanelRef = useRef<HTMLDivElement | null>(null);
   // The OpenLayers map, so every part of this file can reach it.
   const mapRef = useRef<Map | null>(null);
-  // The layer showing the current TANTALIS preview shape, so the sliders can restyle it.
+  // The layer showing the current Tantalis preview shape, so the sliders can restyle it.
   const previewLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   // References let the layer panel update individual OpenLayers WMS layers.
   const tantalisLayerRefs = useRef<Record<string, TileLayer<TileWMS>>>({});
@@ -506,55 +630,14 @@ const OLMap: FC<OLMapProps> = ({
     onCloseCriticalConflicts();
   }, [clearCriticalConflicts, onCloseCriticalConflicts]);
 
-  useEffect(() => {
-    if (openMapPanel !== "layers") {
-      return;
-    }
-
-    const panel = layerPanelRef.current;
-    const frame = mapFrameRef.current;
-    const controls = mapControlsRef.current;
-    if (!panel || !frame || !controls) {
-      return;
-    }
-
-    let observedFooter: HTMLElement | null = null;
-    let resizeObserver: ResizeObserver | undefined;
-    const updateLayerPanelHeight = (): void => {
-      const footer = document.querySelector<HTMLElement>(".bcgov-page-footer");
-      const panelTop = panel.getBoundingClientRect().top;
-      const availableBottom = footer?.getBoundingClientRect().top ?? window.innerHeight;
-      const availableHeight = Math.max(0, availableBottom - panelTop - 8);
-      setLayerPanelMaxHeight(Math.min(380, availableHeight));
-      if (footer !== observedFooter) {
-        if (observedFooter) {
-          resizeObserver?.unobserve(observedFooter);
-        }
-        observedFooter = footer;
-        if (footer) {
-          resizeObserver?.observe(footer);
-        }
-      }
-    };
-
-    resizeObserver = new ResizeObserver(updateLayerPanelHeight);
-    resizeObserver.observe(frame);
-    resizeObserver.observe(controls);
-    const mutationObserver = new MutationObserver(updateLayerPanelHeight);
-    mutationObserver.observe(document.querySelector("#root") ?? document.body, {
-      childList: true,
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    window.addEventListener("resize", updateLayerPanelHeight);
-    updateLayerPanelHeight();
-
-    return () => {
-      resizeObserver.disconnect();
-      mutationObserver.disconnect();
-      window.removeEventListener("resize", updateLayerPanelHeight);
-    };
-  }, [openMapPanel]);
+  // External DOM observers remain effects because they synchronize OpenLayers UI with browser layout.
+  useLayerPanelHeight(
+    openMapPanel,
+    layerPanelRef,
+    mapFrameRef,
+    mapControlsRef,
+    setLayerPanelMaxHeight
+  );
 
   const selectQueryLayer = (layerName: string): void => {
     queryAbortRef.current?.abort();
@@ -662,9 +745,6 @@ const OLMap: FC<OLMapProps> = ({
       setPinnedConflictLayerName(typeof layerName === "string" ? layerName : null);
     });
 
-    // Keep provider credits available while using custom map controls.
-    map.addControl(new Attribution({ collapsible: true, collapsed: true }));
-
     // Add the scale bar in metres/kilometres.
     // The class name matches the existing CSS that positions and styles it.
     map.addControl(new ScaleLine({ className: "map-scale", units: "metric", minWidth: 140 }));
@@ -690,67 +770,24 @@ const OLMap: FC<OLMapProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync WMS layer visibility and the group's partial-selection checkbox state.
-  useEffect(() => {
-    Object.entries(visibleTantalisLayers).forEach(([name, isVisible]) => {
-      tantalisLayerRefs.current[name]?.setVisible(isVisible);
-    });
-
-    MAP_LAYER_GROUPS.forEach((group) => {
-      const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
-      const groupToggle = layerGroupToggleRefs.current[group.id];
-      if (groupToggle) {
-        groupToggle.indeterminate = enabledCount > 0 && enabledCount < group.layers.length;
-      }
-    });
-  }, [visibleTantalisLayers]);
-
-  // Apply each overlay's own published WMS style without changing its visibility.
-  useEffect(() => {
-    Object.entries(tantalisLayerRefs.current).forEach(([name, layer]) => {
-      layer.getSource()?.updateParams({ STYLES: selectedTantalisStyles[name] ?? "" });
-    });
-  }, [selectedTantalisStyles]);
+  // External OpenLayers state stays synchronized through one named hook.
+  useSyncTantalisLayers(
+    visibleTantalisLayers,
+    selectedTantalisStyles,
+    tantalisLayerRefs,
+    layerGroupToggleRefs
+  );
 
   // 2. Move the map smoothly when the center or zoom props change.
-  useEffect(() => {
-    mapRef.current?.getView().animate({ center: fromLonLat(center), zoom, duration: 400 });
-  }, [center, zoom]);
+  useSyncMapView(mapRef, center, zoom);
 
   // 3. Swap the basemap tiles when the user picks Street or Satellite.
-  useEffect(() => {
-    // The basemap is always the first layer.
-    const baseLayer = mapRef.current?.getLayers().item(0);
-
-    // Stop if the map isn't ready or the first layer isn't a tile layer.
-    if (!(baseLayer instanceof TileLayer)) {
-      return;
-    }
-
-    const url = selectedBasemap === "street" ? STREET_URL : SATELLITE_URL;
-    baseLayer.setSource(createBasemapSource(url));
-  }, [selectedBasemap]);
+  useSyncBasemap(mapRef, selectedBasemap);
 
   // 4. Resize the map whenever its container changes size (for example, when the layout shifts).
-  useEffect(() => {
-    const mapContainer = mapContainerRef.current;
-    if (!mapContainer) {
-      return;
-    }
+  useMapResize(mapContainerRef, mapRef);
 
-    // ResizeObserver watches the <div> and runs updateSize whenever its size changes.
-    const resizeObserver = new ResizeObserver(() => {
-      mapRef.current?.updateSize();
-    });
-    resizeObserver.observe(mapContainer);
-
-    // Stop watching when the component is removed.
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  // 5. Show the selected TANTALIS shape whenever the form requests a preview.
+  // 5. Show the selected Tantalis shape whenever the form requests a preview.
   // The sliders are left out of the list at the bottom, so moving them doesn't repeat the lookup.
   useEffect(() => {
     const map = mapRef.current;
@@ -811,7 +848,7 @@ const OLMap: FC<OLMapProps> = ({
       ].join(" AND ")
     );
 
-    setPreviewStatus("Loading TANTALIS shape...");
+    setPreviewStatus("Loading Tantalis shape...");
 
     // Send the request to BC Open Maps.
     fetch(url.toString(), { signal: controller.signal })
@@ -835,7 +872,7 @@ const OLMap: FC<OLMapProps> = ({
 
         // Nothing matched, so tell the user.
         if (features.length === 0) {
-          setPreviewStatus("No TANTALIS shape matched all three identifiers. Check the values and try again.");
+          setPreviewStatus("No Tantalis shape matched all three identifiers. Check the values and try again.");
           onShapeLoaded(false);
           return;
         }
@@ -847,7 +884,7 @@ const OLMap: FC<OLMapProps> = ({
         // getExtent() can return null (no box), so check it before zooming.
         const extent = previewSource.getExtent();
         if (!extent) {
-          setPreviewStatus("The TANTALIS shape was found but has no area to zoom to.");
+          setPreviewStatus("The Tantalis shape was found but has no area to zoom to.");
           onShapeLoaded(false);
           return;
         }
@@ -871,7 +908,7 @@ const OLMap: FC<OLMapProps> = ({
 
         // Anything else is a real problem, so show it on the map.
         const reason = error instanceof Error ? error.message : "unknown error";
-        setPreviewStatus(`Could not load the TANTALIS shape: ${reason}.`);
+        setPreviewStatus(`Could not load the Tantalis shape: ${reason}.`);
         onShapeLoaded(false);
       });
 
@@ -1195,7 +1232,7 @@ const OLMap: FC<OLMapProps> = ({
         return;
       }
       const reason = error instanceof Error ? error.message : "unknown error";
-      setQueryStatus(`Could not search TANTALIS: ${reason}.`);
+      setQueryStatus(`Could not search Tantalis: ${reason}.`);
     } finally {
       if (queryAbortRef.current === controller) {
         queryAbortRef.current = null;
@@ -1296,9 +1333,7 @@ const OLMap: FC<OLMapProps> = ({
   };
 
   // 6. Restyle the current preview shape when the colour or transparency slider moves.
-  useEffect(() => {
-    previewLayerRef.current?.setStyle(buildPreviewStyle(previewHue, previewOpacity));
-  }, [previewHue, previewOpacity]);
+  useSyncPreviewStyle(previewLayerRef, previewHue, previewOpacity);
 
   // 7. When a shape is clicked, send its three identifiers back up to LandingPage.
   useEffect(() => {
@@ -1359,7 +1394,7 @@ const OLMap: FC<OLMapProps> = ({
         {/* OpenLayers draws the map inside this div. */}
         <div ref={mapContainerRef} className="map-container" aria-label="Interactive map" />
 
-        {/* Loading and error messages for the TANTALIS lookup. Only shown when there is a message.
+        {/* Loading and error messages for the Tantalis lookup. Only shown when there is a message.
             role="status" lets screen readers announce it. */}
         {previewStatus && (
           <div className="map-preview-status" role="status" aria-live="polite">

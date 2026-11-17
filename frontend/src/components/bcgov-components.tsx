@@ -37,7 +37,7 @@ const PageHeader: FC = () => {
   return (
     <div className="bcgov-header">
       <Header
-        title="Automated Statusing Tool"
+        title="Automated Status Tool"
         // The logo is wrapped in this link, so clicking it goes back to the home page.
         logoLinkElement={<a href="/" title="Return home"></a>}
         // The logo image. alt text is read by screen readers.

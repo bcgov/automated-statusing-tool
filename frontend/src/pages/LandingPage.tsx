@@ -6,26 +6,22 @@ import "./LandingPage.scss";
 // useCallback = keep the same copy of a function between redraws, instead of making a new one each time.
 import { useCallback, useState } from "react";
 // The form (left side of the page).
-import ASTForm from "../components/ast-form";
+import ASTForm, { INITIAL_INPUTS, type FormInputs } from "../components/ast-form";
 // The map (right side of the page).
 import OLMap from "../components/OLMap";
 import type { CriticalConflictsRequest, TantalisIdentifiers } from "../types/tantalis";
-
-// A shape clicked on the map.
-// clickedAt stores the time of the click, so clicking the same shape twice still counts as a new click.
-interface MapSelection extends TantalisIdentifiers {
-  clickedAt: number;
-}
 
 // The landing page. The form and the map can't talk to each other directly,
 // so this page holds the shared information and passes it between them:
 // ASTForm <-> LandingPage <-> OLMap
 const LandingPage = () => {
-  // The shape most recently clicked on the map. The form uses it to fill in the three ID fields.
-  // Starts as null because nothing has been clicked yet.
-  const [mapSelection, setMapSelection] = useState<MapSelection | null>(null);
+  // Shared form values: a map click updates these immediately through the event handler,
+  // so ASTForm does not need an effect to synchronize a selection prop after rendering.
+  const [formInputs, setFormInputs] = useState<FormInputs>(INITIAL_INPUTS);
+  const [isShapePreviewEnabled, setIsShapePreviewEnabled] = useState(false);
+  const [previewMessage, setPreviewMessage] = useState("");
 
-  // The identifiers sent from the form. The map watches this and runs the TANTALIS lookup when it changes.
+  // The identifiers sent from the form. The map watches this and runs the Tantalis lookup when it changes.
   // Starts as null because nothing has been sent yet.
   const [tantalisPreview, setTantalisPreview] = useState<TantalisIdentifiers | null>(null);
   const [shapeLoaded, setShapeLoaded] = useState(false);
@@ -36,7 +32,15 @@ const LandingPage = () => {
   // useCallback keeps this the same function between redraws, so the map
   // doesn't have to remove and re-add its click listener every time the page redraws.
   const handlePolygonClick = useCallback((selection: TantalisIdentifiers): void => {
-    setMapSelection({ ...selection, clickedAt: Date.now() });
+    setFormInputs((values) => ({
+      ...values,
+      source: "1",
+      fileNumber: selection.fileNumber,
+      dispositionId: selection.dispositionId,
+      parcelId: selection.parcelId,
+    }));
+    // Change: clear this event-owned UI state directly instead of syncing it in a useEffect.
+    setPreviewMessage("");
   }, []);
 
   const handlePreviewCriticalConflicts = useCallback((): void => {
@@ -57,7 +61,12 @@ const LandingPage = () => {
           onViewTantalis = saves the identifiers when "View shape on map" is clicked.
           setTantalisPreview is passed straight in, because saving the values is all it needs to do. */}
       <ASTForm
-        mapSelection={mapSelection}
+        inputs={formInputs}
+        onInputsChange={setFormInputs}
+        isShapePreviewEnabled={isShapePreviewEnabled}
+        onShapePreviewEnabledChange={setIsShapePreviewEnabled}
+        previewMessage={previewMessage}
+        onPreviewMessageChange={setPreviewMessage}
         onViewTantalis={setTantalisPreview}
         isShapeLoaded={shapeLoaded}
         isCriticalConflictsOpen={isCriticalConflictsOpen}
