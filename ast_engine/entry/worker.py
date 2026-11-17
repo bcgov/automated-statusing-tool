@@ -166,4 +166,3 @@ def run_worker(job: AstJob, publish: bool = False):
             conn.close()
 
     return job
-

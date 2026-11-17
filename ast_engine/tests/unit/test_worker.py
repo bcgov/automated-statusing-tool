@@ -12,8 +12,8 @@ from pydantic import SecretStr, ValidationError
 from shapely.geometry import box
 
 from ast_engine.config.registry.models import DataAdapter
-from ast_engine.workers import worker
-from ast_engine.workers.worker import AstJob, JobStatus, run_worker
+from ast_engine.entry import worker
+from ast_engine.entry.worker import AstJob, JobStatus, run_worker
 from shared_models.models import AOIOptions
 
 pytestmark = pytest.mark.unit

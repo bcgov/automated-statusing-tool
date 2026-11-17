@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 import ast_api.database as database
 import ast_api.main as api_main
-from shared_models.models import CreateJob, JobStatus
+from shared_models.models import JobStatus
 
 pytestmark = pytest.mark.unit
 
@@ -41,48 +41,114 @@ def client(temp_db):
 @pytest.fixture
 def sample_job_payload():
     return {
-        "user": "alice",
-        "date": "2026-09-23",
+        "name": "Alice",
+        "email": "alice@example.com",
         "region": "Cariboo",
-        "area_of_interest": "Northern Area",
+        "source": "1",
         "crown_file_number": "CF-1001",
         "disposition_number": "DISP-2002",
         "parcel_number": "PARCEL-3003",
-        "output_directory": "/tmp/output",
-        "aoi_id": "AOI-42",
-        "aoi_name": "Sample AOI",
-        "aoi": {
-            "type": "Feature",
-            "properties": {"name": "Sample AOI"},
-            "geometry": {"type": "Point", "coordinates": [0.0, 0.0]},
-        },
+        "generate_maps": True,
+        "export_overlap_results": False,
     }
 
 
 def test_create_job_in_queue_and_db(client, sample_job_payload):
-    response = client.post("/api/jobs", json=sample_job_payload)
+    response = client.post("/api/jobs", data=sample_job_payload)
 
     assert response.status_code == 201
     body = response.json()
-    assert body["job"]["user"] == "alice"
+    assert body["job"]["name"] == "Alice"
     assert body["item"]["region"] == "Cariboo"
+    assert body["item"]["source"] == "1"
     assert body["item"]["status"] == JobStatus.QUEUED.value
 
     queue_items = [json.loads(item) for item in api_main.redis_client.lrange("jobs_queue", 0, -1)]
     assert len(queue_items) == 1
-    assert queue_items[0]["user"] == "alice"
+    assert queue_items[0]["name"] == "Alice"
     assert queue_items[0]["job_id"] == body["item"]["job_id"]
+    assert database.get_jobs() == [(
+        1,
+        "Alice",
+        "alice@example.com",
+        "Cariboo",
+        "1",
+        "CF-1001",
+        "DISP-2002",
+        "PARCEL-3003",
+        1,
+        0,
+        JobStatus.QUEUED.value,
+    )]
+
+
+def test_jobs_table_does_not_include_area_of_interest(temp_db):
+    with sqlite3.connect(temp_db) as connection:
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(jobs)")
+        }
+
+    assert "area_of_interest" not in columns
+
+
+def test_create_table_adds_source_to_existing_jobs_table(temp_db):
+    with sqlite3.connect(temp_db) as connection:
+        connection.execute("ALTER TABLE jobs DROP COLUMN source")
+
+    database.create_table()
+
+    with sqlite3.connect(temp_db) as connection:
+        columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(jobs)")
+        }
+
+    assert "source" in columns
+
+
+@pytest.mark.parametrize(
+    "missing_identifier",
+    ["crown_file_number", "disposition_number", "parcel_number"],
+)
+def test_tantalis_source_requires_all_identifiers(
+    client,
+    sample_job_payload,
+    missing_identifier,
+):
+    payload = {**sample_job_payload, missing_identifier: ""}
+
+    response = client.post("/api/jobs", data=payload)
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "TANTALIS source requires file, disposition, and parcel identifiers"
+    )
+    assert database.get_jobs() == []
+    assert api_main.redis_client.lrange("jobs_queue", 0, -1) == []
+
+
+def test_invalid_source_is_rejected_without_creating_job(
+    client,
+    sample_job_payload,
+):
+    payload = {**sample_job_payload, "source": "3"}
+
+    response = client.post("/api/jobs", data=payload)
+
+    assert response.status_code == 422
+    assert database.get_jobs() == []
+    assert api_main.redis_client.lrange("jobs_queue", 0, -1) == []
 
 
 def test_get_job_by_id_returns_queue_item(client, sample_job_payload):
-    create_response = client.post("/api/jobs", json=sample_job_payload)
+    create_response = client.post("/api/jobs", data=sample_job_payload)
     job_id = create_response.json()["item"]["job_id"]
 
     response = client.get(f"/api/jobs/{job_id}")
 
     assert response.status_code == 200
     assert response.json()["job_id"] == job_id
-    assert response.json()["aoi_name"] == "Sample AOI"
+    assert response.json()["name"] == "Alice"
 
 
 def test_get_job_by_id_returns_404_for_missing_job(client):
@@ -92,60 +158,41 @@ def test_get_job_by_id_returns_404_for_missing_job(client):
     assert response.json()["detail"] == "Job not found"
 
 
-def _feature(properties):
-    return {"type": "Feature", "properties": properties, "geometry": {"type": "Point", "coordinates": [0.0, 0.0]}}
-
-
-def test_create_job_without_aoi_options_stores_and_queues_the_defaults(client, sample_job_payload, temp_db):
-    response = client.post("/api/jobs", json=sample_job_payload)
-
-    defaults = {"dissolve_mode": "full_union", "dissolve_fields": [], "allow_overlaps": False, "part_policy": "multi_part"}
-    assert response.status_code == 201
-    assert response.json()["item"]["aoi_options"] == defaults
-    connection = sqlite3.connect(temp_db)
-    stored = connection.execute("SELECT aoi_options FROM jobs").fetchone()[0]
-    connection.close()
-    assert json.loads(stored) == defaults
-
-
-def test_create_job_sends_the_aoi_options_to_the_queue(client, sample_job_payload):
-    sample_job_payload["aoi"] = {"type": "FeatureCollection", "features": [_feature({"BLOCK": "A"}), _feature({"BLOCK": "B"})]}
-    sample_job_payload["aoi_options"] = {"dissolve_mode": "by_fields", "dissolve_fields": ["BLOCK"]}
-
-    response = client.post("/api/jobs", json=sample_job_payload)
+def test_upload_source_reads_multipart_file(client):
+    response = client.post(
+        "/api/jobs",
+        data={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "region": "Cariboo",
+            "source": "2",
+            "generate_maps": "false",
+            "export_overlap_results": "true",
+        },
+        files={"upload_file": ("aoi.geojson", b'{"type":"FeatureCollection","features":[]}', "application/geo+json")},
+    )
 
     assert response.status_code == 201
-    queued = json.loads(api_main.redis_client.lrange("jobs_queue", 0, -1)[0])
-    assert queued["aoi_options"]["dissolve_mode"] == "by_fields"
-    assert queued["aoi_options"]["dissolve_fields"] == ["BLOCK"]
+    assert response.json()["upload"] == {
+        "filename": "aoi.geojson",
+        "size_bytes": len(b'{"type":"FeatureCollection","features":[]}'),
+    }
+    assert database.get_jobs()[0][4] == "2"
 
 
-@pytest.mark.parametrize(
-    "aoi_options, reason",
-    [
-        ({"dissolve_mode": "by_fields"}, "needs at least one dissolve field"),
-        ({"dissolve_mode": "by_fields", "dissolve_fields": ["ZONE"]}, "not found in the AOI: ZONE"),
-        ({"part_policy": "exploded"}, "not available yet"),
-    ],
-)
-def test_create_job_refuses_bad_aoi_options_before_queueing(client, sample_job_payload, aoi_options, reason):
-    sample_job_payload["aoi"] = {"type": "FeatureCollection", "features": [_feature({"BLOCK": "A"})]}
-    sample_job_payload["aoi_options"] = aoi_options
-
-    response = client.post("/api/jobs", json=sample_job_payload)
+def test_upload_source_requires_file(client):
+    response = client.post(
+        "/api/jobs",
+        data={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "region": "Cariboo",
+            "source": "2",
+        },
+    )
 
     assert response.status_code == 422
-    assert reason in response.text
-    assert api_main.redis_client.lrange("jobs_queue", 0, -1) == []
 
 
-def test_create_table_adds_aoi_options_to_an_existing_jobs_db(temp_db, sample_job_payload):
-    # A jobs.db made before #219 has no aoi_options column.
-    connection = sqlite3.connect(temp_db)
-    connection.execute("ALTER TABLE jobs DROP COLUMN aoi_options")
-    connection.commit()
-    connection.close()
-
-    database.create_table()
-
-    assert database.create_job(CreateJob(**sample_job_payload)) == 1
+def test_get_jobs_returns_empty_list_when_table_has_no_jobs(temp_db):
+    assert database.get_jobs() == []

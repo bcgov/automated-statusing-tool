@@ -73,48 +73,26 @@ class AOIOptions(BaseModel):
         return self
 
 
-class JobBase(BaseModel):
-    user: str
-    date: str
-
-class CreateJob(JobBase):
+class CreateJob(BaseModel):
+    name: str
+    email: str
     region: Regions | str
-    area_of_interest: str
-    crown_file_number: str
-    disposition_number: str
-    parcel_number: str
-    output_directory: str
-    retain_existing_outputs: bool = False
-    suppress_tab_3: bool = False
-    suppress_map_creation: bool = False
-    open_output_directory_on_completion: bool = False
-    enable_portable_spreadsheet: bool = False
-    registries: list[str] = []
-    aoi_id: str
-    aoi_name: str
-    aoi: dict[str, Any]
+    source: Literal["1", "2"]
+    crown_file_number: str | None = None
+    disposition_number: str | None = None
+    parcel_number: str | None = None
+    generate_maps: bool = False
+    export_overlap_results: bool = False
     aoi_options: AOIOptions = Field(default_factory=AOIOptions)
     status: JobStatus = JobStatus.QUEUED
-
-    @model_validator(mode="after")
-    def _check_dissolve_fields_in_aoi(self) -> "CreateJob":
-        # Refuse a dissolve field the AOI's features don't have, before the job is queued.
-        features = self.aoi.get("features") or []
-        present = {name for feature in features for name in (feature.get("properties") or {})}
-        missing = [name for name in self.aoi_options.dissolve_fields if name not in present]
-        if features and missing:
-            raise ValueError(f"dissolve field(s) not found in the AOI: {', '.join(missing)}")
-        return self
 
 
 class JobQueueItem(BaseModel):
     job_id: str
-    user: str
-    date: str
+    name: str
+    email: str
     region: str
-    aoi_id: str
-    aoi_name: str
-    output_directory: str
+    source: Literal["1", "2"]
     aoi_options: AOIOptions = Field(default_factory=AOIOptions)
     status: JobStatus = JobStatus.QUEUED
 
