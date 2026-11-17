@@ -21,6 +21,15 @@ names when it creates a `FormData` request:
 | `maps` | `generate_maps` |
 | `overlaps` | `export_overlap_results` |
 | `uploadFile` | `upload_file` (only when selected) |
+| not on the form yet (#219) | `dissolve_mode`: `full_union` (default), `by_fields` or `preserve_features` |
+| not on the form yet (#219) | `dissolve_fields`: one entry per field, only with `by_fields` |
+| not on the form yet (#219) | `allow_overlaps`: `true` / `false` (default `false`) |
+| not on the form yet (#219) | `part_policy`: `multi_part` only for now (#237) |
+
+The last four fields say how a multi-row AOI is reported (#219). They are optional:
+leaving them out gives one area, as before. The API checks them the same way the
+engine's `AOIRequest` does and answers 422 with the reason if they don't fit
+together. They reach the worker as `aoi_options` on the queue item.
 
 The browser sends `FormData` as `multipart/form-data`. The frontend deliberately
 does not set the `Content-Type` header: the browser must add the multipart
