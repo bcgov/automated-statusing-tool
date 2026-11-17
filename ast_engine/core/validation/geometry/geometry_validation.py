@@ -10,6 +10,7 @@ from ast_engine.utils.spatial_checks import check_polygon_frame
 from ..models import ValidationIssue
 from ..schema import (
     ValidationCategory,
+    ValidationProfile,
     ValidationScope,
 )
 from ..common import check_subject_ids
@@ -31,8 +32,20 @@ class GeometryValidationError(ValueError):
 
 
 class GeometryValidator:
-    def __init__(self, config: GeometryConfig):
+    def __init__(
+            self,
+            config: GeometryConfig,
+            *,
+            profile: ValidationProfile = ValidationProfile.RUNTIME,
+    ) -> None:
+        try:
+            self.profile = ValidationProfile(profile)
+        except ValueError as exc:
+            raise GeometryValidationError(f"Unknown vlaidation profile: {profile!r}.") from exc
         self.config = config
+        self.active_rules = tuple(
+            rule for rule in config.rules if self.profile in rule.run_in
+        )
 
     def validate(
         self,
@@ -41,6 +54,10 @@ class GeometryValidator:
         subject_ids: tuple[str, ...] | None = None,
         footprint_id: str = "footprint",
     ) -> tuple[ValidationIssue, ...]:
+        if not self.active_rules:
+            logger.debug("Geometry Validation contains no active rules")
+            return ()
+        
         logger.debug(
             "Validating Geometry for %s containing %s features.", 
             footprint_id, len(gdf)
@@ -58,7 +75,7 @@ class GeometryValidator:
 
             logger.debug("GDF frame and ID's pre-check complete.")
 
-            scopes = {rule.scope for rule in self.config.rules}
+            scopes = {rule.scope for rule in self.active_rules}
             subjects = {}
             if ValidationScope.PART in scopes:
                 if subject_ids is None:
@@ -76,7 +93,7 @@ class GeometryValidator:
             }
             issues = []
             part_count = len(gdf)
-            for rule in self.config.rules:
+            for rule in self.active_rules:
                 if rule.check == "max_part_count":
                     actual, limit = part_count, rule.threshold
                     triggered = actual > limit

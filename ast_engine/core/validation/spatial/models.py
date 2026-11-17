@@ -8,10 +8,11 @@ from ..common import (
     checked_unit_ids,
 )
 from ..schema import (
+    DEFAULT_RUN_IN,
     NonEmptyString,
     ReferenceUnitId,
     Tags,
-    ValidationProfile,
+    RunIn,
     ValidationSeverity,
     ValidationScope,
 )
@@ -42,10 +43,7 @@ class SpatialLayerReferenceConfig(BaseModel):
     name: NonEmptyString
     data_adapter: Literal["oracle", "file"]
     datasource: NonEmptyString
-    run_in: tuple[ValidationProfile, ...] = (
-        ValidationProfile.SUBMISSION, 
-        ValidationProfile.RUNTIME
-    )
+    run_in: RunIn = DEFAULT_RUN_IN
     tags: Tags = ()
     scope: Literal[
         ValidationScope.PART,
@@ -58,13 +56,6 @@ class SpatialLayerReferenceConfig(BaseModel):
         default=0.0, ge=0, allow_inf_nan=False, strict=True
     )
     rules: SpatialRuleConfig
-
-    @field_validator("run_in")
-    @classmethod
-    def validate_profiles(cls, values):
-        if not values or len(set(values)) != len(values):
-            raise ValueError("run_in must contain unique, nonempty profile names.")
-        return values
 
     @field_validator("expected_ids", mode="before")
     @classmethod

@@ -14,6 +14,7 @@ from pydantic import (
 from ast_engine.core.validation.schema import (
     NonEmptyString,
     ValidationCategory,
+    ValidationProfile,
     ValidationScope,
     ValidationSeverity,
     Tags,
@@ -21,11 +22,11 @@ from ast_engine.core.validation.schema import (
 from .geometry.models import GeometryConfig
 from .spatial.models import SpatialLayerReferenceConfig
 
-
 class ValidationConfig(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     schema_version: Literal[1] = 1
+    profile: ValidationProfile = ValidationProfile.RUNTIME
     spatial: tuple[SpatialLayerReferenceConfig, ...] | None = Field(
         default=None, min_length=1
     )

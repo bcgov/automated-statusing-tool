@@ -3,8 +3,13 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ..schema import Tags, ValidationProfile, ValidationScope, ValidationSeverity
-
+from ..schema import (
+    DEFAULT_RUN_IN,
+    RunIn,
+    Tags,
+    ValidationScope,
+    ValidationSeverity,
+)
 
 class GeometryRuleBase(BaseModel):
     model_config = ConfigDict(
@@ -16,10 +21,7 @@ class GeometryRuleBase(BaseModel):
     id: str = Field(min_length=1)
     scope: ValidationScope
     severity: ValidationSeverity
-    run_in: tuple[ValidationProfile, ...] = (
-        ValidationProfile.SUBMISSION, 
-        ValidationProfile.RUNTIME
-    )
+    run_in: RunIn = DEFAULT_RUN_IN
     message: str | None = None
     tags: Tags = ()
 

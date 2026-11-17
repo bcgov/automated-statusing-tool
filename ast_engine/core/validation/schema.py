@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated
 from pydantic import (
+    AfterValidator,
     Field,
     StrictInt,
     StrictStr,
@@ -10,10 +11,6 @@ from pydantic import (
     ValidatorFunctionWrapHandler,
     WrapValidator,
 )
-
-
-ReferenceUnitId = StrictStr | StrictInt
-NonEmptyString = Annotated[str, Field(strict=True, min_length=1)]
 
 
 class ValidationSeverity(StrEnum):
@@ -38,6 +35,25 @@ class ValidationProfile(StrEnum):
     SUBMISSION = "submission"
     RUNTIME = "runtime"
 
+
+def _distinct_profiles(values: tuple[ValidationProfile, ...]) -> tuple[ValidationProfile, ...]:
+    if len(values) != len(set(values)):
+        raise ValueError("run_in must contain unique profile names.")
+    return values
+
+
+ReferenceUnitId = StrictStr | StrictInt
+
+NonEmptyString = Annotated[str, Field(strict=True, min_length=1)]
+
+RunIn = Annotated[
+    tuple[ValidationProfile, ...], Field(min_length=1), AfterValidator(_distinct_profiles)
+]
+
+DEFAULT_RUN_IN = (ValidationProfile.SUBMISSION, ValidationProfile.RUNTIME)
+
+
+######### TAGS #########
 
 def _coerce_tag(value: object) -> object:
     # Convert integer labels, but do not convert True/False.

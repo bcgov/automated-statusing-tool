@@ -30,14 +30,16 @@ class SpatialValidator:
         *,
         reference_layers: Mapping[tuple[str, str], gpd.GeoDataFrame],
         target_crs: str = "EPSG:3005",
-        profile: ValidationProfile = "runtime",
-    ):
-        if profile not in ValidationProfile:
-            raise SpatialValidationError(f"Unknown validation profile: {profile!r}.")
+        profile: ValidationProfile = ValidationProfile.RUNTIME,
+    ) -> None:
+        try:
+            self.profile = ValidationProfile(profile)
+        except ValueError as exc:
+            raise SpatialValidationError(f"Unknown validation profile: {profile!r}.") from exc
+        
         self.config = tuple(config)
-        self.profile = profile
         self.target_crs = CRS.from_user_input(target_crs)
-        self.active_layers = tuple(layer for layer in config if profile in layer.run_in)
+        self.active_layers = tuple(layer for layer in self.config if self.profile in layer.run_in)
         self._references = {}
         prepared = {}
         # Prepare ALL configured layers, including submission-only sources.

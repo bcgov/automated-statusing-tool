@@ -9,7 +9,7 @@ def resolve_expected_ids(
     layers: Sequence[SpatialLayerReferenceConfig] | None,
     parameters: Mapping[str, Sequence[str | int]] | None = None,
     *,
-    profile: ValidationProfile = "runtime",
+    profile: ValidationProfile = ValidationProfile.RUNTIME,
 ) -> dict[str, tuple[str | int, ...]]:
     """Bind this call's selections without mutating the shared policy.
 
