@@ -423,7 +423,7 @@ class AOIValidationResult:
     spatial_checks_run: bool = False
     geometry_checks_run: bool = False
     checked_spatial_layers: tuple[str, ...] = ()
-    profile: str = ValidationProfile.RUNTIME
+    profile: ValidationProfile = ValidationProfile.RUNTIME
 
     @property
     def is_valid(self) -> bool:

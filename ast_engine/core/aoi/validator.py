@@ -27,20 +27,17 @@ class AOIValidator:
         spatial_validator: SpatialValidator | None = None,
         profile: ValidationProfile = ValidationProfile.RUNTIME,
     ) -> None:
-        if profile not in ValidationProfile:
-            raise AOIValidationError(
-                f"Unknown validation profile: {profile!r}."
-            )
+        try:
+            self.profile = ValidationProfile(profile)
+        except ValueError as exc:
+            raise AOIValidationError(f"Unknown validation profile: {profile!r}.") from exc
+        for kind, child in (("geometry", geometry_validator), ("spatial", spatial_validator)):
+            if child is not None and child.profile != self.profile:
+                raise AOIValidationError(
+                    f"AOI and {kind} validators must use the same profile "
+                    f"(AOI={self.profile}, {kind}={child.profile})."
+                )
 
-        if (
-            spatial_validator is not None
-            and spatial_validator.profile != profile
-        ):
-            raise AOIValidationError(
-                "AOI and spatial validators must use the same profile."
-            )
-
-        self.profile = profile
         self.geometry_validator = geometry_validator
         self.spatial_validator = spatial_validator
 
@@ -72,7 +69,7 @@ class AOIValidator:
                 raise SpatialValidationError(
                     "Validation parameters were supplied while spatial validation is disabled."
                 )
-            if self.geometry_validator is not None:
+            if self.geometry_validator is not None and self.geometry_validator.active_rules:
                 issues.extend(
                     self.geometry_validator.validate(
                         gdf=parts_gdf,
