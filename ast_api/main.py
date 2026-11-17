@@ -8,9 +8,10 @@ from contextlib import asynccontextmanager
 
 import redis
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from pydantic import ValidationError
 
 from .database import create_job, create_table, get_jobs
-from shared_models.models import CreateJob, JobQueueItem, JobStatus
+from shared_models.models import AOIOptions, CreateJob, JobQueueItem, JobStatus
 
 logger = logging.getLogger("ast_api.main")
 
@@ -36,6 +37,10 @@ async def create_job_in_queue_and_db(
     parcel_number: str | None = Form(None),
     generate_maps: bool = Form(False),
     export_overlap_results: bool = Form(False),
+    dissolve_mode: str = Form("full_union"),
+    dissolve_fields: list[str] = Form([]),
+    allow_overlaps: bool = Form(False),
+    part_policy: str = Form("multi_part"),
     upload_file: UploadFile | None = File(None),
     queue: redis.Redis = Depends(lambda: redis_client),
 ):
@@ -48,6 +53,19 @@ async def create_job_in_queue_and_db(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Upload source requires an uploaded spatial file",
+        )
+    # How a multi-row AOI is reported (#219), with the same checks as the engine's AOIRequest.
+    try:
+        aoi_options = AOIOptions(
+            dissolve_mode=dissolve_mode,
+            dissolve_fields=dissolve_fields,
+            allow_overlaps=allow_overlaps,
+            part_policy=part_policy,
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="; ".join(error["msg"] for error in exc.errors()),
         )
 
     upload_metadata = None
@@ -68,6 +86,7 @@ async def create_job_in_queue_and_db(
         parcel_number=parcel_number,
         generate_maps=generate_maps,
         export_overlap_results=export_overlap_results,
+        aoi_options=aoi_options,
     )
     job_id = create_job(job)
 
