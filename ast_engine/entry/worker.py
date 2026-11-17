@@ -142,6 +142,3 @@ def run_worker(job: AstJob, publish: bool = False):
     except Exception as e:
         logger.exception(f"Job with run_worker {job.job_id} failed catastrophically.")
         # TODO: Handel errors in execution and publication
-
-
-

@@ -2,11 +2,12 @@
 import json
 import logging
 from pathlib import Path
+from typing import Literal
 
 from contextlib import asynccontextmanager
 
 import redis
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 
 from .database import create_job, create_table, get_jobs
 from shared_models.models import CreateJob, JobQueueItem, JobStatus
@@ -25,20 +26,57 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 @app.post("/api/jobs", status_code=status.HTTP_201_CREATED)
-def create_job_in_queue_and_db(
-    job: CreateJob,
+async def create_job_in_queue_and_db(
+    name: str = Form(...),
+    email: str = Form(...),
+    region: str = Form(...),
+    source: Literal["1", "2"] = Form(...),
+    crown_file_number: str | None = Form(None),
+    disposition_number: str | None = Form(None),
+    parcel_number: str | None = Form(None),
+    generate_maps: bool = Form(False),
+    export_overlap_results: bool = Form(False),
+    upload_file: UploadFile | None = File(None),
     queue: redis.Redis = Depends(lambda: redis_client),
 ):
+    if source == "1" and not all((crown_file_number, disposition_number, parcel_number)):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="TANTALIS source requires file, disposition, and parcel identifiers",
+        )
+    if source == "2" and upload_file is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Upload source requires an uploaded spatial file",
+        )
+
+    upload_metadata = None
+    if upload_file is not None:
+        upload_content = await upload_file.read()
+        upload_metadata = {
+            "filename": upload_file.filename,
+            "size_bytes": len(upload_content),
+        }
+
+    job = CreateJob(
+        name=name,
+        email=email,
+        region=region,
+        source=source,
+        crown_file_number=crown_file_number,
+        disposition_number=disposition_number,
+        parcel_number=parcel_number,
+        generate_maps=generate_maps,
+        export_overlap_results=export_overlap_results,
+    )
     job_id = create_job(job)
 
     queue_item = JobQueueItem(
         job_id=str(job_id),
-        user=job.user,
-        date=job.date,
+        name=job.name,
+        email=job.email,       
         region=job.region.value if hasattr(job.region, "value") else str(job.region),
-        aoi_id=job.aoi_id,
-        aoi_name=job.aoi_name,
-        output_directory=job.output_directory,
+        source=job.source,
         status=job.status or JobStatus.QUEUED,
     )
 
@@ -47,6 +85,7 @@ def create_job_in_queue_and_db(
     return {
         "job": job.model_dump(mode="json"),
         "item": queue_item.model_dump(mode="json"),
+        "upload": upload_metadata,
     }
 
 

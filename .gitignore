@@ -249,3 +249,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Resulty things ??
+.xsl
+.xslx 
+.json
+.db
