@@ -5,6 +5,7 @@ from yaml.constructor import ConstructorError
 from ast_engine.config.paths import project_path
 from ast_engine.core.validation.models import ValidationConfig
 from ast_engine.core.validation.exceptions import ValidationConfigError
+from ast_engine.core.validation.schema import ValidationProfile
 from pydantic import ValidationError
 
 
@@ -17,8 +18,14 @@ def load_validation_config(
     geometry_validation: bool,
     spatial_validation: bool,
     config_root: Path,
+    profile: ValidationProfile | str = ValidationProfile.RUNTIME,
 ) -> ValidationConfig:
-    """Load one validation policy and select its enabled components."""
+    """Bind a shared policy to the caller's profile and enabled components."""
+
+    try:
+        active_profile = ValidationProfile(profile)
+    except ValueError:
+        raise ValidationConfigError(f"Unknown validation profile: {profile!r}.") from exc
 
     logger.debug(
         "Loading validation config from %s | geometry_validation=%s | spatial_validation=%s",
@@ -34,7 +41,7 @@ def load_validation_config(
             geometry_validation,
             spatial_validation,
         )
-        return ValidationConfig()
+        return ValidationConfig(profile=active_profile, geometry=None, spatial=None)
 
     if config_path is None or not str(config_path).strip():
         raise ValidationConfigError(
@@ -59,9 +66,15 @@ def load_validation_config(
         if not isinstance(document, dict):
             raise ValidationConfigError(f"{path}: expected a YAML mapping.")
 
+        if "profile" in document:
+            raise ValidationConfigError(
+                f"{path}: 'profile' is selected at startup; use 'run_in' on geometry "
+                "rules or spatial layers in YAML."
+            )
+
         logger.debug("YAML document loaded as: %s", document)
 
-        config = ValidationConfig.model_validate(document)
+        config = ValidationConfig.model_validate({**document, "profile": active_profile})
 
         logger.debug(
             "ValidationConfig loaded from %s | geometry=%s | spatial=%s",

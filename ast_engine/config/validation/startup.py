@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 def create_aoi_builder(
     settings: Settings,
     *,
-    profile: ValidationProfile,
+    profile: ValidationProfile | str,
     connection: OracleConnection | None = None,
     adapters: Mapping[str, BaseSpatialAdapter] | None = None,
 ) -> AOIBuilder:
@@ -37,13 +37,14 @@ def create_aoi_builder(
 
     config = load_validation_config(
         settings.aoi_validation_config_path,
+        profile=profile,
         geometry_validation=settings.validate_aoi_geometry,
         spatial_validation=settings.validate_aoi_spatial,
         config_root=PROJECT_ROOT,
     )
     logger.debug("ValidationConfig established for profile %s "
                  "Geometry Vaidation: %s, Spatial Validation: %s",
-                 profile,
+                 config.profile,
                  "Yes" if config.geometry is not None else "No",
                  "Yes" if config.spatial is not None else "No"
     )
@@ -121,7 +122,7 @@ def create_aoi_builder(
         )
 
         geometry_validator = (
-            GeometryValidator(config.geometry)
+            GeometryValidator(config.geometry, profile=config.profile)
             if config.geometry is not None
             else None
         )
@@ -132,7 +133,7 @@ def create_aoi_builder(
                 config.spatial,
                 reference_layers=references,
                 target_crs=settings.system_crs,
-                profile=profile,
+                profile=config.profile,
             )
             if config.spatial is not None
             else None
@@ -143,6 +144,6 @@ def create_aoi_builder(
             validator=AOIValidator(
                 geometry_validator=geometry_validator,
                 spatial_validator=spatial_validator,
-                profile=profile,
+                profile=config.profile,
             )
         )
