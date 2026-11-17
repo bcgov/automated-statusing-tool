@@ -449,6 +449,12 @@ class AOIValidationResult:
     def infos(self) -> tuple[ValidationIssue, ...]:
         return tuple(i for i in self.issues if i.severity == ValidationSeverity.INFO)
 
+    @classmethod
+    def empty(cls, profile) -> AOIValidationResult:
+        return cls(
+            issues=(),
+            profile=profile,
+        )
 
 # ============================================================
 # Validation results models

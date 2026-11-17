@@ -1,6 +1,7 @@
 """Coordinate AOI preconditions and independent geometry/spatial policies."""
 
 from collections.abc import Mapping, Sequence
+import logging
 
 import geopandas as gpd
 from ast_engine.core.validation.schema import(
@@ -18,6 +19,7 @@ from ast_engine.core.validation.spatial.spatial_validation import SpatialValidat
 from .exceptions import AOIValidationError
 from .models import AOIPart, AOIValidationResult
 
+logger = logging.getLogger(__name__)
 
 class AOIValidator:
     def __init__(
@@ -41,6 +43,7 @@ class AOIValidator:
         self.geometry_validator = geometry_validator
         self.spatial_validator = spatial_validator
 
+
     @property
     def required_spatial_parameters(self) -> frozenset[str]:
         if self.spatial_validator is None:
@@ -56,6 +59,14 @@ class AOIValidator:
         aoi_id: str,
         parameters: Mapping[str, Sequence[str | int]] | None = None,
     ) -> AOIValidationResult:
+
+        if not self.geometry_validator and not self.spatial_validator:
+            logger.warning("Geometry and Spatial Validation are disabled. "
+                           "The AOI has not been validated against a policy."
+            )
+
+            return AOIValidationResult.empty(profile=self.profile)
+
         issues = []
         geometry_checks_run = False
         checked_layers = ()
@@ -96,6 +107,10 @@ class AOIValidator:
             # Execution failure is not a policy finding or a successful empty report.
             raise AOIValidationError(str(exc)) from exc
 
+        logger.debug("AOI Validation comeplete for %s.",
+                     aoi_id
+        )
+        
         return AOIValidationResult(
             issues=tuple(issues),
             geometry_checks_run=geometry_checks_run,

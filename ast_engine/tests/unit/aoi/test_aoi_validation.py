@@ -132,15 +132,18 @@ def test_expected_ids_are_forwarded_per_job_and_missing_input_is_a_validation_st
     assert "requires nonempty parameter 'selected'" in str(child_error)
 
 
-def test_parameters_with_spatial_disabled_raise_instead_of_disappearing():
+def test_parameters_with_no_validation_loaded_returns():
     v = AOIValidator()
     assert v.required_spatial_parameters == frozenset()
     good = build(AOIBuilder(), box(0, 0, 1, 1)).aoi
-    with pytest.raises(AOIValidationError, match="spatial validation is disabled") as error:
-        v.validate(
-            gdf=good.gdf, parts=good.parts, aoi_id=good.aoi_id, parameters={"selected": ["RCB"]}
-        )
-    assert isinstance(error.value.__cause__, SpatialValidationError)
+    results = v.validate(
+        gdf=good.gdf, parts=good.parts, aoi_id=good.aoi_id, parameters={"selected": ["RCB"]}
+    )
+    assert results.issues == ()
+    assert results.checked_spatial_layers == ()
+    assert results.profile == ValidationProfile.RUNTIME
+    assert results.spatial_checks_run == False
+    assert results.geometry_checks_run == False
 
 
 def test_normalization_rejects_unusable_geometry_before_a_child_is_run(geometry_stub):
