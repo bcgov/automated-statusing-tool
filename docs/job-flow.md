@@ -190,7 +190,7 @@ worker must be given the same Redis and results-storage values.
 | `JOB_STATUS_TTL_SECONDS` | both | How long a status record is kept. Default 7 days. |
 | `STORAGE_TYPE`, `RESULTS_LOCAL_ROOT`, `RESULTS_S3_*` | both | Where results are published and read back. |
 | `REGISTRY_OUTPUT_PATH` | worker | Folder holding the registry yaml files. |
-| `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_HOST`, `ORACLE_DATABASE` | worker | BCGW login. Without it only file and GeoParquet datasets run, and TANTALIS jobs fail with a message saying so. |
+| `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_HOST`, `ORACLE_DATABASE` | worker | BCGW login. Without it, or when BCGW cannot be reached, only jobs over file and GeoParquet datasets run. A job that needs BCGW fails with a message saying so. |
 | `ORACLE_CLIENT_LIB_DIR` | worker | Folder holding Oracle's client libraries (Instant Client). Only needed for a BCGW account that is refused without them, with error `DPY-3015`. |
 | `MAX_UPLOAD_BYTES` | API | Largest uploaded file accepted. Default 20 MB. |
 | `API_PUBLIC_URL` | worker | The address people reach the API at. When set, the status report's map links go through the API. |

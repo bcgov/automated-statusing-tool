@@ -120,7 +120,8 @@ def resolve_aoi(item: JobQueueItem, oracle_connection: Optional[OracleConnection
 
     if oracle_connection is None:
         raise JobRequestError(
-            "A TANTALIS lookup needs a BCGW connection, and this worker has none configured."
+            "A TANTALIS lookup needs a BCGW connection, and the worker could not "
+            "connect to it. Try again later."
         )
     try:
         gdf = fetch_tantalis_aoi(

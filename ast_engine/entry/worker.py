@@ -38,6 +38,7 @@ from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, created_date, JobStorageContext
 from ast_engine.storage.models import MapArtifact, OperatorArtifact
 from ast_engine.config.settings import Settings
+from ast_engine.config.registry.models import DataAdapter
 
 logger = logging.getLogger(__name__)
 settings = Settings()
@@ -45,6 +46,19 @@ settings = Settings()
 # What the user is told when a job fails for a reason that is ours, not theirs.
 # The cause is in the worker log; an internal error can name tables, paths or hosts.
 INTERNAL_ERROR_MESSAGE = "The job could not be run. See the worker log for details."
+
+# What a failed job tells the user when it needed BCGW and the worker had no
+# connection to it: none is set up, or the database could not be reached. The
+# user can act on this one - by trying again later - so it is not folded into
+# INTERNAL_ERROR_MESSAGE.
+BCGW_UNAVAILABLE_MESSAGE = (
+    "This status reads from BCGW, and the worker could not connect to it. "
+    "Try again later."
+)
+
+
+class BcgwUnavailableError(Exception):
+    """A job needs BCGW and the worker has no connection to it."""
 
 class JobStatus(StrEnum):
     QUEUED = "Queued"
@@ -83,12 +97,13 @@ class AstJob(BaseModel):
 
 
 def open_oracle_connection(settings: Settings) -> Optional[OracleConnection]:
-    """Open the BCGW connection for a run, or return None when no login is configured.
+    """Open the BCGW connection for a run, or return None when there is none to
+    be had: no login is configured, or the database could not be reached.
 
-    A run over file or GeoParquet datasets needs no database, so a worker with no
-    BCGW login in its settings can still run those. A job that does need BCGW then
-    fails inside the run with a message saying so (see run_analysis), rather than
-    every job failing here before it starts.
+    A run over file or GeoParquet datasets needs no database, so a worker
+    without BCGW can still run those. A job that does need BCGW then fails with
+    BCGW_UNAVAILABLE_MESSAGE (see run_worker), rather than every job failing
+    here before it starts.
 
     The caller owns the connection it gets back and must close it.
     """
@@ -102,12 +117,20 @@ def open_oracle_connection(settings: Settings) -> Optional[OracleConnection]:
         logger.info("No BCGW login configured; running without a database connection")
         return None
 
-    return OracleConnection(
-        username=settings.oracle_user,
-        password=settings.oracle_password.get_secret_value(),
-        hostname=f'{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}',
-        client_lib_dir=settings.oracle_client_lib_dir,
-    )
+    try:
+        return OracleConnection(
+            username=settings.oracle_user,
+            password=settings.oracle_password.get_secret_value(),
+            hostname=f'{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}',
+            client_lib_dir=settings.oracle_client_lib_dir,
+        )
+    except ConnectionError as e:
+        # BCGW is down, the network is, or the login is refused. Treated the
+        # same as having no login: a job over files alone must not fail because
+        # of a database it never reads. The message names the host and the
+        # database's error, never the password.
+        logger.error("BCGW could not be reached; running without a database connection: %s", e)
+        return None
 
 
 def _job_work_dir(job_id: UUID) -> Path:
@@ -387,6 +410,10 @@ def run_worker(
         # one-pass iterable, and both the run and the report go through them.
         registries = list(job.registries)
         tasks = build_tasks(registries)
+        # Stop here rather than run: without BCGW every one of these datasets
+        # would fail, and the report would be a page of "Unsuccessful".
+        if oracle_connection is None and any(task.source_type == DataAdapter.ORACLE for task in tasks):
+            raise BcgwUnavailableError()
         tracker = DiagnosticTracker()
         # engage engine
         ast_results = run_analysis(
@@ -423,6 +450,10 @@ def run_worker(
         logger.exception("Job %s failed: the AOI could not be used.", job.job_id)
         job.status = JobStatus.FAILED
         job.error = f"The area of interest could not be used: {e}"
+    except BcgwUnavailableError:
+        logger.error("Job %s failed: it reads from BCGW and there is no connection.", job.job_id)
+        job.status = JobStatus.FAILED
+        job.error = BCGW_UNAVAILABLE_MESSAGE
     except Exception:
         # Anything else is ours, not the user's. The details stay in the log -
         # an internal error can name tables, paths or hosts.

@@ -15,9 +15,10 @@ from uuid import uuid4
 import geopandas as gpd
 import openpyxl
 import pytest
+from pydantic import SecretStr
 
 from ast_engine.config.registry import enrichment, utils
-from ast_engine.config.registry.models import BaseDataset, Registry
+from ast_engine.config.registry.models import BaseDataset, DataAdapter, Registry
 from ast_engine.config.settings import Settings
 from ast_engine.core.results import AstResults
 from ast_engine.entry import worker
@@ -382,3 +383,67 @@ def test_a_job_with_tab3_suppressed_reports_the_first_two_tabs_and_makes_no_maps
     assert _report(job).sheetnames == ["Crown Land Status", "Status of Conflict"]
     _, artifacts = _published(job)
     assert not [name for name in artifacts if name.startswith("map_")]
+
+
+# --- a BCGW that is set up but cannot be reached ------------------------------
+
+
+@pytest.fixture
+def bcgw_unreachable(monkeypatch, worker_settings) -> Settings:
+    """Worker settings that name a BCGW login, with a database that refuses it."""
+    settings = worker_settings.model_copy(update={
+        "oracle_user": "someone",
+        "oracle_password": SecretStr("not-a-real-password"),
+        "oracle_host": "bcgw.example",
+        "oracle_database": "db.example",
+    })
+    monkeypatch.setattr(worker, "settings", settings)
+
+    def refuse(**login):
+        raise ConnectionError("Oracle connection failed for bcgw.example:1521/db.example: ORA-12170")
+
+    monkeypatch.setattr(worker, "OracleConnection", refuse)
+    return settings
+
+
+@pytest.fixture
+def bcgw_registry(file_registry) -> Registry:
+    """A registry of one dataset that is read from BCGW."""
+    dataset = file_registry.datasets[0].model_copy(update={
+        "name": "Parks",
+        "datasource": "WHSE_TANTALIS.TA_PARK_ECORES_PA_SVW",
+        "data_adapter": DataAdapter.ORACLE,
+    })
+    return file_registry.model_copy(update={"datasets": [dataset]})
+
+
+def test_a_bcgw_that_cannot_be_reached_is_run_without(bcgw_unreachable, caplog):
+    """The same as a worker with no BCGW login: what needs BCGW says so, and
+    what does not is still run."""
+    assert worker.open_oracle_connection(bcgw_unreachable) is None
+    assert "BCGW could not be reached" in caplog.text
+    assert "not-a-real-password" not in caplog.text
+
+
+def test_a_job_that_needs_no_bcgw_still_runs_when_bcgw_cannot_be_reached(
+    bcgw_unreachable, file_registry, aoi_geojson
+):
+    job = run_worker(_job(file_registry, aoi_geojson), publish=True)
+
+    assert job.status == JobStatus.COMPLETED
+    assert job.error is None
+
+
+@pytest.mark.parametrize("settings_fixture", ["worker_settings", "bcgw_unreachable"])
+def test_a_job_that_needs_bcgw_fails_saying_so_when_there_is_no_connection(
+    settings_fixture, request, bcgw_registry, aoi_geojson
+):
+    """Not the catch-all "could not be run": the user can act on this one, by
+    trying again later. And not a report with every dataset marked failed."""
+    request.getfixturevalue(settings_fixture)
+
+    job = run_worker(_job(bcgw_registry, aoi_geojson), publish=True)
+
+    assert job.status == JobStatus.FAILED
+    assert job.error == worker.BCGW_UNAVAILABLE_MESSAGE
+    assert job.error != worker.INTERNAL_ERROR_MESSAGE
