@@ -194,7 +194,7 @@ class AOIBuilder:
 
         if validation.has_errors:
             logger.warning(
-                "AOI validation completed with errors | "
+                "AOI validation completed with ERRORS | "
                 "aoi_id=%s | errors=%s | warnings=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.errors),
@@ -204,7 +204,7 @@ class AOIBuilder:
 
         elif validation.has_warnings:
             logger.info(
-                "AOI validation completed with warnings | "
+                "AOI validation completed with WARNINGS | "
                 "aoi_id=%s | warnings=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.warnings),
@@ -213,7 +213,7 @@ class AOIBuilder:
 
         else:
             logger.info(
-                "AOI validation passed | aoi_id=%s | infos=%s",
+                "AOI validation PASSED | aoi_id=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.infos),
             )
