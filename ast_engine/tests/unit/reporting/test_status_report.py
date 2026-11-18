@@ -51,3 +51,16 @@ def test_the_geomark_formula_follows_the_line_when_it_moves(tmp_path):
 
     assert "'Crown Land Status'!B29" in book["Conflicts & Constraints"]["C7"].value
     assert book["Crown Land Status"]["A29"].value == "Geomark"
+
+
+def test_a_report_without_tab3_has_the_first_two_tabs_only(tmp_path):
+    path = write_status_report(
+        tmp_path / "status-report.xlsx",
+        header=HEADER,
+        datasets=[DATASET],
+        crown_land_status=CrownLandStatus(run_date=date(2026, 3, 31), crown_file_number="7410123"),
+        inactive_tenures=[],
+        include_conflicts=False,
+    )
+
+    assert openpyxl.load_workbook(path).sheetnames == ["Crown Land Status", "Status of Conflict"]

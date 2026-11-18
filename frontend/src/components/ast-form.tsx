@@ -41,6 +41,7 @@ interface FormInputs {
   uploadFile: File | null;
   maps: boolean; // Generate Maps switch (true = on)
   overlaps: boolean; // Export Overlap Results switch (true = on)
+  suppressTab3: boolean; // Suppress Tab 3 (Constraints) switch (true = on)
 }
 
 // A submitted job, as the API reports it.
@@ -87,6 +88,7 @@ const INITIAL_INPUTS: FormInputs = {
   uploadFile: null,
   maps: false,
   overlaps: false,
+  suppressTab3: false,
 };
 
 // Options for the Region dropdown. id = value stored, label = text shown.
@@ -282,6 +284,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
       formData.append("parcel_number", inputs.parcelId.trim());
       formData.append("generate_maps", String(inputs.maps));
       formData.append("export_overlap_results", String(inputs.overlaps));
+      formData.append("suppress_tab3", String(inputs.suppressTab3));
       if (inputs.uploadFile) {
         formData.append("upload_file", inputs.uploadFile);
       }
@@ -445,6 +448,17 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
           onChange={(value) => updateField("overlaps", value)}
         >
           Export Overlap Results
+        </Switch>
+
+        {/* On = the report has the first two tabs only, and the job is quicker.
+            The maps show what Tab 3 found, so none are made either. */}
+        <Switch
+          labelPosition="right"
+          name="suppressTab3"
+          isSelected={inputs.suppressTab3}
+          onChange={(value) => updateField("suppressTab3", value)}
+        >
+          Suppress Tab 3 (Constraints)
         </Switch>
       </div>
 

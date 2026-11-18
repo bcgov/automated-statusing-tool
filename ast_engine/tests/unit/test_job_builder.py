@@ -148,3 +148,38 @@ def test_build_ast_job_keeps_the_job_id_and_timestamp(tmp_path):
     assert job.created_at == item.created_at
     assert job.user == "Alice"
     assert job.aoi == AOI
+
+
+def test_load_registries_for_a_job_without_tab3_is_tab1_alone(tmp_path):
+    """Tab 3 is what the common and regional registries are run for."""
+    for name in ("one_status_common_datasets", "one_status_cariboo_specific", "tab1"):
+        _write_registry(tmp_path, name)
+
+    names = [name for name, _ in load_registries("Cariboo", tmp_path, suppress_tab3=True)]
+
+    assert names == ["tab1"]
+
+
+def test_load_registries_for_a_job_without_tab3_does_not_need_the_common_registry(tmp_path):
+    _write_registry(tmp_path, "tab1")
+
+    assert [name for name, _ in load_registries("Cariboo", tmp_path, suppress_tab3=True)] == ["tab1"]
+
+
+def test_load_registries_for_a_job_without_tab3_requires_tab1(tmp_path):
+    """Without it the job would run nothing and hand back an empty status."""
+    _write_registry(tmp_path, "one_status_common_datasets")
+
+    with pytest.raises(FileNotFoundError, match="Tab 1 registry"):
+        load_registries("Cariboo", tmp_path, suppress_tab3=True)
+
+
+def test_build_ast_job_carries_the_suppress_tab3_choice(tmp_path):
+    for name in ("one_status_common_datasets", "tab1"):
+        _write_registry(tmp_path, name)
+
+    job = build_ast_job(_item(suppress_tab3=True), registry_dir=tmp_path)
+
+    assert job.suppress_tab3 is True
+    assert [name for name, _ in job.registries] == ["tab1"]
+    assert build_ast_job(_item(), registry_dir=tmp_path).suppress_tab3 is False

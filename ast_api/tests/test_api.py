@@ -549,3 +549,12 @@ def test_report_is_not_ready_until_the_job_completes(client, sample_job_payload)
     response = client.get(f"/api/jobs/{job_id}/report")
 
     assert response.status_code == 409
+
+
+def test_suppress_tab3_is_off_unless_asked_for_and_reaches_the_worker(client, sample_job_payload):
+    client.post("/api/jobs", data=sample_job_payload)
+    response = client.post("/api/jobs", data={**sample_job_payload, "suppress_tab3": "true"})
+
+    assert response.status_code == 201
+    assert response.json()["item"]["suppress_tab3"] is True
+    assert [item["suppress_tab3"] for item in _queued_items()] == [False, True]

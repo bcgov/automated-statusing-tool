@@ -33,6 +33,7 @@ class CreateJob(BaseModel):
     parcel_number: str | None = None
     generate_maps: bool = False
     export_overlap_results: bool = False
+    suppress_tab3: bool = False
     status: JobStatus = JobStatus.QUEUED
 
 
@@ -59,6 +60,8 @@ class JobQueueItem(BaseModel):
     aoi          a GeoJSON FeatureCollection in EPSG:4326 (longitude/latitude),
                  geometry only. It is on the queue message but is left out of
                  the status record - nothing reads it back and it can be large.
+    suppress_tab3  leave the Conflicts & Constraints tab (Tab 3) out: the
+                 worker then runs the Tab 1 datasets only, and makes no maps.
     created_at   when the API accepted the job, as an ISO 8601 UTC timestamp.
     completed_at when the worker finished it, whether it completed or failed.
     error        why the job failed, in words a user can act on; empty otherwise.
@@ -79,6 +82,7 @@ class JobQueueItem(BaseModel):
     aoi: Dict[str, Any] | None = None
     generate_maps: bool = False
     export_overlap_results: bool = False
+    suppress_tab3: bool = False
     created_at: str | None = None
     completed_at: str | None = None
     error: str | None = None

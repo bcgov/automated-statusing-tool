@@ -69,6 +69,8 @@ class AstJob(BaseModel):
     generate_maps: bool = False
     # publish the features each dataset matched, as GeoPackages
     export_overlap_results: bool = False
+    # leave the Conflicts & Constraints tab (Tab 3) and its maps out of the job
+    suppress_tab3: bool = False
     # What the status was asked for, printed at the top of the status report.
     region: Optional[str] = None
     crown_file_number: Optional[str] = None
@@ -261,6 +263,7 @@ def _write_report(
             datasets=datasets,
             crown_land_status=crown_land_status,
             inactive_tenures=_inactive_tenures(job, aoi, oracle_connection),
+            include_conflicts=not job.suppress_tab3,
         )
     except Exception:
         logger.exception("Could not write the status report for job %s; publishing without it", job.job_id)
@@ -396,7 +399,10 @@ def run_worker(
         )
         # TODO: what to do with tracker info?
 
-        maps = _generate_maps(job, aoi, tasks, ast_results) if job.generate_maps else []
+        # The maps show what the Tab 3 datasets found, so there are none to
+        # make for a job that leaves Tab 3 out.
+        make_maps = job.generate_maps and not job.suppress_tab3
+        maps = _generate_maps(job, aoi, tasks, ast_results) if make_maps else []
 
         # option pubilsh results
         if publish is True:

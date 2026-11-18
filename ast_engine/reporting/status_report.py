@@ -34,12 +34,15 @@ def write_status_report(
     datasets: Iterable[DatasetReport],
     crown_land_status: CrownLandStatus,
     inactive_tenures: Optional[Sequence[InactiveTenure]],
+    include_conflicts: bool = True,
 ) -> Path:
     """Write the status report workbook and return its path.
 
     inactive_tenures  the inactive Crown land tenures on the AOI; an empty list
                       when it has none, and None when they could not be read -
                       the Status of Conflict tab then says it was not evaluated.
+    include_conflicts False leaves out Conflicts & Constraints and Data Sources,
+                      for a job that asked for the status without Tab 3.
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -50,14 +53,15 @@ def write_status_report(
 
     geomark_cell = add_crown_land_status_sheet(book, crown_land_status)
     add_status_of_conflict_sheet(book, crown_land_status.crown_file_number, inactive_tenures)
-    add_conflicts_sheets(
-        book,
-        header,
-        datasets,
-        # The Conflicts & Constraints header repeats the Geomark typed into the
-        # Crown Land Status tab.
-        geomark_reference=f"'{CROWN_LAND_STATUS_SHEET_NAME}'!{geomark_cell}",
-    )
+    if include_conflicts:
+        add_conflicts_sheets(
+            book,
+            header,
+            datasets,
+            # The Conflicts & Constraints header repeats the Geomark typed into
+            # the Crown Land Status tab.
+            geomark_reference=f"'{CROWN_LAND_STATUS_SHEET_NAME}'!{geomark_cell}",
+        )
 
     book.save(path)
     return path

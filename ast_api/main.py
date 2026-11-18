@@ -148,6 +148,7 @@ async def create_job_in_queue_and_db(
     parcel_number: str | None = Form(None),
     generate_maps: bool = Form(False),
     export_overlap_results: bool = Form(False),
+    suppress_tab3: bool = Form(False),
     upload_file: UploadFile | None = File(None),
     queue: redis.Redis = Depends(lambda: redis_client),
     store: JobStatusStore = Depends(get_job_store),
@@ -203,6 +204,7 @@ async def create_job_in_queue_and_db(
         parcel_number=parcel_number,
         generate_maps=generate_maps,
         export_overlap_results=export_overlap_results,
+        suppress_tab3=suppress_tab3,
     )
     # The job is known everywhere by this id - on the queue, in the status store
     # and in results storage. The engine identifies a job by UUID.
@@ -222,6 +224,7 @@ async def create_job_in_queue_and_db(
         aoi=aoi,
         generate_maps=job.generate_maps,
         export_overlap_results=job.export_overlap_results,
+        suppress_tab3=job.suppress_tab3,
         created_at=datetime.now(UTC).isoformat(),
     )
 

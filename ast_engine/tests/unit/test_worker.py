@@ -367,3 +367,18 @@ def test_a_job_still_completes_when_its_report_cannot_be_written(
     assert job.status == JobStatus.COMPLETED
     _, artifacts = _published(job)
     assert artifacts == ["raw_results"]
+
+
+def test_a_job_with_tab3_suppressed_reports_the_first_two_tabs_and_makes_no_maps(
+    worker_settings, file_registry, aoi_geojson
+):
+    """The maps belong to Tab 3: they show what its datasets found."""
+    job = run_worker(
+        _job(file_registry, aoi_geojson, tab1_registry="demo", suppress_tab3=True, generate_maps=True),
+        publish=True,
+    )
+
+    assert job.status == JobStatus.COMPLETED
+    assert _report(job).sheetnames == ["Crown Land Status", "Status of Conflict"]
+    _, artifacts = _published(job)
+    assert not [name for name in artifacts if name.startswith("map_")]

@@ -61,9 +61,17 @@ def normalize_region(region: str) -> str:
     return region.strip().replace(" ", "_").lower()
 
 
-def load_registries(region: str, registry_dir: str | Path | None) -> list[tuple[str, Registry]]:
+def load_registries(
+    region: str,
+    registry_dir: str | Path | None,
+    suppress_tab3: bool = False,
+) -> list[tuple[str, Registry]]:
     """Load the registries one job runs against, in order: the common datasets,
     the region's own datasets, then Tab 1.
+
+    With suppress_tab3 only Tab 1 is loaded: the common and regional datasets
+    are what the Conflicts & Constraints tab is made from, so a job that leaves
+    that tab out has no use for them.
 
     The common registry is required - a run without it would report nothing for
     the datasets every status covers. The regional registry and Tab 1 are used
@@ -80,13 +88,19 @@ def load_registries(region: str, registry_dir: str | Path | None) -> list[tuple[
         )
     folder = Path(registry_dir)
 
-    names = [COMMON_REGISTRY, REGION_REGISTRY.format(region=normalize_region(region)), TAB1_REGISTRY]
+    # The registry a job cannot do without: the one its main tab is made from.
+    if suppress_tab3:
+        names, required = [TAB1_REGISTRY], TAB1_REGISTRY
+    else:
+        names = [COMMON_REGISTRY, REGION_REGISTRY.format(region=normalize_region(region)), TAB1_REGISTRY]
+        required = COMMON_REGISTRY
     registries: list[tuple[str, Registry]] = []
     for name in names:
         path = folder / f"{name}.yaml"
         if not path.is_file():
-            if name == COMMON_REGISTRY:
-                raise FileNotFoundError(f"The common registry was not found: {path}")
+            if name == required:
+                label = "common" if name == COMMON_REGISTRY else "Tab 1"
+                raise FileNotFoundError(f"The {label} registry was not found: {path}")
             logger.warning("Registry %s not found in %s; running without it", name, folder)
             continue
         registries.append((name, utils.load_yaml(path)))
@@ -154,7 +168,7 @@ def build_ast_job(
     """
     return AstJob(
         job_id=UUID(item.job_id),
-        registries=load_registries(item.region, registry_dir),
+        registries=load_registries(item.region, registry_dir, suppress_tab3=item.suppress_tab3),
         created_at=item.created_at,
         user=item.name,
         aoi_id=item.job_id,
@@ -163,6 +177,7 @@ def build_ast_job(
         status=JobStatus.QUEUED,
         generate_maps=item.generate_maps,
         export_overlap_results=item.export_overlap_results,
+        suppress_tab3=item.suppress_tab3,
         region=item.region,
         crown_file_number=item.crown_file_number,
         disposition_number=item.disposition_number,

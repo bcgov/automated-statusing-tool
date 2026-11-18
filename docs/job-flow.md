@@ -162,15 +162,15 @@ information: it is written into the report and never logged.
 
 ## Maps and exported overlap results
 
-Two switches on the form change what the worker publishes besides the results
-document:
+Three switches on the form change what the worker runs and publishes:
 
 | Switch | What the worker does |
 | --- | --- |
 | Generate Maps | Writes one HTML map per dataset that found features, and an overview map of them all, and publishes them under `maps/`. |
 | Export Overlap Results | Publishes the features each dataset matched, as one GeoPackage per dataset per AOI part, under `data/`. |
+| Suppress Tab 3 (Constraints) | Runs the `tab1` registry only, so the job is quick. The status report has its first two tabs and no Conflicts & Constraints or Data Sources, and no maps are made. `tab1.yaml` must then be in the registry folder. |
 
-Both are built from the features a run saves, so a job that asks for either has
+The first two are built from the features a run saves, so a job that asks for either has
 them saved for that run whatever `RECORD_SPATIAL` is set to. The maps are made
 by `ast_engine/reporting/html_maps.py`, which carries over the map output of the
 ArcGIS Pro Automated Status Tool; its module docstring lists what is the same
