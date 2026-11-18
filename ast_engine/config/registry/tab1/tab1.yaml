@@ -59,7 +59,7 @@ datasets:
   datasource: WHSE_LEGAL_ADMIN_BOUNDARIES.ABMS_MUNICIPALITIES_SP
   definition_query: null
   aggregate_columns:
-  - MUNICIPALITY_NAME
+  - ADMIN_AREA_NAME
   where: null
   operator:
     type: overlay
@@ -319,7 +319,7 @@ datasets:
   datasource: WHSE_LEGAL_ADMIN_BOUNDARIES.ABMS_REGIONAL_DISTRICTS_SP
   definition_query: null
   aggregate_columns:
-  - REGIONAL_DISTRICT_NAME
+  - ADMIN_AREA_NAME
   where: null
   operator:
     type: overlay

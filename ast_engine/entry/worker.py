@@ -104,6 +104,7 @@ def open_oracle_connection(settings: Settings) -> Optional[OracleConnection]:
         username=settings.oracle_user,
         password=settings.oracle_password.get_secret_value(),
         hostname=f'{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}',
+        client_lib_dir=settings.oracle_client_lib_dir,
     )
 
 

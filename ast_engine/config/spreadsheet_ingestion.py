@@ -134,7 +134,9 @@ def main() -> None:
         # "checked and found nothing" apart from "never checked at all".
         hydrated, skipped = utils.hydrate_base_datasets(datasets)
         base_datasets_list = []
-        with OracleConnection(user, password, host) as (conn, cursor):
+        with OracleConnection(
+            user, password, host, client_lib_dir=settings.oracle_client_lib_dir
+        ) as (conn, cursor):
             for dataset in hydrated:
                 print(dataset)
                 try:

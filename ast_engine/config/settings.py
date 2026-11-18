@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     oracle_port: int | None = 1521
     oracle_user: str | None = None
     oracle_password: SecretStr | None = None
+    # Folder holding Oracle's client libraries (Instant Client). Only needed
+    # for a BCGW account that is refused without them (error DPY-3015).
+    oracle_client_lib_dir: str | None = None
     
     # S3 Connections
     s3_max_retries: int = 5

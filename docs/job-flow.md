@@ -191,6 +191,7 @@ worker must be given the same Redis and results-storage values.
 | `STORAGE_TYPE`, `RESULTS_LOCAL_ROOT`, `RESULTS_S3_*` | both | Where results are published and read back. |
 | `REGISTRY_OUTPUT_PATH` | worker | Folder holding the registry yaml files. |
 | `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_HOST`, `ORACLE_DATABASE` | worker | BCGW login. Without it only file and GeoParquet datasets run, and TANTALIS jobs fail with a message saying so. |
+| `ORACLE_CLIENT_LIB_DIR` | worker | Folder holding Oracle's client libraries (Instant Client). Only needed for a BCGW account that is refused without them, with error `DPY-3015`. |
 | `MAX_UPLOAD_BYTES` | API | Largest uploaded file accepted. Default 20 MB. |
 | `API_PUBLIC_URL` | worker | The address people reach the API at. When set, the status report's map links go through the API. |
 | `OIDC_ISSUER` | API | The login service's address, as in a token's `iss`, e.g. `https://loginproxy.gov.bc.ca/auth/realms/standard`. |
@@ -247,6 +248,15 @@ Building reads each dataset's columns and geometry from its source, so it needs
 a BCGW login (and the network BCGW is reached on). A workbook in the folder
 that is not a statusing input spreadsheet is passed over with a warning.
 
+It also needs `ast_engine/config/drive_map.conf`, which is not in git: one
+`<network share>|<where it is mounted>` line per share (see
+`ast_engine/config/README.md`). A dataset kept on a share that is not mounted
+cannot be read, and is listed under `skipped` in its registry rather than left
+out silently.
+
+Copy `ast_engine/config/registry/tab1/tab1.yaml` into the registry folder too,
+or the report's first tab reads `Not checked`.
+
 ## Tests
 
 ```bash
@@ -264,9 +274,10 @@ fake and results storage on local disk.
   It has been run against tokens the tests sign themselves, and the API has
   fetched the dev login service's keys and refused a forged token with them.
 - The API does not look at a user's roles, or tie a job to its submitter.
-- The TANTALIS lookups behind the report's first two tabs have only been run
-  against a stand-in for the database. Their table and column names are the
-  ones the ArcGIS Pro tool queries; a run against BCGW is still needed to
-  confirm them.
+- The TANTALIS lookups and the registries have been run against the BCGW test
+  database (`idwtest1`), not production. One TANTALIS job was run end to end
+  there, over the common, South Coast and Tab 1 registries.
+- Datasets kept on network shares have not been run: the registries were built
+  on a machine with no shares mounted.
 - The `jobs` table in SQLite keeps the status a job was created with; the live
   status is the record in Redis.

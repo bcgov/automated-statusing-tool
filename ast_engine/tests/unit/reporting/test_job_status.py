@@ -191,3 +191,38 @@ def test_an_uploaded_aoi_has_no_file_details():
 
     assert status.crown_file_number == "" and status.applicant_name == ""
     assert status.tenure_type == ()
+
+
+def test_regional_district_and_municipality_are_read_from_the_bcgw_name_column():
+    """Both tables name their areas in ADMIN_AREA_NAME. The ArcGIS Pro tool
+    asks for REGIONAL_DISTRICT_NAME and MUNICIPALITY_NAME, which BCGW no
+    longer has."""
+    status = _build(
+        [_task(job_status.REGIONAL_DISTRICTS), _task(job_status.MUNICIPALITIES)],
+        [_overlay({"ADMIN_AREA_NAME": "Sunshine Coast Regional District"}),
+         _overlay({"ADMIN_AREA_NAME": "District of Sechelt"})],
+    )
+
+    assert status.regional_districts == ("Sunshine Coast Regional District",)
+    assert status.municipalities == ("District of Sechelt",)
+
+
+def test_the_tab1_registry_only_summarises_columns_its_tables_have():
+    """Each dataset in the registry lists the table's columns, as read from
+    BCGW when the registry was built. A summary column outside that list is
+    never read, and its line on the tab comes out blank - the same as a column
+    that is empty, so nothing in a run can tell the two apart. It is caught here."""
+    from pathlib import Path
+
+    from ast_engine.config.registry import utils
+
+    registry_path = Path(job_status.__file__).parents[1] / "config" / "registry" / "tab1" / "tab1.yaml"
+    registry = utils.load_yaml(registry_path)
+
+    # DISTANCE is not a column: the nearest analysis works it out.
+    unknown = {
+        dataset.name: sorted(set(dataset.aggregate_columns) - set(dataset.columns) - {"DISTANCE"})
+        for dataset in registry.datasets
+    }
+
+    assert {name: columns for name, columns in unknown.items() if columns} == {}
