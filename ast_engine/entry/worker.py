@@ -107,7 +107,9 @@ def run_worker(
         logger.info("Worker Processing [job-id:%s] -- Publication OFF", job.aoi_id)
         
     job.status = JobStatus.PROCESSING
-    
+
+    conn = None
+
     try:
         # Create database connection
         conn = OracleConnection(username=settings.oracle_user,
@@ -131,10 +133,10 @@ def run_worker(
 
         required = aoi_builder.validator.required_spatial_parameters
 
-        validation_parameters = None
-
         # Pass the region and other validation parameters for the job to the AOIBuilder,
         # so it can be used in validation checks, if required by the AOIBuilder's validator.
+        validation_parameters = None
+
         if "expected_unit_ids" in required:
             validation_parameters = {
                 "expected_unit_ids": (
@@ -155,12 +157,31 @@ def run_worker(
         built = aoi_builder.build_from_request(
             AOIBuildRequest(spec=request, raw_gdf=gdf),
         )
+
         # Stop on AOI validation errors, as the old from_gdf did; log the warnings.
         # TODO: agree the worker's rule for AOI validation issues with the team
         for issue in built.warnings:
-            logger.warning("AOI warning %s: %s", issue.code, issue.message)
+            logger.warning(
+                "Job %s | AOI %s | %s: %s",
+                job.job_id, job.aoi_id, issue.code, issue.message,
+            )
+
+        # AOI validation error findings are not exceptions to be handled.
+        # Log the errors and return the failed job with the status and do
+        # not raise.
         if built.has_errors:
-            raise AOIValidationError("; ".join(f"{issue.code}: {issue.message}" for issue in built.errors))
+            job.status = JobStatus.FAILED
+            for issue in built.errors:
+                logger.error(
+                    "Job %s | AOI %s rejected | %s | subject=%s: %s",
+                    job.job_id, job.aoi_id, issue.code, issue.subject_id, issue.message,
+                )
+
+            # TODO: establish pathway for AOI valdiation errors to propogate
+            # Likely return them as part of the AstJob. 
+            return job
+
+        # AOI validated. Proceed to analysis tasks.
         aoi = built.aoi
 
         tasks = build_tasks(job.registries)
@@ -182,6 +203,11 @@ def run_worker(
         job.status = JobStatus.COMPLETED
 
         return job
-    except Exception as e:
-        logger.exception(f"Job with run_worker {job.job_id} failed catastrophically.")
+    
+    except Exception:
+        job.status = JobStatus.FAILED
+        raise
+    finally:
+        if conn is not None:
+            conn.close()
         # TODO: Handle errors in execution and publication
