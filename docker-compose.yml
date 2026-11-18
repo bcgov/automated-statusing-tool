@@ -124,7 +124,9 @@ services:
     networks:
       - ast-net
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:9333/cluster/status"]
+      # 127.0.0.1, not localhost: in the container localhost resolves to ::1
+      # first and seaweedfs listens on IPv4 only.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9333/cluster/status"]
       interval: 20s
       timeout: 5s
       retries: 10

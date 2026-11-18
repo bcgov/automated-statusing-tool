@@ -11,13 +11,19 @@ from uuid import uuid4
 
 import geopandas as gpd
 import pytest
+import redis
 
 from ast_engine.config.registry import enrichment, utils
 from ast_engine.config.registry.models import BaseDataset
 from ast_engine.config.settings import Settings
 from ast_engine.core.results import AstResults
 from ast_engine.entry import worker
-from ast_engine.entry.redis_worker import handle_message
+from ast_engine.entry.redis_worker import (
+    QUEUE_WAIT_SECONDS,
+    SOCKET_TIMEOUT_SECONDS,
+    handle_message,
+    next_message,
+)
 from ast_engine.entry.worker import INTERNAL_ERROR_MESSAGE
 from ast_engine.storage import (
     RAW_RESULTS_KEY,
@@ -156,3 +162,46 @@ def test_an_internal_failure_does_not_leak_its_details(store, settings, aoi_geoj
 
     assert record.status == JobStatus.FAILED
     assert record.error == INTERNAL_ERROR_MESSAGE
+
+
+class QueueClient:
+    """A Redis client whose blpop gives back, or raises, what it was built with."""
+
+    def __init__(self, outcome):
+        self.outcome = outcome
+        self.timeouts = []
+
+    def blpop(self, queue_name, timeout=0):
+        self.timeouts.append(timeout)
+        if isinstance(self.outcome, Exception):
+            raise self.outcome
+        return self.outcome
+
+
+def test_next_message_is_the_message_popped_from_the_queue():
+    client = QueueClient(("ast_job_queue", b'{"job": 1}'))
+
+    assert next_message(client, "ast_job_queue") == b'{"job": 1}'
+
+
+def test_next_message_waits_no_longer_than_the_socket_allows():
+    """A wait with no end is cut off by the client's socket timeout, as an error."""
+    client = QueueClient(None)
+
+    assert next_message(client, "ast_job_queue") is None
+    assert client.timeouts == [QUEUE_WAIT_SECONDS]
+    assert 0 < QUEUE_WAIT_SECONDS < SOCKET_TIMEOUT_SECONDS
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        redis.exceptions.TimeoutError("Timeout reading from socket"),
+        redis.exceptions.ConnectionError("Connection refused"),
+    ],
+)
+def test_next_message_outlives_a_redis_that_is_slow_or_away(error):
+    """An idle or restarting Redis must not end the worker; it tries again."""
+    client = QueueClient(error)
+
+    assert next_message(client, "ast_job_queue", retry_delay_seconds=0) is None

@@ -21,6 +21,7 @@ job failing never stops the loop.
 """
 
 import logging
+import time
 from datetime import datetime, UTC
 from typing import Optional
 
@@ -35,6 +36,15 @@ from shared_models.job_store import JobStatusStore
 from shared_models.models import JobQueueItem, JobStatus
 
 logger = logging.getLogger(__name__)
+
+# How long one wait on the queue lasts before the worker asks again. It has to
+# be shorter than the socket timeout: the Redis client gives up on a reply that
+# takes longer than that, so a wait with no end stops an idle worker.
+QUEUE_WAIT_SECONDS = 5
+SOCKET_TIMEOUT_SECONDS = 30
+
+# How long the worker holds off before asking again after Redis did not answer.
+RETRY_DELAY_SECONDS = 5
 
 
 def handle_message(
@@ -99,6 +109,29 @@ def _record(store: JobStatusStore, item: JobQueueItem, **changes) -> JobQueueIte
     return updated
 
 
+def next_message(
+    redis_client: redis.Redis,
+    queue_name: str,
+    retry_delay_seconds: float = RETRY_DELAY_SECONDS,
+) -> Optional[str | bytes]:
+    """Wait a short while for the next job on the queue.
+
+    Returns the queue message, or None when none arrived in QUEUE_WAIT_SECONDS
+    or Redis did not answer - the caller just asks again. A Redis that is slow
+    or restarting is logged and waited out, so it never ends the worker.
+    """
+    try:
+        popped = redis_client.blpop(queue_name, timeout=QUEUE_WAIT_SECONDS)
+    except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError) as e:
+        logger.warning("Redis did not answer (%s); trying again", type(e).__name__)
+        time.sleep(retry_delay_seconds)
+        return None
+    if not popped:
+        return None
+    _, message = popped
+    return message
+
+
 def main():
     setup_logging()
     settings = Settings()
@@ -108,6 +141,7 @@ def main():
         port=settings.redis_port,
         db=settings.redis_database,
         password=settings.redis_password.get_secret_value() if settings.redis_password else None,
+        socket_timeout=SOCKET_TIMEOUT_SECONDS,
     )
     store = JobStatusStore(redis_client, ttl_seconds=settings.job_status_ttl_seconds)
     queue_name = settings.job_queue
@@ -115,10 +149,10 @@ def main():
     logger.info(f"Listening for jobs on Redis queue: {queue_name}")
 
     while True:
-        # Blocking pop from the Redis queue: waits until a job arrives.
         # Payload expected to be a JSON string with job details
-        _, message = redis_client.blpop(queue_name)
-        handle_message(message, store, settings)
+        message = next_message(redis_client, queue_name)
+        if message is not None:
+            handle_message(message, store, settings)
 
 
 if __name__ == "__main__":

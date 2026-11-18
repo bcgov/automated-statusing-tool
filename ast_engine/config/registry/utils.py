@@ -142,12 +142,24 @@ def infer_operator(buffer_distance) -> dict:
     return {"type": "within_distance", "distance_m": float(buffer_distance)}
 
 
+class NotAStatusingSpreadsheet(ValueError):
+    """A workbook that does not have the columns of a statusing input spreadsheet."""
+
+
 def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the input be xlsx
     '''
     Ingest spreadsheet and create a dictionary to hydrate the base dataset
     This assumes a flat dictionary and does not recurse
+
+    Raises NotAStatusingSpreadsheet when the workbook has no dataset name
+    column: the spreadsheet folder also holds workbooks of other kinds.
     '''
     inp_df = pd.read_excel(inp_xlsx)
+    name_column = template["name"]
+    if name_column not in inp_df.columns:
+        raise NotAStatusingSpreadsheet(
+            f"{inp_xlsx} has no '{name_column}' column, so it is not a statusing input spreadsheet"
+        )
     # The spreadsheet names a category once, on the first dataset under it, and
     # leaves it blank on the rest. Fill it down so every dataset carries its own.
     category_column = template.get("category")
@@ -156,7 +168,7 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
     dataset_list = []
     for index, row in inp_df.iterrows():
         row_dataset = {}
-        if pd.notna(row["Featureclass_Name(valid characters only)"]):
+        if pd.notna(row[name_column]):
             # do the lookup
             for key, value in template.items():
                 if isinstance(value, list):

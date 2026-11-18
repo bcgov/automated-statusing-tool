@@ -33,5 +33,9 @@ RUN chgrp -R 0 /app /tmp/uv-cache && \
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
 
+# The environment is complete as built. Without this `uv run` re-syncs it at
+# start-up and downloads the dev dependencies, which needs internet access.
+ENV UV_NO_SYNC=1
+
 # Expose port and run application
 CMD ["uv", "run", "python", "-m" , "ast_engine.entry.redis_worker"]

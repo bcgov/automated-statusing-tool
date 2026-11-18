@@ -116,7 +116,13 @@ def main() -> None:
     path_lookup = utils.drive_map_loader(path_lookup_conf)
 
     for xlsx_in, yaml_out in spreadsheet_io.items():
-        datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        try:
+            datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        except utils.NotAStatusingSpreadsheet as e:
+            # A folder of spreadsheets can hold other workbooks too. One of
+            # those is passed over, so it does not end the build part-way.
+            logger.warning("Skipping spreadsheet: %s", e)
+            continue
         # Ensure pathing is correct for host OS
         for dataset in datasets:
             dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)

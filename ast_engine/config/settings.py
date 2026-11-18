@@ -71,6 +71,9 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # The .env file is shared with docker compose, which keeps values of
+        # its own there (NO_PROXY, BACKEND_PORT...). Those are not settings.
+        extra="ignore",
     )
     
     def validate_system(self) -> list[str]:
