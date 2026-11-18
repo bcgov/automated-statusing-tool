@@ -50,31 +50,41 @@ def test_an_enabled_section_requires_a_nonblank_path(tmp_path, path):
         load(tmp_path, path)
 
 
-# def test_relative_policy_uses_config_root_file_sources_use_yaml_directory(tmp_path, monkeypatch):
-#     root = tmp_path / "app"
-#     folder = root / "policy"
-#     elsewhere = tmp_path / "unrelated"
-#     elsewhere.mkdir()
-#     monkeypatch.chdir(elsewhere)
-#     absolute = tmp_path / "elsewhere.gpkg"
-#     table = "nr_regions"
-#     doc = {
-#         "spatial": [
-#             layer_doc("relative", datasource="../data/units.gpkg"),
-#             layer_doc("absolute", datasource=str(absolute)),
-#             layer_doc("oracle", datasource=table, data_adapter="oracle"),
-#         ]
-#     }
-#     path = write_policy(folder / "validation.yaml", doc)
-#     c = load(root, "policy/validation.yaml", geometry=False)
-#     assert [v.datasource for v in c.spatial] == [
-#         str((root / "data/units.gpkg").resolve()),
-#         str(absolute.resolve()),
-#         table,
-#     ]
-#     assert load(Path("unused"), path, geometry=False) == c
-#     with pytest.raises(ValidationConfigError, match="config_root must be an absolute path"):
-#         load(Path("relative"), "policy/validation.yaml", geometry=False)
+def test_policy_and_file_sources_use_config_root(tmp_path, monkeypatch):
+    root = tmp_path / "app"
+    elsewhere = tmp_path / "unrelated"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    absolute_source = tmp_path / "elsewhere.gpkg"
+    table = "nr_regions"
+    policy_path = write_policy(
+        root / "policy" / "validation.yaml",
+        {
+            "spatial": [
+                layer_doc("relative", datasource="data/units.gpkg"),
+                layer_doc("absolute", datasource=str(absolute_source)),
+                layer_doc("oracle", datasource=table, data_adapter="oracle"),
+            ]
+        },
+    )
+
+    config = load(root, "policy/validation.yaml", geometry=False)
+
+    assert [layer.datasource for layer in config.spatial] == [
+        str((root / "data/units.gpkg").resolve()),
+        str(absolute_source.resolve()),
+        table,
+    ]
+    assert load(root, policy_path, geometry=False) == config
+
+
+@pytest.mark.parametrize("absolute_policy", [False, True])
+def test_loading_policy_requires_absolute_config_root(tmp_path, absolute_policy):
+    path = tmp_path / "validation.yaml" if absolute_policy else Path("validation.yaml")
+
+    with pytest.raises(ValueError, match="config_root must be an absolute path"):
+        load(Path("relative"), path, geometry=False)
 
 
 @pytest.mark.parametrize(
@@ -207,3 +217,16 @@ def test_shipped_aoi_policy_loads_without_opening_reference_sources():
     c = load(folder, "aoi_validation.yaml")
     assert c.geometry is not None and c.geometry.rules
     assert c.spatial is not None and all(item.rules is not None for item in c.spatial)
+
+
+def test_unknown_caller_profile_raises_config_error(tmp_path):
+    with pytest.raises(ValidationConfigError, match="Unknown validation profile: 'frontend'") as err:
+        load_validation_config(
+            None,
+            geometry_validation=False,
+            spatial_validation=False,
+            config_root=tmp_path,
+            profile="frontend",
+        )
+
+    assert isinstance(err.value.__cause__, ValueError)

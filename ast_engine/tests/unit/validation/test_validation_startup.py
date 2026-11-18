@@ -164,7 +164,7 @@ def test_profile_controls_execution_but_all_sources_are_loaded_once_per_builder(
     assert set(by_table) == set(sources)
     assert by_table[t]["read_options"].keep_columns == ["ORG_UNIT"]
     for kwargs in by_table.values():
-        assert kwargs["read_all"] is True and kwargs["target_crs"] == CRS
+        assert kwargs["target_crs"] == CRS
         assert kwargs["read_options"].spatial_filter is None
 
 
@@ -193,10 +193,9 @@ def test_reference_loader_deduplicates_by_adapter_and_source_and_unions_requeste
     f.read.assert_called_once()
     o.read.assert_called_once()
     fk, ok = f.read.call_args.kwargs, o.read.call_args.kwargs
-    assert fk["path"] == "same" and "read_all" not in fk and fk["read_options"].keep_columns is None
-    assert (ok["table"], ok["read_all"], ok["read_options"].keep_columns) == (
+    assert fk["path"] == "same" and fk["read_options"].keep_columns is None
+    assert (ok["table"], ok["read_options"].keep_columns) == (
         "same",
-        True,
         ["ID", "ZONE"],
     )
     assert all(

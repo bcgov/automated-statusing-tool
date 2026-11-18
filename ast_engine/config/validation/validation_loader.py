@@ -24,7 +24,7 @@ def load_validation_config(
 
     try:
         active_profile = ValidationProfile(profile)
-    except ValueError:
+    except ValueError as exc:
         raise ValidationConfigError(f"Unknown validation profile: {profile!r}.") from exc
 
     logger.debug(
@@ -140,7 +140,7 @@ def load_validation_config(
 
     except ValidationError as exc:
         raise ValidationConfigError(
-            f"{path}: invalid configuration after resolution: {exc}"
+            f"{path}: invalid configuration after data source resolution: {exc}"
         ) from exc
 
 

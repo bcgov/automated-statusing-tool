@@ -34,7 +34,7 @@ def load_reference_layers(
         try:
             options = ReadOptions(keep_columns=sorted(fields) or None)
             kwargs = (
-                {"table": datasource, "read_all": True}
+                {"table": datasource}
                 if kind == "oracle"
                 else {"path": datasource}
             )
