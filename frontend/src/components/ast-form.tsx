@@ -5,10 +5,12 @@
 import { useEffect, useRef, useState } from "react";
 // Types only. These add nothing to the final app.
 // ChangeEvent = the event from a normal HTML input. FC = "function component".
-import type { ChangeEvent, FC } from "react";
+import type { ChangeEvent, FC, MouseEvent } from "react";
 // Ready-made form pieces from the BC Government design system.
 import { Button, Switch, Select, Radio, RadioGroup, TextField } from "@bcgov/design-system-react-components";
 import type { TantalisIdentifiers } from "../types/tantalis";
+// Calls to the API. These send the signed-in user's access token with each request.
+import { apiFetch, openApiFile } from "../services/api";
 // Styles for this form.
 import "./ast-form.scss";
 
@@ -201,7 +203,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     }
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`/api/jobs/${job.jobId}`);
+        const response = await apiFetch(`/api/jobs/${job.jobId}`);
         if (!response.ok) {
           throw new Error(`Request failed: ${response.status}`);
         }
@@ -230,7 +232,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     }
     // Lets a response that arrives after the form was cleared be ignored.
     let cancelled = false;
-    fetch(`/api/jobs/${jobId}/maps`)
+    apiFetch(`/api/jobs/${jobId}/maps`)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Request failed: ${response.status}`);
@@ -250,6 +252,19 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
       cancelled = true;
     };
   }, [jobId, jobStatus]);
+
+  // Runs when one of a job's output links is clicked.
+  // The API only gives a file to a signed-in user, and a link followed by the
+  // browser carries no sign-in. So the file is fetched here and then opened.
+  // Give downloadName to save the file; leave it out to open it in a new tab.
+  function handleOutputClick(event: MouseEvent<HTMLAnchorElement>, path: string, downloadName?: string) {
+    event.preventDefault();
+    setSubmitMessage("");
+    openApiFile(path, downloadName).catch((error) => {
+      console.error("Job output request failed:", error);
+      setSubmitMessage("The file could not be opened. Try again in a moment.");
+    });
+  }
 
   // Runs when Submit is clicked. Sends the form to the API, which queues the job.
   async function handleSubmission() {
@@ -273,7 +288,7 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
 
       // A path with no host, so the request goes to wherever this page was served from.
       // In development, vite.config.js forwards anything under /api to the API.
-      const response = await fetch("/api/jobs", {
+      const response = await apiFetch("/api/jobs", {
         method: "POST",
         body: formData,
       });
@@ -464,8 +479,18 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
               "View results" opens the same findings as data (JSON). */}
           {job.status === JOB_STATUS_COMPLETED && (
             <p className="job-links">
-              <a href={`/api/jobs/${job.jobId}/report`}>Download status report</a>
-              <a href={`/api/jobs/${job.jobId}/results`} target="_blank" rel="noreferrer">
+              <a
+                href={`/api/jobs/${job.jobId}/report`}
+                onClick={(event) =>
+                  handleOutputClick(event, `/api/jobs/${job.jobId}/report`, `status-report-${job.jobId}.xlsx`)
+                }
+              >
+                Download status report
+              </a>
+              <a
+                href={`/api/jobs/${job.jobId}/results`}
+                onClick={(event) => handleOutputClick(event, `/api/jobs/${job.jobId}/results`)}
+              >
                 View results
               </a>
             </p>
@@ -476,7 +501,10 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
             <ul className="job-maps">
               {jobMaps.map((map) => (
                 <li key={map.name}>
-                  <a href={`/api/jobs/${job.jobId}/maps/${map.name}`} target="_blank" rel="noreferrer">
+                  <a
+                    href={`/api/jobs/${job.jobId}/maps/${map.name}`}
+                    onClick={(event) => handleOutputClick(event, `/api/jobs/${job.jobId}/maps/${map.name}`)}
+                  >
                     {map.title}
                   </a>
                 </li>

@@ -72,6 +72,9 @@ login. It is built by `scripts/build_demo_registry.py`.
 
 ## API routes
 
+Every route asks for the access token of a signed-in user (see
+[Signing in](#signing-in)). Without one the answer is `401`.
+
 | Route | Returns |
 | --- | --- |
 | `POST /api/jobs` | `201` with the queued job. `422` when the form or the uploaded file cannot be used, `413` when the file is over `max_upload_bytes`. |
@@ -81,6 +84,33 @@ login. It is built by `scripts/build_demo_registry.py`.
 | `GET /api/jobs/{job_id}/maps` | The HTML maps published for a completed job, as `name` and `title`, the overview first. Empty when the job made none. |
 | `GET /api/jobs/{job_id}/maps/{map_name}` | One map, as a page to open in the browser. |
 | `GET /api/jobs` | The jobs still waiting on the queue. |
+
+## Signing in
+
+The frontend signs a person in with the BC Gov login service (Keycloak) and
+sends the access token it is given with every request, as
+`Authorization: Bearer <token>`. All of its calls go through
+`frontend/src/services/api.ts`, which adds the token.
+
+The API checks the token in `ast_api/auth.py`: its signature against the login
+service's published keys, that it was issued by `OIDC_ISSUER` for
+`OIDC_AUDIENCE`, and that it has not expired.
+
+| Request | Answer |
+| --- | --- |
+| No token, or a token that is refused | `401`. The reason is logged, not returned. |
+| The login service's keys cannot be fetched, or `OIDC_ISSUER` / `OIDC_AUDIENCE` are not set | `503`. Tokens cannot be checked, so nobody is let through. |
+
+The check is set on the whole application, so a route added later is covered.
+The API's own documentation pages (`/docs`) stay open.
+
+A link followed by the browser carries no token. So the form fetches a job's
+report, results and maps itself and then opens them, and a map link in a
+downloaded report (see `API_PUBLIC_URL`) does not open while the check is on.
+
+What the check does not do: it does not look at roles, and it does not tie a job
+to the person who submitted it. Any signed-in user who has a job's id can read
+that job.
 
 ## The status report
 
@@ -163,6 +193,13 @@ worker must be given the same Redis and results-storage values.
 | `ORACLE_USER`, `ORACLE_PASSWORD`, `ORACLE_HOST`, `ORACLE_DATABASE` | worker | BCGW login. Without it only file and GeoParquet datasets run, and TANTALIS jobs fail with a message saying so. |
 | `MAX_UPLOAD_BYTES` | API | Largest uploaded file accepted. Default 20 MB. |
 | `API_PUBLIC_URL` | worker | The address people reach the API at. When set, the status report's map links go through the API. |
+| `OIDC_ISSUER` | API | The login service's address, as in a token's `iss`, e.g. `https://loginproxy.gov.bc.ca/auth/realms/standard`. |
+| `OIDC_AUDIENCE` | API | This application's client id at the login service, as in a token's `aud`. |
+| `OIDC_JWKS_URL` | API | Where the login service publishes its signing keys. Worked out from `OIDC_ISSUER` when not set. |
+| `AUTH_REQUIRED` | API | Default `true`. Set `false` only to call the API locally without signing in; every route is then open. |
+
+`OIDC_ISSUER` and `OIDC_AUDIENCE` must match the `authority` and `client_id` in
+`frontend/src/auth/authConfig.ts`, or the tokens the frontend sends are refused.
 
 ## Run locally
 
@@ -172,8 +209,8 @@ Start Redis (or Valkey), then from the repo root, each in its own terminal:
 # the worker, on the demo registry and local results storage
 REGISTRY_OUTPUT_PATH=ast_engine/tests/registry/demo uv run python -m ast_engine.entry.redis_worker
 
-# the API
-uv run uvicorn ast_api.main:app --reload --port 8000
+# the API, with the login check off
+AUTH_REQUIRED=false uv run uvicorn ast_api.main:app --reload --port 8000
 
 # the frontend
 cd frontend && npm run dev
@@ -182,6 +219,33 @@ cd frontend && npm run dev
 Submit the form with `ast_engine/tests/data/Test_Shape_A/Test_Shape_A.kml` as
 the upload. The job's status appears under the buttons and a **View results**
 link appears when it completes.
+
+### With docker compose
+
+`docker compose up --build` starts the API, the worker, Valkey and a local S3
+store (SeaweedFS), with the worker on the demo registry. It reads a `.env` file
+in the repo root, which is not in git. For local use it needs:
+
+```bash
+REDIS_PASSWORD=<any value>
+RESULTS_S3_ACCESS_ID=<any value>
+RESULTS_S3_KEY=<any value>
+RESULTS_S3_BUCKET=ast-results
+AUTH_REQUIRED=false   # leave out to keep the login check on
+```
+
+## Building the registries
+
+The registries are built from the statusing input spreadsheets, one registry
+per spreadsheet:
+
+```bash
+uv run python -m ast_engine.config.spreadsheet_ingestion --input <spreadsheet folder> --output <registry folder>
+```
+
+Building reads each dataset's columns and geometry from its source, so it needs
+a BCGW login (and the network BCGW is reached on). A workbook in the folder
+that is not a statusing input spreadsheet is passed over with a warning.
 
 ## Tests
 
@@ -196,7 +260,10 @@ fake and results storage on local disk.
 
 ## Not done yet
 
-- The API does not check the login token the frontend holds.
+- The login check has not been run with a token from the real login service.
+  It has been run against tokens the tests sign themselves, and the API has
+  fetched the dev login service's keys and refused a forged token with them.
+- The API does not look at a user's roles, or tie a job to its submitter.
 - The TANTALIS lookups behind the report's first two tabs have only been run
   against a stand-in for the database. Their table and column names are the
   ones the ArcGIS Pro tool queries; a run against BCGW is still needed to

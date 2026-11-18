@@ -8,12 +8,15 @@ from typing import Literal
 from uuid import uuid4
 
 from contextlib import asynccontextmanager
+from functools import lru_cache
 
 import redis
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .aoi_upload import AoiUploadError, read_aoi_upload
+from .auth import AuthenticatedUser, KeyServiceError, TokenError, TokenVerifier
 from .config.settings import Settings
 from .database import create_job, create_table, get_jobs
 from ast_engine.storage import (
@@ -56,13 +59,83 @@ def get_job_store() -> JobStatusStore:
     return JobStatusStore(redis_client, ttl_seconds=settings.job_status_ttl_seconds)
 
 
+# Reads the token out of "Authorization: Bearer <token>". A request without
+# one is answered by require_user, so that every refusal reads the same.
+bearer_scheme = HTTPBearer(auto_error=False)
+
+
+@lru_cache
+def get_token_verifier() -> TokenVerifier | None:
+    """The check for access tokens, or None when no login service is set.
+
+    Made once and kept: it holds the login service's signing keys, so they are
+    not fetched again for every request.
+    """
+    if not (settings.oidc_issuer and settings.oidc_audience):
+        return None
+    return TokenVerifier(
+        issuer=settings.oidc_issuer,
+        audience=settings.oidc_audience,
+        jwks_url=settings.oidc_jwks_url,
+    )
+
+
+def require_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    verifier: TokenVerifier | None = Depends(get_token_verifier),
+) -> AuthenticatedUser | None:
+    """Let a request through only when it carries a valid access token.
+
+    Returns the signed-in user, or None when the login check is switched off
+    (auth_required is false, for local work without a login service).
+
+    A request with no token, or one that is refused, gets a 401 that does not
+    say why - the reason goes to the log. When tokens cannot be checked at all
+    the answer is a 503, never a pass.
+    """
+    if not settings.auth_required:
+        return None
+    if verifier is None:
+        logger.error("Login check is required but OIDC_ISSUER and OIDC_AUDIENCE are not set")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Sign-in is not available",
+        )
+    if credentials is None:
+        raise _not_signed_in()
+    try:
+        return verifier.verify(credentials.credentials)
+    except TokenError as exc:
+        # The reason only: never the token, which is a credential.
+        logger.info("Access token refused: %s", exc)
+        raise _not_signed_in() from exc
+    except KeyServiceError as exc:
+        logger.error("Access token could not be checked: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Sign-in is not available",
+        ) from exc
+
+
+def _not_signed_in() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Not signed in",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_table()
+    if not settings.auth_required:
+        logger.warning("Login check is switched off (AUTH_REQUIRED=false): every route is open")
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+# The login check is set on the application, not on each route, so a route
+# added later is covered without anyone having to remember it.
+app = FastAPI(lifespan=lifespan, dependencies=[Depends(require_user)])
 
 @app.post("/api/jobs", status_code=status.HTTP_201_CREATED)
 async def create_job_in_queue_and_db(

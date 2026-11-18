@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     # largest uploaded area-of-interest file the API accepts, in bytes
     max_upload_bytes: int = 20 * 1024 * 1024
 
+    # Login check. Every route asks for an access token from the login service
+    # the frontend signs people in with (see ast_api/auth.py).
+    #   oidc_issuer: the login service's address, as in a token's "iss", e.g.
+    #       "https://loginproxy.gov.bc.ca/auth/realms/standard"
+    #   oidc_audience: this application's client id, as in a token's "aud"
+    #   oidc_jwks_url: where the signing keys are published; worked out from
+    #       the issuer when not set
+    # auth_required is on unless switched off, and with it on and no issuer or
+    # audience set the API refuses every request rather than serve unchecked.
+    # Switch it off only to work locally without a login service.
+    auth_required: bool = True
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

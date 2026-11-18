@@ -56,6 +56,12 @@ services:
       - "8000:${BACKEND_PORT:-8000}"
     environment:
       <<: *shared-env
+      # Login check. The defaults are the login service and client id the
+      # frontend signs people in with (frontend/src/auth/authConfig.ts). Set
+      # AUTH_REQUIRED=false only to call the API locally without signing in.
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-true}
+      OIDC_ISSUER: ${OIDC_ISSUER:-https://dev.loginproxy.gov.bc.ca/auth/realms/standard}
+      OIDC_AUDIENCE: ${OIDC_AUDIENCE:-automated-status-tool-6604}
     env_file:
       - .env
     volumes:

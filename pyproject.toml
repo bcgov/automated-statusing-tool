@@ -23,6 +23,7 @@ dependencies = [
     "rq>=3.0.0",
     "duckdb==1.5.5",
     "folium>=0.19",
+    "pyjwt[crypto]>=2.10",
 ]
 
 [build-system]
