@@ -26,8 +26,8 @@ an answer, the second is the lack of one.
 
 What is different from the ArcGIS Pro tool's sheet:
 
-  - the Geomark row of the header is left out. It was a formula reading the
-    Crown Land Status sheet (Tab 1), which this workbook does not have yet;
+  - the Geomark row of the header is only written in the full status report,
+    where the Crown Land Status sheet it reads is in the same workbook;
   - an AOI kept as several parts (dissolve by fields / preserve features) gets
     one block of datasets per part, each under the part's name, where the tool
     wrote one block per value of its sub-report field;
@@ -53,9 +53,10 @@ from typing import Iterable, Optional, Sequence
 import openpyxl
 from openpyxl.cell.cell import Cell
 from openpyxl.styles import Alignment, Font, PatternFill
-from openpyxl.styles.borders import Border, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
+
+from .excel import draw_box, set_text
 
 CONFLICTS_SHEET_NAME = "Conflicts & Constraints"
 DATA_SOURCES_SHEET_NAME = "Data Sources"
@@ -119,8 +120,6 @@ RESTRICTED_NOTICE_URL = (
     "natural-resource-use/archaeology/forms-publications/"
     "archaeological_information_sharing_agreement.pdf"
 )
-
-_THICK = Side(style="thick")
 
 
 @dataclass(frozen=True)
@@ -198,14 +197,35 @@ def write_conflicts_report(
     """
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    datasets = list(datasets)
 
     book = openpyxl.Workbook()
-    sheet = book.active
-    sheet.title = CONFLICTS_SHEET_NAME
+    # A new workbook comes with one empty sheet; the report's own sheets replace it.
+    book.remove(book.active)
+    add_conflicts_sheets(book, header, datasets)
+
+    book.save(path)
+    return path
+
+
+def add_conflicts_sheets(
+    book: openpyxl.Workbook,
+    header: ReportHeader,
+    datasets: Iterable[DatasetReport],
+    *,
+    geomark_reference: Optional[str] = None,
+) -> None:
+    """Add the Conflicts & Constraints and Data Sources sheets to a workbook.
+
+    geomark_reference  the cell on another sheet of the workbook that holds the
+                       Geomark, e.g. "'Crown Land Status'!B28". When given, the
+                       header shows that cell's value in a Geomark row.
+    """
+    datasets = list(datasets)
+
+    sheet = book.create_sheet(CONFLICTS_SHEET_NAME)
     sheet.merge_cells("B1:D1")
 
-    row = _write_header(sheet, header)
+    row = _write_header(sheet, header, geomark_reference)
     row = _write_column_titles(sheet, row)
     for part_index, part_name in enumerate(header.part_names):
         if len(header.part_names) > 1:
@@ -216,9 +236,6 @@ def write_conflicts_report(
     _write_footer(sheet, row, header)
 
     _write_data_sources(book.create_sheet(DATA_SOURCES_SHEET_NAME), header, datasets)
-
-    book.save(path)
-    return path
 
 
 def summary_values(feature_properties: Iterable[dict], fields: Sequence[str]) -> tuple[str, ...]:
@@ -257,7 +274,7 @@ def _format_value(value: object) -> str:
 # The Conflicts & Constraints sheet
 # ---------------------------------------------------------------------------
 
-def _write_header(sheet: Worksheet, header: ReportHeader) -> int:
+def _write_header(sheet: Worksheet, header: ReportHeader, geomark_reference: Optional[str] = None) -> int:
     """Write the disclaimer and the facts about the status. Returns the row
     the column titles go on."""
     _write_text(sheet["B1"], DISCLAIMER, color=RED, size=12)
@@ -275,6 +292,20 @@ def _write_header(sheet: Worksheet, header: ReportHeader) -> int:
         for column, text in ((CATEGORY_COLUMN, label), (DATASET_COLUMN, value)):
             cell = sheet[f"{column}{row}"]
             _write_text(cell, text, size=10)
+            cell.alignment = Alignment(horizontal="justify")
+        row += 1
+
+    if geomark_reference:
+        # The one formula on the sheet, built here from a cell reference, not
+        # from anything read from a dataset. It shows the Geomark someone types
+        # into the Crown Land Status tab, and stays blank until they do.
+        for column, value in (
+            (CATEGORY_COLUMN, "Geomark: "),
+            (DATASET_COLUMN, f'=IF({geomark_reference}=0,"",{geomark_reference})'),
+        ):
+            cell = sheet[f"{column}{row}"]
+            cell.value = value
+            cell.font = Font(color=BLACK, size=10, name=FONT_NAME)
             cell.alignment = Alignment(horizontal="justify")
         row += 1
 
@@ -372,19 +403,7 @@ def _write_footer(sheet: Worksheet, row: int, header: ReportHeader) -> None:
 
 def _draw_box(sheet: Worksheet, first_row: int, last_row: int) -> None:
     """Draw a thick box round a category: its heading and all its datasets."""
-    for row in range(first_row, last_row + 1):
-        for column in range(FIRST_BLOCK_COLUMN, LAST_BLOCK_COLUMN + 1):
-            sides = {}
-            if row == first_row:
-                sides["top"] = _THICK
-            if row == last_row:
-                sides["bottom"] = _THICK
-            if column == FIRST_BLOCK_COLUMN:
-                sides["left"] = _THICK
-            if column == LAST_BLOCK_COLUMN:
-                sides["right"] = _THICK
-            if sides:
-                sheet.cell(row, column).border = Border(**sides)
+    draw_box(sheet, first_row, last_row, FIRST_BLOCK_COLUMN, LAST_BLOCK_COLUMN)
 
 
 # ---------------------------------------------------------------------------
@@ -449,14 +468,8 @@ def _write_text(
     size: int = 10,
     bold: bool = False,
 ) -> None:
-    """Write text into a cell, as text.
-
-    openpyxl stores a string that starts with "=" as a formula. Dataset names
-    and attribute values come from outside, so the cell is marked as holding a
-    string after it is filled: what was read from a dataset is shown, never run.
-    """
-    cell.value = text
-    cell.data_type = "s"
+    """Write text into a cell, as text (see set_text), in the sheet's font."""
+    set_text(cell, text)
     cell.font = Font(color=color, size=size, name=FONT_NAME, bold=bold)
 
 

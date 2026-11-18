@@ -13,17 +13,26 @@ from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
 from ast_engine.core.aoi.exceptions import AOIError, AOIValidationError
 from ast_engine.core.execution import run_analysis, build_tasks
 from ast_engine.core.results import AstResults
-from ast_engine.core.data_adapters.oracle import OracleConnection
+from ast_engine.core.data_adapters.oracle import (
+    InactiveTenure,
+    OracleConnection,
+    fetch_applicant_name,
+    fetch_inactive_tenures,
+    fetch_received_dates,
+    fetch_tenure_details,
+)
 from ast_engine.utils.diagnostics import DiagnosticTracker
 from ast_engine.reporting import (
     OVERVIEW_MAP_NAME,
     MapOutput,
     ReportHeader,
+    TenureFacts,
     aoi_part_names,
+    build_crown_land_status,
     build_dataset_reports,
     build_map_layers,
     generate_html_maps,
-    write_conflicts_report,
+    write_status_report,
 )
 from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, created_date, JobStorageContext
@@ -65,9 +74,10 @@ class AstJob(BaseModel):
     crown_file_number: Optional[str] = None
     disposition_number: Optional[str] = None
     parcel_number: Optional[str] = None
-    # Registries whose datasets are left off the Conflicts & Constraints report
-    # (Tab 1: its datasets belong on the status sheet's first tabs).
-    report_exclude_registries: tuple[str, ...] = ()
+    # The name, among `registries`, of the Tab 1 registry. Its datasets fill the
+    # Crown Land Status tab of the report and are left off the Conflicts &
+    # Constraints tab. None when the job runs no Tab 1 registry.
+    tab1_registry: Optional[str] = None
 
 
 def open_oracle_connection(settings: Settings) -> Optional[OracleConnection]:
@@ -152,6 +162,51 @@ def _map_link(job: AstJob, map_name: str) -> str:
     return f"maps/{map_name}.html"
 
 
+def _tenure_facts(job: AstJob, oracle_connection: Optional[OracleConnection]) -> TenureFacts:
+    """Read what TANTALIS says about the job's Crown land file, for the report.
+
+    Empty for an uploaded AOI, which has no file, and when there is no BCGW
+    connection. If the lookup fails the report is still written, with those
+    lines blank and the reason in the log.
+
+    The applicant's name is personal information: it goes into the report and
+    is never logged.
+    """
+    if oracle_connection is None or not (job.crown_file_number and job.disposition_number):
+        return TenureFacts()
+    try:
+        cursor = oracle_connection.cursor
+        details = {}
+        if job.parcel_number:
+            details = fetch_tenure_details(
+                cursor, job.crown_file_number, job.disposition_number, job.parcel_number,
+            )
+        return TenureFacts(
+            applicant_name=fetch_applicant_name(cursor, job.disposition_number),
+            received_dates=tuple(fetch_received_dates(cursor, job.disposition_number)),
+            details=details,
+        )
+    except Exception:
+        logger.exception("Could not read the TANTALIS file details for job %s", job.job_id)
+        return TenureFacts()
+
+
+def _inactive_tenures(job: AstJob, aoi, oracle_connection: Optional[OracleConnection]) -> Optional[list[InactiveTenure]]:
+    """Read the inactive Crown land tenures on the AOI, for the report.
+
+    Returns None when they could not be read - there is no BCGW connection, or
+    the lookup failed. The Status of Conflict tab then says the AOI was not
+    evaluated, which is not the same as having no inactive tenures.
+    """
+    if oracle_connection is None:
+        return None
+    try:
+        return fetch_inactive_tenures(oracle_connection.connection, oracle_connection.cursor, aoi.gdf)
+    except Exception:
+        logger.exception("Could not read the inactive tenures for job %s", job.job_id)
+        return None
+
+
 def _write_report(
     job: AstJob,
     registries: list[tuple[str, Any]],
@@ -159,6 +214,7 @@ def _write_report(
     tasks,
     ast_results: AstResults,
     maps: list[MapOutput],
+    oracle_connection: Optional[OracleConnection],
 ) -> Optional[Path]:
     """Write the job's status report (the Excel workbook) and return its path.
 
@@ -167,9 +223,10 @@ def _write_report(
     and the reason is in the log.
     """
     try:
+        run_date = date.fromisoformat(created_date(job.created_at))
         links = {item.name: _map_link(job, item.name) for item in maps}
         header = ReportHeader(
-            report_date=date.fromisoformat(created_date(job.created_at)),
+            report_date=run_date,
             region=job.region or "",
             aoi_name=job.aoi_name,
             crown_file_number=job.crown_file_number,
@@ -183,9 +240,27 @@ def _write_report(
             tasks,
             ast_results,
             map_links={item.key: links[item.name] for item in maps if item.key},
-            exclude_registries=job.report_exclude_registries,
+            # Tab 1's datasets fill the Crown Land Status tab instead.
+            exclude_registries=[job.tab1_registry] if job.tab1_registry else [],
         )
-        return write_conflicts_report(_job_work_dir(job.job_id) / "status-report.xlsx", header, datasets)
+        crown_land_status = build_crown_land_status(
+            tasks,
+            ast_results,
+            tab1_registry=job.tab1_registry or "",
+            run_date=run_date,
+            run_by=job.user,
+            region=job.region or "",
+            crown_file_number=job.crown_file_number,
+            disposition_number=job.disposition_number,
+            tenure=_tenure_facts(job, oracle_connection),
+        )
+        return write_status_report(
+            _job_work_dir(job.job_id) / "status-report.xlsx",
+            header=header,
+            datasets=datasets,
+            crown_land_status=crown_land_status,
+            inactive_tenures=_inactive_tenures(job, aoi, oracle_connection),
+        )
     except Exception:
         logger.exception("Could not write the status report for job %s; publishing without it", job.job_id)
         return None
@@ -328,7 +403,7 @@ def run_worker(
                 job=job,
                 ast_results=ast_results,
                 maps=maps,
-                report=_write_report(job, registries, aoi, tasks, ast_results, maps),
+                report=_write_report(job, registries, aoi, tasks, ast_results, maps, oracle_connection),
                 # The saved features are published when the job asked for them, or
                 # when the worker is set to keep them for every job.
                 publish_spatial=job.export_overlap_results or settings.record_spatial,

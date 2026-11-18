@@ -84,26 +84,51 @@ login. It is built by `scripts/build_demo_registry.py`.
 
 ## The status report
 
-Every published job gets a status report: an Excel workbook with a
-**Conflicts & Constraints** sheet and a **Data Sources** sheet. It is "Tab 3" of
-the ArcGIS Pro Automated Status Tool, in the Front Counter BC layout, written by
-`ast_engine/reporting/conflicts_report.py`; its module docstring lists what is
-the same and what differs.
+Every published job gets a status report: one Excel workbook holding the tabs of
+the ArcGIS Pro Automated Status Tool, in the same order and layout.
 
-Each dataset is listed under its category with one of: the values found (one
-line per different combination of its report fields), `overlaps with this
-value`, `No data to display`, or `Unsuccessful` when it could not be checked.
+| Sheet | What it holds | Written by |
+| --- | --- | --- |
+| Crown Land Status (Tab 1) | The status summary: the file, the applicant, what administrative areas the AOI falls in, and blank lines the business areas fill in. | `ast_engine/reporting/crown_land_status.py` |
+| Status of Conflict (Tab 2) | The inactive Crown land tenures on the AOI. | `ast_engine/reporting/crown_land_status.py` |
+| Conflicts & Constraints (Tab 3) | Every dataset under its category, with what the AOI overlaps in it. | `ast_engine/reporting/conflicts_report.py` |
+| Data Sources | Where each dataset was read from, and its filter. | `ast_engine/reporting/conflicts_report.py` |
 
-A dataset's category comes from the spreadsheet's `Category` column, which the
-spreadsheet ingestion now carries into the registry. A registry built before
-that has no categories, and its datasets are listed under the registry's name
-until it is rebuilt. Datasets of the `tab1` registry are left off this sheet:
-they belong on the status sheet's first two tabs.
+Each writer's module docstring lists what is the same as the ArcGIS Pro tool's
+sheet and what differs.
+
+Where the contents come from:
+
+| Contents | Source |
+| --- | --- |
+| Tab 1 areas (mapsheet, districts, provincial forest, survey parcels, ALR, nearest Indian Reserve and archaeology site) | The `tab1` registry, run through the engine like any other. |
+| Tab 1 file facts (applicant, received date, tenure type, legal description...) | TANTALIS, read by `ast_engine/core/data_adapters/oracle/tantalis_status.py`. Blank for an uploaded AOI. |
+| Tab 2 | TANTALIS: the interest parcels the AOI touches, then the inactive tenures on them. |
+| Tab 3 | The common and regional registries. |
+
+The report says so when something was not looked up, rather than leaving it
+looking clear:
+
+- a Tab 1 line reads `FAILED` when its dataset could not be read and
+  `Not checked` when it was not part of the run (no `tab1.yaml` in the registry
+  folder);
+- Tab 2 reads `ERROR: The AST was unable to evaluate...` when the worker has no
+  BCGW connection or the lookup failed;
+- a Tab 3 dataset reads `Unsuccessful` when it could not be checked, and
+  `No data to display` when it was checked and found nothing.
+
+A dataset's category on Tab 3 comes from the spreadsheet's `Category` column,
+which the spreadsheet ingestion now carries into the registry. A registry built
+before that has no categories, and its datasets are listed under the registry's
+name until it is rebuilt.
 
 When the job made maps the report links to them. The links are relative
 (`maps/<name>.html`), which works in a copy of the job's published folder. Set
 `API_PUBLIC_URL` on the worker to have them go through the API instead, so they
 work from a downloaded report.
+
+Tab 1 names the applicant and Tab 2 names tenure holders. That is personal
+information: it is written into the report and never logged.
 
 ## Maps and exported overlap results
 
@@ -172,8 +197,9 @@ fake and results storage on local disk.
 ## Not done yet
 
 - The API does not check the login token the frontend holds.
-- The status report has the Conflicts & Constraints sheet only. The ArcGIS Pro
-  tool's first two tabs (Crown Land Status and Status of Conflict) are not
-  produced yet.
+- The TANTALIS lookups behind the report's first two tabs have only been run
+  against a stand-in for the database. Their table and column names are the
+  ones the ArcGIS Pro tool queries; a run against BCGW is still needed to
+  confirm them.
 - The `jobs` table in SQLite keeps the status a job was created with; the live
   status is the record in Redis.

@@ -240,7 +240,12 @@ def test_a_published_job_has_a_status_report(worker_settings, file_registry, aoi
     )
 
     book = _report(job)
-    assert book.sheetnames == ["Conflicts & Constraints", "Data Sources"]
+    assert book.sheetnames == [
+        "Crown Land Status",
+        "Status of Conflict",
+        "Conflicts & Constraints",
+        "Data Sources",
+    ]
     values = list(_cells(book["Conflicts & Constraints"]).values())
     assert "Cariboo" in values and "7410123" in values
     # The dataset is listed under its registry, having no category of its own.
@@ -274,13 +279,79 @@ def test_the_report_links_through_the_api_when_its_address_is_known(
     assert links["View Map"] == f"https://ast.example.gov.bc.ca/api/jobs/{job.job_id}/maps/demo__Test_polygons"
 
 
-def test_datasets_of_an_excluded_registry_are_left_off_the_report(worker_settings, file_registry, aoi_geojson):
-    job = run_worker(
-        _job(file_registry, aoi_geojson, report_exclude_registries=("demo",)),
-        publish=True,
-    )
+def test_the_tab1_registry_is_left_off_the_conflicts_tab(worker_settings, file_registry, aoi_geojson):
+    """Its datasets fill the Crown Land Status tab instead."""
+    job = run_worker(_job(file_registry, aoi_geojson, tab1_registry="demo"), publish=True)
 
     assert "Test polygons" not in _cells(_report(job)["Conflicts & Constraints"]).values()
+
+
+def test_without_a_bcgw_connection_the_report_says_what_was_not_checked(
+    worker_settings, file_registry, aoi_geojson
+):
+    """A worker with no BCGW login cannot read the inactive tenures, and this
+    job ran no Tab 1 registry. The report says so; it does not look clear."""
+    job = run_worker(_job(file_registry, aoi_geojson), publish=True)
+
+    book = _report(job)
+    conflict = list(_cells(book["Status of Conflict"]).values())
+    assert any(text.startswith("ERROR: The AST was unable to evaluate") for text in conflict)
+    status = _cells(book["Crown Land Status"])
+    assert "Not checked" in status.values()
+
+
+def test_the_report_carries_the_tantalis_facts_of_the_file(
+    monkeypatch, worker_settings, file_registry, aoi_geojson
+):
+    """With a connection, the applicant, the tenure and the inactive tenures on
+    the AOI are read from TANTALIS and written into the report."""
+    monkeypatch.setattr(worker, "fetch_applicant_name", lambda cursor, disposition: "ACME GRAVEL LTD.")
+    monkeypatch.setattr(worker, "fetch_received_dates", lambda cursor, disposition: ["2026-01-15"])
+    monkeypatch.setattr(
+        worker,
+        "fetch_tenure_details",
+        lambda cursor, file, disposition, parcel: {"TENURE_TYPE": ["LICENCE"], "TENURE_AREA_IN_HECTARES": ["12.5"]},
+    )
+    monkeypatch.setattr(
+        worker,
+        "fetch_inactive_tenures",
+        lambda connection, cursor, aoi: [
+            worker.InactiveTenure(disposition_id=900, file_number="7400001",
+                                  interest_type="QUARRYING LICENCE", holders="Old Holder Ltd."),
+        ],
+    )
+    job = _job(
+        file_registry, aoi_geojson,
+        crown_file_number="7410123", disposition_number="55", parcel_number="987654",
+    )
+
+    job = run_worker(job, publish=True, oracle_connection=MagicMock())
+
+    book = _report(job)
+    status = list(_cells(book["Crown Land Status"]).values())
+    assert "ACME GRAVEL LTD." in status
+    assert "12.5 hectares" in status
+    assert "LICENCE" in status and "2026-01-15" in status
+    conflict = list(_cells(book["Status of Conflict"]).values())
+    assert "Disp Trans SID: 900 FILE NUMBER: 7400001" in conflict
+    assert "Old Holder Ltd." in conflict
+
+
+def test_a_failed_tantalis_lookup_does_not_cost_the_job_its_report(
+    monkeypatch, worker_settings, file_registry, aoi_geojson
+):
+    def broken(*_, **__):
+        raise RuntimeError("BCGW went away")
+
+    monkeypatch.setattr(worker, "fetch_applicant_name", broken)
+    monkeypatch.setattr(worker, "fetch_inactive_tenures", broken)
+    job = _job(file_registry, aoi_geojson, crown_file_number="7410123", disposition_number="55")
+
+    job = run_worker(job, publish=True, oracle_connection=MagicMock())
+
+    assert job.status == JobStatus.COMPLETED
+    conflict = list(_cells(_report(job)["Status of Conflict"]).values())
+    assert any(text.startswith("ERROR: The AST was unable to evaluate") for text in conflict)
 
 
 def test_a_job_still_completes_when_its_report_cannot_be_written(
@@ -289,7 +360,7 @@ def test_a_job_still_completes_when_its_report_cannot_be_written(
     def broken(*_, **__):
         raise RuntimeError("no report today")
 
-    monkeypatch.setattr(worker, "write_conflicts_report", broken)
+    monkeypatch.setattr(worker, "write_status_report", broken)
 
     job = run_worker(_job(file_registry, aoi_geojson), publish=True)
 

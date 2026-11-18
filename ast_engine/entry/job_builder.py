@@ -167,5 +167,5 @@ def build_ast_job(
         crown_file_number=item.crown_file_number,
         disposition_number=item.disposition_number,
         parcel_number=item.parcel_number,
-        report_exclude_registries=(TAB1_REGISTRY,),
+        tab1_registry=TAB1_REGISTRY,
     )
