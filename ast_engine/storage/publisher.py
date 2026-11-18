@@ -5,7 +5,16 @@ from typing import Dict, Optional,List
 
 from .checksums import sha256_file, write_sha256_sidecar
 from .manifest import ArtifactRecord, JobManifest
-from .models import OperatorArtifact
+from .models import (
+    MapArtifact,
+    OperatorArtifact,
+    RAW_RESULTS_KEY,
+    MANIFEST_KEY,
+    MAP_ARTIFACT_PREFIX,
+    REPORT_KEY,
+    REPORT_CONTENT_TYPE,
+    map_key,
+)
 from .writer import ResultsStorageWriter
 
 # TODO: Refine ResultsPublisher to match results
@@ -27,6 +36,8 @@ class ResultsPublisher:
         summary_results_json: Optional[Path] = None,
         validation_report_json: Optional[Path] = None,
         operator_outputs: Optional[List[OperatorArtifact]] = None,
+        map_outputs: Optional[List[MapArtifact]] = None,
+        report_xlsx: Optional[Path] = None,
         extracted_pmtiles: Optional[Path] = None,
         request_parameters_yaml: Optional[Path] = None,
         aoi_geojson: Optional[Path] = None,
@@ -85,7 +96,7 @@ class ResultsPublisher:
         upload_artifact(
             "raw_results",
             raw_results_json,
-            "results/results.raw.json",
+            RAW_RESULTS_KEY,
             "application/json",
         )
 
@@ -127,6 +138,27 @@ class ResultsPublisher:
                     content_type="application/geopackage+sqlite3",
                     checksum=True,
                     extra_metadata=item_metadata,
+                )
+
+        if report_xlsx:
+            upload_artifact(
+                "report",
+                report_xlsx,
+                REPORT_KEY,
+                REPORT_CONTENT_TYPE,
+            )
+
+        if map_outputs:
+            for item in map_outputs:
+                # Listed in the manifest under "map_<name>" with the map's title,
+                # which is how whatever serves the maps finds and labels them.
+                upload_artifact(
+                    name=f"{MAP_ARTIFACT_PREFIX}{item.name}",
+                    path=Path(item.path),
+                    relative_key=map_key(item.name),
+                    content_type="text/html",
+                    checksum=True,
+                    extra_metadata={"title": item.title},
                 )
 
         if extracted_pmtiles:
@@ -208,7 +240,7 @@ class ResultsPublisher:
             manifest.model_dump_json(
                 indent=2,
                 exclude_none=True),
-            "manifest.json",
+            MANIFEST_KEY,
             content_type="application/json",
             metadata={
                 "job_id": str(job_id),

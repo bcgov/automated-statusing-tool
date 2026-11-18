@@ -81,6 +81,10 @@ class AnalysisTask:
     where            the dataset's structured attribute filter (definition query);
                      pushed down so only matching features are read.
     source_registry  which registry file the dataset came from (provenance only).
+    category         the heading the dataset is reported under (the registry
+                     category); not used by the run itself.
+    definition_query the dataset's attribute filter as it was authored, for the
+                     reports to show; the run filters with `where`.
     """
 
     dataset_id: str
@@ -97,6 +101,8 @@ class AnalysisTask:
     keep_properties: list[str] = field(default_factory=list)
     where: Any = None
     source_registry: Optional[str] = None
+    category: Optional[str] = None
+    definition_query: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -164,6 +170,8 @@ def _task_from_dataset(dataset: Any, source_registry: Optional[str]) -> Analysis
         keep_properties=list(dataset.aggregate_columns or []),
         where=dataset.where,
         source_registry=source_registry,
+        category=getattr(dataset, "category", None),
+        definition_query=getattr(dataset, "definition_query", None),
     )
 
 

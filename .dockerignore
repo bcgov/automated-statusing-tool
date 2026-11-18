@@ -1,0 +1,17 @@
+# Kept out of the image build context.
+
+# Local environments: an image builds its own, and a virtual environment made on
+# the host does not run inside the container.
+.venv/
+**/node_modules/
+**/__pycache__/
+.pytest_cache/
+*.egg-info/
+
+# secrets - passed to the containers at run time, never baked into an image
+.env
+.env.*
+
+# not needed to run the services
+.git/
+frontend/dist/

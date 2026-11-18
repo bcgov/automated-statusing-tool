@@ -40,11 +40,21 @@ def create_table():
         cursor.execute(
             "ALTER TABLE jobs ADD COLUMN source TEXT NOT NULL DEFAULT '1'"
         )
+    # job_uuid is the id the job is known by outside this table: on the queue,
+    # in the job status store and in results storage. Added to an existing
+    # table the same way as source; rows from before it are left without one.
+    if "job_uuid" not in columns:
+        cursor.execute("ALTER TABLE jobs ADD COLUMN job_uuid TEXT")
     connection.commit()
     connection.close()
 
 
-def create_job(job: CreateJob) -> int:
+def create_job(job: CreateJob, job_uuid: str | None = None) -> int:
+    """Insert one job and return its row number.
+
+    job_uuid is the job's public id (see create_table); the row number stays
+    internal to this table.
+    """
     data = job.model_dump(mode="json")
 
     row = {
@@ -58,6 +68,7 @@ def create_job(job: CreateJob) -> int:
         "generate_maps": data["generate_maps"],
         "export_overlap_results": data["export_overlap_results"],
         "status": (job.status or JobStatus.QUEUED).value,
+        "job_uuid": job_uuid,
     }
 
     conn = create_connection()
@@ -66,12 +77,12 @@ def create_job(job: CreateJob) -> int:
         """
         INSERT INTO jobs (
             name, email, region, source, crown_file_number, disposition_number,
-            parcel_number, generate_maps, export_overlap_results, status
+            parcel_number, generate_maps, export_overlap_results, status, job_uuid
         )
         VALUES (
             :name, :email, :region, :source, :crown_file_number,
             :disposition_number, :parcel_number, :generate_maps,
-            :export_overlap_results, :status
+            :export_overlap_results, :status, :job_uuid
         )
         """,
         row,
@@ -98,7 +109,8 @@ def get_jobs():
             parcel_number,
             generate_maps,
             export_overlap_results,
-            status
+            status,
+            job_uuid
         FROM jobs
         ORDER BY job_id DESC
         """

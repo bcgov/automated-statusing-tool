@@ -51,14 +51,38 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_database: int = 0
     redis_password: SecretStr | None = None
+    # how long a job's status record is kept in Redis after its last update.
+    # The record holds the submitter's name and email, so it is not kept forever.
+    job_status_ttl_seconds: int = 7 * 24 * 60 * 60
 
     # engine settings
     system_crs: str = "EPSG:3005"
+
+    # largest uploaded area-of-interest file the API accepts, in bytes
+    max_upload_bytes: int = 20 * 1024 * 1024
+
+    # Login check. Every route asks for an access token from the login service
+    # the frontend signs people in with (see ast_api/auth.py).
+    #   oidc_issuer: the login service's address, as in a token's "iss", e.g.
+    #       "https://loginproxy.gov.bc.ca/auth/realms/standard"
+    #   oidc_audience: this application's client id, as in a token's "aud"
+    #   oidc_jwks_url: where the signing keys are published; worked out from
+    #       the issuer when not set
+    # auth_required is on unless switched off, and with it on and no issuer or
+    # audience set the API refuses every request rather than serve unchecked.
+    # Switch it off only to work locally without a login service.
+    auth_required: bool = True
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    oidc_jwks_url: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
+        # The .env file is shared with docker compose, which keeps values of
+        # its own there (NO_PROXY, BACKEND_PORT...). Those are not settings.
+        extra="ignore",
     )
 
     def validate_system(self) -> list[str]:

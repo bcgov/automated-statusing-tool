@@ -16,8 +16,12 @@ COPY pyproject.toml uv.lock /app/
 # Install dependencies
 RUN uv sync --frozen --no-install-project --no-dev
 
-# Copy the rest of the application code
-COPY ./ast_engine /app
+# Copy the application code. Each package keeps its own folder, so that
+# `python -m ast_engine.entry.redis_worker` and `import shared_models` resolve.
+# shared_models holds the job contract the worker shares with the API.
+COPY README.md /app/
+COPY ./ast_engine /app/ast_engine
+COPY ./shared_models /app/shared_models
 
 # RUN uv tool install uvicorn
 RUN uv sync --frozen --no-dev
@@ -28,6 +32,10 @@ RUN chgrp -R 0 /app /tmp/uv-cache && \
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
+
+# The environment is complete as built. Without this `uv run` re-syncs it at
+# start-up and downloads the dev dependencies, which needs internet access.
+ENV UV_NO_SYNC=1
 
 # Expose port and run application
 CMD ["uv", "run", "python", "-m" , "ast_engine.entry.redis_worker"]

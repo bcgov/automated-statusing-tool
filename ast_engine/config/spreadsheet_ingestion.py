@@ -95,6 +95,7 @@ def main() -> None:
     path_lookup_conf = "ast_engine/config/drive_map.conf"
 
     template_dict = {
+        "category": "Category",
         "name": "Featureclass_Name(valid characters only)",
         "datasource": "Datasource",
         "aggregate_columns": [
@@ -115,7 +116,13 @@ def main() -> None:
     path_lookup = utils.drive_map_loader(path_lookup_conf)
 
     for xlsx_in, yaml_out in spreadsheet_io.items():
-        datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        try:
+            datasets = utils.ingest_spreadsheet(template_dict, xlsx_in)
+        except utils.NotAStatusingSpreadsheet as e:
+            # A folder of spreadsheets can hold other workbooks too. One of
+            # those is passed over, so it does not end the build part-way.
+            logger.warning("Skipping spreadsheet: %s", e)
+            continue
         # Ensure pathing is correct for host OS
         for dataset in datasets:
             dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
@@ -127,7 +134,9 @@ def main() -> None:
         # "checked and found nothing" apart from "never checked at all".
         hydrated, skipped = utils.hydrate_base_datasets(datasets)
         base_datasets_list = []
-        with OracleConnection(user, password, host) as (conn, cursor):
+        with OracleConnection(
+            user, password, host, client_lib_dir=settings.oracle_client_lib_dir
+        ) as (conn, cursor):
             for dataset in hydrated:
                 print(dataset)
                 try:

@@ -101,3 +101,35 @@
   gap: 20px;
   margin-top: 20px;
 }
+
+// Message shown when a submission is refused.
+.job-status-message {
+  margin: 12px 0 0; // 12px of space above only
+  color: #313132;
+}
+
+// The submitted job and its status, under the buttons.
+.job-status {
+  margin-top: 12px;
+  color: #313132;
+  overflow-wrap: anywhere; // lets the long job id wrap instead of overflowing the form
+
+  p {
+    margin: 0 0 4px;
+  }
+}
+
+// The list of a job's maps, under the results link.
+.job-maps {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  max-height: 200px; // a status can make a map for every dataset, so the list scrolls
+  overflow-y: auto;
+}
+
+// The links to a finished job's outputs, side by side.
+.job-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}

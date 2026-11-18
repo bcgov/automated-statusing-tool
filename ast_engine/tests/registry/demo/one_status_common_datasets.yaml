@@ -1,0 +1,193 @@
+version: '0.1'
+os: posix
+date: '2026-11-17 16:42:59'
+id: acf02057-0eed-4d5f-88e8-e3f0e680594c
+datasets:
+- name: Parcel Fabric
+  category: Land Interests
+  datasource: ast_engine/tests/data/Test_Data_PMBC_PARCEL_FABRIC.gdb/WHSE_CADASTRE_PMBC_PARCEL_FABRIC_POLY_FA_SVW
+  definition_query: null
+  aggregate_columns:
+  - OWNER_TYPE
+  where: null
+  operator:
+    type: overlay
+  unique_id: null
+  id: 74dc88dc-cf1c-4923-8226-7c31b610ceae
+  columns:
+  - PARCEL_FABRIC_POLY_ID
+  - GLOBAL_UID
+  - PARCEL_NAME
+  - PLAN_ID
+  - PLAN_NUMBER
+  - PIN
+  - PID
+  - PID_FORMATTED
+  - PID_NUMBER
+  - SOURCE_PARCEL_ID
+  - PARCEL_STATUS
+  - PARCEL_CLASS
+  - OWNER_TYPE
+  - PARCEL_START_DATE
+  - SURVEY_DESIGNATION_1
+  - SURVEY_DESIGNATION_2
+  - SURVEY_DESIGNATION_3
+  - LEGAL_DESCRIPTION
+  - MUNICIPALITY
+  - REGIONAL_DISTRICT
+  - IS_REMAINDER_IND
+  - GEOMETRY_SOURCE
+  - POSITIONAL_ERROR
+  - ERROR_REPORTED_BY
+  - CAPTURE_METHOD
+  - COMPILED_IND
+  - STATED_AREA
+  - WHEN_CREATED
+  - WHEN_UPDATED
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - SE_ANNO_CAD_DATA
+  - Shape_Length
+  - Shape_Area
+  geom_column: Shape
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: FILE
+  row_count: 513
+- name: Private Parcels
+  category: Land Interests
+  datasource: ast_engine/tests/data/Test_Data_PMBC_PARCEL_FABRIC.gdb/WHSE_CADASTRE_PMBC_PARCEL_FABRIC_POLY_FA_SVW
+  definition_query: OWNER_TYPE = 'Private'
+  aggregate_columns:
+  - OWNER_TYPE
+  where:
+    conditions:
+    - field: OWNER_TYPE
+      op: '='
+      value: Private
+  operator:
+    type: overlay
+  unique_id: null
+  id: 85cf0b33-e6d6-47b5-b54f-cd5a8e216fbe
+  columns:
+  - PARCEL_FABRIC_POLY_ID
+  - GLOBAL_UID
+  - PARCEL_NAME
+  - PLAN_ID
+  - PLAN_NUMBER
+  - PIN
+  - PID
+  - PID_FORMATTED
+  - PID_NUMBER
+  - SOURCE_PARCEL_ID
+  - PARCEL_STATUS
+  - PARCEL_CLASS
+  - OWNER_TYPE
+  - PARCEL_START_DATE
+  - SURVEY_DESIGNATION_1
+  - SURVEY_DESIGNATION_2
+  - SURVEY_DESIGNATION_3
+  - LEGAL_DESCRIPTION
+  - MUNICIPALITY
+  - REGIONAL_DISTRICT
+  - IS_REMAINDER_IND
+  - GEOMETRY_SOURCE
+  - POSITIONAL_ERROR
+  - ERROR_REPORTED_BY
+  - CAPTURE_METHOD
+  - COMPILED_IND
+  - STATED_AREA
+  - WHEN_CREATED
+  - WHEN_UPDATED
+  - FEATURE_AREA_SQM
+  - FEATURE_LENGTH_M
+  - SE_ANNO_CAD_DATA
+  - Shape_Length
+  - Shape_Area
+  geom_column: Shape
+  geometry_type: polygon
+  crs: EPSG:3005
+  data_adapter: FILE
+  row_count: 513
+- name: Forest Tenure Roads
+  category: Forestry Interests
+  datasource: ast_engine/tests/data/Test_Data_FOREST_TENURE_ROAD_shp/WHSE_FOREST_TENURE_FTEN_ROAD_SECTION_LINES_SVW.shp
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: overlay
+  unique_id: null
+  id: 173f8236-10ed-45d0-b6d5-b2e1080dd1d9
+  columns:
+  - FOREST_FIL
+  - ROAD_SECTI
+  - FEATURE_CL
+  - ROAD_SEC_1
+  - ROAD_SEC_2
+  - RETIREMENT
+  - SECTION_WI
+  - FEATURE_LE
+  - AMENDMENT_
+  - FILE_STATU
+  - FILE_TYPE_
+  - FILE_TYPE1
+  - GEOGRAPHIC
+  - GEOGRAPH_1
+  - AWARD_DATE
+  - EXPIRY_DAT
+  - CLIENT_NUM
+  - CLIENT_LOC
+  - CLIENT_NAM
+  - LOCATION
+  - LIFE_CYCLE
+  - MAP_LABEL
+  - FEATURE__1
+  - LEN
+  geom_column: geometry
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: FILE
+  row_count: 93
+- name: Forest Tenure Roads within 100 m
+  category: Forestry Interests
+  datasource: ast_engine/tests/data/Test_Data_FOREST_TENURE_ROAD_shp/WHSE_FOREST_TENURE_FTEN_ROAD_SECTION_LINES_SVW.shp
+  definition_query: null
+  aggregate_columns: []
+  where: null
+  operator:
+    type: within_distance
+    distance_m: 100.0
+  unique_id: null
+  id: 133cf1d3-8661-4a92-bbc2-fad52e4db30f
+  columns:
+  - FOREST_FIL
+  - ROAD_SECTI
+  - FEATURE_CL
+  - ROAD_SEC_1
+  - ROAD_SEC_2
+  - RETIREMENT
+  - SECTION_WI
+  - FEATURE_LE
+  - AMENDMENT_
+  - FILE_STATU
+  - FILE_TYPE_
+  - FILE_TYPE1
+  - GEOGRAPHIC
+  - GEOGRAPH_1
+  - AWARD_DATE
+  - EXPIRY_DAT
+  - CLIENT_NUM
+  - CLIENT_LOC
+  - CLIENT_NAM
+  - LOCATION
+  - LIFE_CYCLE
+  - MAP_LABEL
+  - FEATURE__1
+  - LEN
+  geom_column: geometry
+  geometry_type: line
+  crs: EPSG:3005
+  data_adapter: FILE
+  row_count: 93
+skipped: []

@@ -229,3 +229,104 @@ def test_publisher_gives_each_aoi_part_its_own_file(tmp_path: Path):
     manifest = json.loads(mock_writer.put_text.call_args.args[0])
     gpkg_entries = [name for name in manifest["artifacts"] if name.startswith("gpkg_")]
     assert len(gpkg_entries) == 2
+
+
+@pytest.mark.unit
+def test_publisher_publishes_maps_under_their_names(tmp_path: Path):
+    """Each HTML map is uploaded to maps/<name>.html and listed in the manifest
+    as map_<name> with its title, which is how the API finds and labels it."""
+    from ast_engine.storage.models import MapArtifact
+
+    mock_writer = MagicMock()
+    mock_writer.put_file.return_value = "mock-uri"
+    publisher = ResultsPublisher(mock_writer)
+
+    raw_results = tmp_path / "raw_results.json"
+    raw_results.write_text("{}", encoding="utf-8")
+    overview = tmp_path / "00overview.html"
+    overview.write_text("<html></html>", encoding="utf-8")
+
+    publisher.publish_job_results(
+        job_id=UUID("12345678-1234-5678-1234-567812345678"),
+        user="tester",
+        created_at="2026-09-25T10:00:00Z",
+        completed_at="2026-09-25T10:01:00Z",
+        execution_time=60,
+        status="COMPLETED",
+        engine_version="0.1.0",
+        raw_results_json=raw_results,
+        map_outputs=[MapArtifact(name="00overview", title="Overview Map - All Overlaps", path=overview)],
+    )
+
+    keys = [call.args[1] for call in mock_writer.put_file.call_args_list]
+    assert "maps/00overview.html" in keys
+    manifest = json.loads(mock_writer.put_text.call_args.args[0])
+    entry = manifest["artifacts"]["map_00overview"]
+    assert entry["key"] == "maps/00overview.html"
+    assert entry["content_type"] == "text/html"
+    assert entry["metadata"] == {"title": "Overview Map - All Overlaps"}
+
+
+# ============================================================================
+# 6. Reader Tests
+# ============================================================================
+@pytest.mark.unit
+def test_local_reader_reads_what_the_local_writer_wrote(
+    storage_config: StorageConfig, storage_context: JobStorageContext
+):
+    from ast_engine.storage.local_reader import LocalResultsStorageReader
+
+    LocalResultsStorageWriter(storage_config, storage_context).put_text(
+        '{"hello": "world"}', "results/results.raw.json"
+    )
+
+    reader = LocalResultsStorageReader(storage_config, storage_context)
+
+    assert reader.get_text("results/results.raw.json") == '{"hello": "world"}'
+
+
+@pytest.mark.unit
+def test_local_reader_raises_for_a_missing_key(
+    storage_config: StorageConfig, storage_context: JobStorageContext
+):
+    from ast_engine.storage.local_reader import LocalResultsStorageReader
+
+    reader = LocalResultsStorageReader(storage_config, storage_context)
+
+    with pytest.raises(FileNotFoundError):
+        reader.get_text("results/results.raw.json")
+
+
+@pytest.mark.unit
+def test_s3_reader_reads_the_object_under_the_job_key(storage_context: JobStorageContext):
+    from pydantic import SecretStr
+    from ast_engine.storage.s3_reader import S3ResultsStorageReader
+
+    config = StorageConfig(bucket="test-bucket", environment="dev", access_id="id", access_key=SecretStr("key"))
+    with patch("ast_engine.storage.s3_reader.boto3.client") as client_factory:
+        client = client_factory.return_value
+        client.get_object.return_value = {"Body": MagicMock(read=lambda: b'{"hello": "world"}')}
+
+        text = S3ResultsStorageReader(config, storage_context).get_text("results/results.raw.json")
+
+    assert text == '{"hello": "world"}'
+    client.get_object.assert_called_once_with(
+        Bucket="test-bucket",
+        Key=ResultsKeyBuilder(config, storage_context).key("results/results.raw.json"),
+    )
+
+
+@pytest.mark.unit
+def test_s3_reader_raises_file_not_found_for_a_missing_object(storage_context: JobStorageContext):
+    from botocore.exceptions import ClientError
+    from pydantic import SecretStr
+    from ast_engine.storage.s3_reader import S3ResultsStorageReader
+
+    config = StorageConfig(bucket="test-bucket", environment="dev", access_id="id", access_key=SecretStr("key"))
+    with patch("ast_engine.storage.s3_reader.boto3.client") as client_factory:
+        client_factory.return_value.get_object.side_effect = ClientError(
+            {"Error": {"Code": "NoSuchKey", "Message": "not found"}}, "GetObject"
+        )
+
+        with pytest.raises(FileNotFoundError):
+            S3ResultsStorageReader(config, storage_context).get_text("results/results.raw.json")

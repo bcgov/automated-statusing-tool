@@ -4,6 +4,7 @@ from ast_engine.core.data_adapters.base import DatasetInfo
 
 from pathlib import Path
 from unittest.mock import MagicMock
+import pandas as pd
 import pytest
 
 # Real test data - Test_Shape_A is a single polygon in EPSG:3005 with a "Name"
@@ -254,3 +255,40 @@ def test_path_translation():
     """Test of path translation. results vary depending on OS. asserting string"""
     translated_path = utils.path_translate("ast_engine\\tests\\data")
     assert isinstance(translated_path, str)
+
+
+@pytest.mark.unit
+def test_ingest_spreadsheet_fills_the_category_down():
+    """The spreadsheet names a category on the first dataset under it only;
+    every dataset read from it carries the category it sits under."""
+    template_dict = {
+        "category": "Category",
+        "name": "Featureclass_Name(valid characters only)",
+        "datasource": "Datasource",
+    }
+
+    data = utils.ingest_spreadsheet(template=template_dict, inp_xlsx=str(SAMPLE_XLSX))
+
+    assert [row["category"] for row in data] == ["fgdb", "shp"]
+    datasets, skipped = utils.hydrate_base_datasets(data)
+    assert skipped == []
+    assert [dataset.category for dataset in datasets] == ["fgdb", "shp"]
+
+
+@pytest.mark.unit
+def test_a_registry_written_before_categories_still_loads():
+    registry = utils.load_yaml(SAMPLE_REGISTRY, os_name="posix")
+
+    assert all(dataset.category is None for dataset in registry.datasets)
+
+
+@pytest.mark.unit
+def test_ingest_spreadsheet_refuses_a_workbook_that_is_not_a_statusing_input(tmp_path):
+    """The spreadsheet folder also holds workbooks of other kinds (notes on
+    formatting, other tools' inputs). One of those is named, not read as empty."""
+    workbook = tmp_path / "Spreadsheet Formatting.xlsx"
+    pd.DataFrame({"Notes": ["how the columns are used"]}).to_excel(workbook, index=False)
+    template = {"name": "Featureclass_Name(valid characters only)", "datasource": "Datasource"}
+
+    with pytest.raises(utils.NotAStatusingSpreadsheet, match="Featureclass_Name"):
+        utils.ingest_spreadsheet(template, str(workbook))

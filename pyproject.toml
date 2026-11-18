@@ -22,6 +22,8 @@ dependencies = [
     "fastapi[standard]>=0.156.2",
     "rq>=3.0.0",
     "duckdb==1.5.5",
+    "folium>=0.19",
+    "pyjwt[crypto]>=2.10",
 ]
 
 [build-system]
@@ -30,7 +32,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["ast_engine*"]
+include = ["ast_engine*", "shared_models*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
