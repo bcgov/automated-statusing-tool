@@ -176,8 +176,7 @@ Tests that need BCGW skip themselves when no login is set.
 A status report names the applicant and the holders of tenures on the AOI, and
 a job record holds the submitter's name and email. This is personal information
 under FOIPPA. The code never logs it, and job records expire from Redis after
-seven days by default. A Privacy Impact Assessment is required before the tool
-is used with real files.
+seven days by default.
 
 ## What is not done
 
