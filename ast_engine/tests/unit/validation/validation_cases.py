@@ -17,8 +17,8 @@ def frame(*geometries, crs=CRS, **columns):
     return gpd.GeoDataFrame(columns, geometry=list(geometries), crs=crs)
 
 
-def rule(check="min_area", *, rule_id="minimum_part", scope="part", severity="error", **options):
-    return {"id": rule_id, "check": check, "scope": scope, "severity": severity, **options}
+def rule(check="min_area", *, rule_id="minimum_part_area", scope="part", severity="error", **options):
+    return {"id": rule_id.upper(), "check": check, "scope": scope, "severity": severity, **options}
 
 
 def geometry_policy(*rules):

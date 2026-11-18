@@ -205,8 +205,8 @@ def test_same_loader_returns_independent_aoi_and_results_policies(tmp_path):
     second = load(tmp_path, results, spatial=False)
     assert first.spatial[0].name == "units" and second.spatial is None
     assert (
-        first.geometry.rules[0].id == "minimum_part"
-        and second.geometry.rules[0].id == "large_result"
+        first.geometry.rules[0].id == "MINIMUM_PART_AREA"
+        and second.geometry.rules[0].id == "LARGE_RESULT"
     )
 
 

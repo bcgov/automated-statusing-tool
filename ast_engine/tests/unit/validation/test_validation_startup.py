@@ -101,7 +101,7 @@ def test_partial_adapter_injection_and_real_geopackage_cache(settings, tmp_path)
     file_path.unlink()  # Results can only come from the prepared in-memory references now.
     assert build(builder, box(1, 1, 2, 2)).is_valid
     outside = build(builder, box(20, 20, 21, 21))
-    assert [(i.code, i.layer_name) for i in outside.errors] == [
+    assert [(i.rule_id, i.layer_name) for i in outside.errors] == [
         ("SPATIAL_NO_OVERLAP", "file_coverage")
     ]
     assert dict(supplied) == {"oracle": world}
@@ -156,7 +156,7 @@ def test_profile_controls_execution_but_all_sources_are_loaded_once_per_builder(
         assert result.validation.checked_spatial_layers == checked
         assert result.validation.profile == profile
         assert result.has_errors is blocked
-        assert [(i.code, i.tags) for i in result.errors] == (
+        assert [(i.rule_id, i.tags) for i in result.errors] == (
             [("SPATIAL_OVERLAP", ("showstopper",))] if blocked else []
         )
     assert adapter.read.call_count == 2
@@ -259,7 +259,7 @@ def test_oracle_handle_ownership_on_success_and_failure(
                 settings, profile=Profile.RUNTIME, connection=session
             )
             assert build(builder, box(1, 1, 2, 2)).is_valid
-            assert [i.code for i in build(builder, box(20, 20, 21, 21)).errors] == [
+            assert [i.rule_id for i in build(builder, box(20, 20, 21, 21)).errors] == [
                 "SPATIAL_NO_OVERLAP"
             ]
         construct_adapter.assert_called_once_with(connection=db, cursor=cursor)

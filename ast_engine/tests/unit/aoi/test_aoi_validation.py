@@ -60,12 +60,13 @@ def test_multipart_aoi_collects_both_children_after_a_blocking_geometry_finding(
     assert left.part_id != right.part_id
     assert {i.subject_id for i in result.errors} == {left.part_id, right.part_id}
     assert [f.category for f in result.validation.issues] == ["geometry", "geometry", "spatial"]
-    assert all(i.code == "SMALL_PART" and i.is_blocking for i in result.errors)
+    assert (i.is_blocking == True and i.rule_id == "SMALL_PART" for i in result.errors)
     (warning,) = result.warnings
-    assert (warning.subject_id, warning.layer_name, warning.rule_id) == (
+    assert (warning.subject_id, warning.layer_name, warning.code, warning.rule_id) == (
         right.part_id,
         "review",
-        "review.overlap",
+        "REVIEW.OVERLAP",
+        "SPATIAL_OVERLAP",
     )
     assert result.has_errors and not result.is_valid and result.has_warnings
     assert result.validation.geometry_checks_run and result.validation.spatial_checks_run
@@ -121,7 +122,7 @@ def test_expected_ids_are_forwarded_per_job_and_missing_input_is_a_validation_st
     builder, area = AOIBuilder(validator=v), box(1, 1, 2, 2)
     assert build(builder, area, parameters={"selected": ["RCB"]}).is_valid
     blocked = build(builder, area, parameters={"selected": ["RTO"]})
-    assert [f.code for f in blocked.errors] == ["SPATIAL_OUTSIDE_EXPECTED"]
+    assert [f.rule_id for f in blocked.errors] == ["SPATIAL_OUTSIDE_EXPECTED"]
 
     with pytest.raises(AOIBuildError) as caught:
         build(builder, area)

@@ -189,19 +189,19 @@ class SpatialValidator:
         tolerance = layer.area_tolerance_m2
         issues = []
 
-        def add(rule_name, code, message):
-            severity = getattr(layer.rules, rule_name)
+        def add(rule, rule_id, message):
+            severity = getattr(layer.rules, rule)
             if severity is not None:
                 issues.append(
                     ValidationIssue(
                         severity=severity,
-                        code=code,
+                        code=f"{layer.name}.{rule}".upper(),
                         message=message,
                         layer_name=layer.name,
                         subject_id=subject_id,
                         category="spatial",
                         scope=layer.scope,
-                        rule_id=f"{layer.name}.{rule_name}",
+                        rule_id=rule_id.upper(),
                         tags=layer.tags,
                     )
                 )
