@@ -1,26 +1,32 @@
-import os
 import logging
-from pathlib import Path
-import geopandas as gpd
-from datetime import datetime, UTC
-from uuid import UUID
+from datetime import UTC, datetime
 from enum import StrEnum
+from pathlib import Path
 from typing import Optional, Any, Iterable
+from uuid import UUID
+import geopandas as gpd
 from pydantic import BaseModel
 
-from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
-from ast_engine.core.aoi.exceptions import AOIValidationError
-from ast_engine.core.execution import run_analysis, build_tasks
-from ast_engine.core.results import AstResults
-from ast_engine.core.data_adapters.oracle import OracleConnection
-from ast_engine.utils.diagnostics import DiagnosticTracker
-from ast_engine.storage.publisher import ResultsPublisher
-from ast_engine.storage import create_results_writer, JobStorageContext
-from ast_engine.storage.models import OperatorArtifact
 from ast_engine.config.settings import Settings
+from ast_engine.config.validation.startup import create_aoi_builder
+from ast_engine.core.aoi import AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.exceptions import AOIValidationError
+from ast_engine.core.data_adapters.oracle import OracleConnection
+from ast_engine.core.execution import build_tasks, run_analysis
+from ast_engine.core.results import AstResults
+from ast_engine.storage import JobStorageContext, create_results_writer
+from ast_engine.storage.models import OperatorArtifact
+from ast_engine.storage.publisher import ResultsPublisher
+from ast_engine.utils.diagnostics import DiagnosticTracker
+
+# Shared models
+from shared_models.mappings import region_to_org_unit
+from shared_models.models import Regions
+
 
 logger = logging.getLogger(__name__)
 settings = Settings()
+
 
 class JobStatus(StrEnum):
     QUEUED = "Queued"
@@ -29,22 +35,24 @@ class JobStatus(StrEnum):
     COMPLETED = "Completed"
     FAILED = "Failed"
 
-#Payload structure TODO: ensure aoi crs is same as api and frontend
+
+# Payload structure TODO: ensure aoi crs is same as api and frontend
 class AstJob(BaseModel):
     job_id: UUID
+    region: Regions
     registries: Iterable[tuple[str, Any]]
     created_at: Optional[str] = None
     user: str
     aoi_id: str
     aoi_name: str
-    aoi: dict[str, Any] #gdf.to_json()
+    aoi: dict[str, Any]  # gdf.to_json()
     status: Optional [JobStatus]
 
-    
+
 def publish_results(job: AstJob, ast_results: AstResults):
     # Publishes AstResults to local disk storage or S3
 
-    logging.debug("Publish [job-id: %s]: Started",job.job_id)
+    logger.debug("Publish [job-id: %s]: Started", job.job_id)
     job.status = JobStatus.PUBLISHING
 
     # hey -- AstResults is a Pydantic model, so we can serialize it to JSON directly
@@ -77,15 +85,19 @@ def publish_results(job: AstJob, ast_results: AstResults):
         status="success",
         engine_version="1.0.0", # TODO: draw from config
         raw_results_json=raw_results_file,
-        operator_outputs=operator_outputs
+        operator_outputs=operator_outputs,
         # Include other optional paths as they become available:
         # extracted_gpkg=..., 
         # aoi_geojson=...,
     )
-    logging.debug("Publish [job-id: %s]: Completed", job.job_id)
-    return {"job":job, "artifacts": artifacts}
+    logger.debug("Publish [job-id: %s]: Completed", job.job_id)
+    return {"job": job, "artifacts": artifacts}
 
-def run_worker(job: AstJob, publish: bool = False):
+
+def run_worker(
+    job: AstJob,
+    publish: bool = False,
+):
     # executes ast_engine and optionally publishes using storage settings in ast_engine.config.settings
     # returns job with updated status
     logger.info("Worker Processing [job-id:%s]", job.aoi_id)
@@ -95,7 +107,9 @@ def run_worker(job: AstJob, publish: bool = False):
         logger.info("Worker Processing [job-id:%s] -- Publication OFF", job.aoi_id)
         
     job.status = JobStatus.PROCESSING
-    
+
+    conn = None
+
     try:
         # Create database connection
         conn = OracleConnection(username=settings.oracle_user,
@@ -106,18 +120,68 @@ def run_worker(job: AstJob, publish: bool = False):
         # TODO: Is from features what we want to use here?Coordinate with API
         gdf = gpd.GeoDataFrame.from_features(job.aoi["features"])
 
-        logging.info("Setting AOI area of interest to EPSG:4326")
-        gdf.crs ="EPSG:4326"
+        logger.info("Setting AOI area of interest to EPSG:4326")
+        gdf.crs = "EPSG:4326"
         logger.debug("AOI GeoDataFrame has crs %s", str(gdf.crs))
-        
-        request = AOIRequest(aoi_id=job.aoi_id, name=job.aoi_name, target_crs= settings.system_crs)
-        built = AOIBuilder().build_from_request(AOIBuildRequest(spec=request, raw_gdf=gdf))
+
+        # TODO: Review whether the AOIBuilder should be created once per worker or per job.
+        # If per job, then this is fine. If per worker, then move this to the worker startup code.
+        # This would require establishing a connection to Oracle once per worker, which may be more efficient.
+        # TODO: Investigate whethere we should pass the adapters vs the connection to the AOIBuilder.
+        # Required for validation reference layers, which may access BCGW.
+        aoi_builder = create_aoi_builder(settings, profile="runtime", connection=conn)
+
+        required = aoi_builder.validator.required_spatial_parameters
+
+        # Pass the region and other validation parameters for the job to the AOIBuilder,
+        # so it can be used in validation checks, if required by the AOIBuilder's validator.
+        validation_parameters = None
+
+        if "expected_unit_ids" in required:
+            validation_parameters = {
+                "expected_unit_ids": (
+                    region_to_org_unit(job.region),
+                ),
+            }
+
+        # TODO: Consider whether the AOIRequest should include the validation parameters,
+        # or if they should be passed only to the AOIBuilder as they are job specific.
+        # This will depend on whether the AOIBuilder is at the worker or job level.
+        request = AOIRequest(
+            aoi_id=job.aoi_id,
+            name=job.aoi_name,
+            target_crs=settings.system_crs,
+            validation_parameters=validation_parameters,
+        )
+
+        built = aoi_builder.build_from_request(
+            AOIBuildRequest(spec=request, raw_gdf=gdf),
+        )
+
         # Stop on AOI validation errors, as the old from_gdf did; log the warnings.
         # TODO: agree the worker's rule for AOI validation issues with the team
         for issue in built.warnings:
-            logger.warning("AOI warning %s: %s", issue.code, issue.message)
+            logger.warning(
+                "Job %s | AOI %s | %s: %s",
+                job.job_id, job.aoi_id, issue.code, issue.message,
+            )
+
+        # AOI validation error findings are not exceptions to be handled.
+        # Log the errors and return the failed job with the status and do
+        # not raise.
         if built.has_errors:
-            raise AOIValidationError("; ".join(f"{issue.code}: {issue.message}" for issue in built.errors))
+            job.status = JobStatus.FAILED
+            for issue in built.errors:
+                logger.error(
+                    "Job %s | AOI %s rejected | %s | subject=%s: %s",
+                    job.job_id, job.aoi_id, issue.code, issue.subject_id, issue.message,
+                )
+
+            # TODO: establish pathway for AOI valdiation errors to propogate
+            # Likely return them as part of the AstJob. 
+            return job
+
+        # AOI validated. Proceed to analysis tasks.
         aoi = built.aoi
 
         tasks = build_tasks(job.registries)
@@ -127,9 +191,9 @@ def run_worker(job: AstJob, publish: bool = False):
             aoi=aoi,
             tasks=tasks,
             job_id=job.job_id,
-            oracle_connection= conn,
+            oracle_connection=conn,
             tracker=tracker,
-            settings=None
+            settings=settings,
         )
         # TODO: what to do with tracker info?
 
@@ -139,6 +203,11 @@ def run_worker(job: AstJob, publish: bool = False):
         job.status = JobStatus.COMPLETED
 
         return job
-    except Exception as e:
-        logger.exception(f"Job with run_worker {job.job_id} failed catastrophically.")
-        # TODO: Handel errors in execution and publication
+    
+    except Exception:
+        job.status = JobStatus.FAILED
+        raise
+    finally:
+        if conn is not None:
+            conn.close()
+        # TODO: Handle errors in execution and publication

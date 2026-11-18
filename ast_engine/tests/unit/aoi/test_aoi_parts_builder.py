@@ -16,12 +16,13 @@ from shapely.geometry import (
     Polygon,
     box
 )
-
-from ast_engine.core.aoi.exceptions import (
-    AOIPartBuildError,
+from ast_engine.core.exceptions import (
     DataCRSError,
     SpatialDataError,
     SpatialGeometryError,
+)
+from ast_engine.core.aoi.exceptions import (
+    AOIPartBuildError,
 )
 from ast_engine.core.aoi.models import AOIPart
 from ast_engine.core.aoi.parts_builder import AOIPartBuilder

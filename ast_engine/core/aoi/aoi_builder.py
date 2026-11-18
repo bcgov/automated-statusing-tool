@@ -4,22 +4,20 @@ import logging
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from .models import (
-    AreaOfInterest,
-    AOIBuildRequest,
-    AOIBuildResult,
-)
-
 from .exceptions import (
-    root_cause,
     AOIBuildError,
     AOIError,
+    root_cause,
 )
-
-from .normalizer import AOINormalizer
 from .inspector import AOIInspector
-from .validator import AOIValidator
+from .models import (
+    AOIBuildRequest,
+    AOIBuildResult,
+    AreaOfInterest,
+)
+from .normalizer import AOINormalizer
 from .parts_builder import AOIPartBuilder
+from .validator import AOIValidator
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +40,26 @@ class AOIBuilder:
         self.normalizer = normalizer if normalizer is not None else AOINormalizer()
         self.inspector = inspector if inspector is not None else AOIInspector()
         self.validator = validator if validator is not None else AOIValidator()
-        self.part_builder = part_builder if part_builder is not None else AOIPartBuilder()
+        self.part_builder = (
+            part_builder if part_builder is not None else AOIPartBuilder()
+        )
+
+        logger.info(
+            "AOIBuilder initialized | normalizer=%s | inspector=%s | "
+            "validator=%s | part_builder=%s",
+            type(self.normalizer).__name__,
+            type(self.inspector).__name__,
+            type(self.validator).__name__,
+            type(self.part_builder).__name__,
+        )
 
     def build_from_request(
         self,
         request: AOIBuildRequest,
-    ) -> AOIBuildResult:
+        ) -> AOIBuildResult:
         """Build an AreaOfInterest from a raw AOI build request."""
         spec = request.spec
+        validation_parameters = spec.validation_parameters
 
         logger.info(
             "Starting AOI build | aoi_id=%s | name=%s",
@@ -85,10 +95,10 @@ class AOIBuilder:
             stage="validation",
             build_aoi_id=spec.aoi_id,
             operation=self.validator.validate,
+            aoi_id=spec.aoi_id,
+            parameters=validation_parameters,
             gdf=normalized.gdf,
-            report=normalized.report,
             parts=parts,
-            properties=properties,
         )
 
         aoi = AreaOfInterest(
@@ -146,8 +156,7 @@ class AOIBuilder:
             )
 
             raise AOIBuildError(
-                f"Could not build AOI {build_aoi_id!r}; "
-                f"failed during {stage}: {root}",
+                f"Could not build AOI {build_aoi_id!r}; failed during {stage}: {root}",
                 stage=stage,
                 aoi_id=build_aoi_id,
             ) from exc
@@ -185,7 +194,7 @@ class AOIBuilder:
 
         if validation.has_errors:
             logger.warning(
-                "AOI validation completed with errors | "
+                "AOI validation completed with ERRORS | "
                 "aoi_id=%s | errors=%s | warnings=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.errors),
@@ -195,7 +204,7 @@ class AOIBuilder:
 
         elif validation.has_warnings:
             logger.info(
-                "AOI validation completed with warnings | "
+                "AOI validation completed with WARNINGS | "
                 "aoi_id=%s | warnings=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.warnings),
@@ -204,7 +213,7 @@ class AOIBuilder:
 
         else:
             logger.info(
-                "AOI validation passed | aoi_id=%s | infos=%s",
+                "AOI validation PASSED | aoi_id=%s | infos=%s",
                 aoi.aoi_id,
                 len(validation.infos),
             )

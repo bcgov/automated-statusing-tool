@@ -6,7 +6,7 @@ import logging
 import redis
 from pydantic import ValidationError
 from ast_engine.config.settings import Settings
-from worker import run_worker, AstJob, JobStatus
+from .worker import run_worker, AstJob, JobStatus
 from ast_engine.config.logging_config import setup_logging
 
 setup_logging()
@@ -44,7 +44,6 @@ def main():
             continue
         try:
             ast_job = run_worker(job=job, publish=False)
-            ast_job.status = JobStatus.COMPLETED
             logging.info("Completed job-id: %s",job.job_id)
             return ast_job
         except Exception as e:

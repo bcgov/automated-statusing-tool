@@ -1,7 +1,15 @@
 from __future__ import annotations
 
 import pytest
+import geopandas as gpd
+from shapely import box
 
+from ast_engine.core.exceptions import (
+    SpatialGeometryError,
+    DataCRSError,
+)
+from ast_engine.core.validation.models import ValidationIssue
+from ast_engine.core.aoi.models import AOIRequest, AOIValidationResult
 from ast_engine.tests.helpers.aoi_requests import (
     build_aoi_request,
     full_union_request,
@@ -21,8 +29,6 @@ from ast_engine.tests.helpers.aoi_geometry import (
 
 from ast_engine.core.aoi.exceptions import (
     AOIBuildError,
-    DataCRSError,
-    SpatialGeometryError,
     root_cause
 )
 
@@ -66,40 +72,72 @@ def test_builder_splits_multipolygon_into_parts(aoi_builder):
 
 
 def test_builder_returns_invalid_result_when_validation_reports_errors(
-    aoi_builder,
+    aoi_builder_with_validation,
+    aoi_validator_stub,
 ):
     """Test that the AOIBuilder can handle a request that fails validation due to large parts."""
 
+    error = ValidationIssue(
+        severity="error",
+        code="TEST_ERROR",
+        message="Injected validation error.",
+        category="geometry",
+        scope="footprint",
+        subject_id="test-aoi",
+        rule_id="manual",
+        tags=["test", "validation"],
+    )
+    warning = ValidationIssue(
+        severity="warning",
+        code="TEST_WARNING",
+        message="Injected validation warning.",
+        category="spatial",
+        scope="part",
+        layer_name="test_units",
+        subject_id="part_0001",
+        rule_id="manual",
+        tags=["test", "validation"],
+    )
+
+    expected_report = AOIValidationResult(
+        issues=(error, warning),
+        geometry_checks_run=True,
+        spatial_checks_run=True,
+        checked_spatial_layers=("test_units",),
+    )
+    aoi_validator_stub.validate.return_value = expected_report
+
     request = build_aoi_request(
-        spec=preserve_features_request(),
-        raw_gdf=squares_gdf(
-            count=5,
-            size=10000,
-            overlap=True,
-            group_id=['A', 'B', 'C', 'D', 'E'],
-        )
+        spec=AOIRequest(
+            aoi_id="test-aoi",
+            name="Test AOI",
+            validation_parameters=None,
+        ),
+        raw_gdf=gpd.GeoDataFrame(
+            geometry=[box(0, 0, 100, 100)],
+            crs="EPSG:3005",
+        ),
     )
 
-    result = aoi_builder.build_from_request(request)
+    result = aoi_builder_with_validation.build_from_request(request)
 
-    assert_validation_issue_codes(
-        result,
-        expected_codes=[
-            "LARGE_PART",
-        ],
-    )
+    # The builder actually invoked validation.
+    aoi_validator_stub.validate.assert_called_once()
 
-    assert result.validation.is_valid is False
-    assert result.aoi.part_count == 5
-    assert len(result.aoi.parts) == 5
+    # The complete report survives, including its metadata.
+    assert result.validation == expected_report
 
-    large_part_errors = [
-        issue
-        for issue in result.validation.errors
-        if issue.code == "LARGE_PART"
-    ]
+    # The builder result exposes the correct status and findings.
+    assert not result.is_valid
+    assert result.has_errors
+    assert result.has_warnings
+    assert result.errors == (error,)
+    assert result.warnings == (warning,)
+    assert result.infos == ()
 
-    assert len(large_part_errors) == 5
+    # Policy errors still return the built AOI.
+    assert result.aoi.aoi_id == "test-aoi"
+    assert result.aoi.part_count == 1
 
 
 def test_builder_rejects_missing_crs(

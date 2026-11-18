@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import logging
+from math import isfinite
 
 import geopandas as gpd
 
-from .exceptions import (
-    AOIInspectionError,
+from ast_engine.utils.spatial_checks import parse_crs, check_polygon_frame
+from ast_engine.core.exceptions import (
     SpatialGeometryError,
     SpatialDataError,
 )
+from .exceptions import (
+    AOIInspectionError
+)
 from .models import AOIProperties, AOIPart
-from .utils import check_gdf, parse_crs
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +29,10 @@ class AOIInspector:
         parts: tuple[AOIPart, ...],
     ) -> AOIProperties:
         try:
-            check_gdf(
+            check_polygon_frame(
                 gdf,
-                req_projected_crs=True,
-                strict=True,
-                context="Normalized AOI",
+                label="Normalized AOI",
+                require_metric=True
             )
 
             if not parts:
@@ -45,14 +47,18 @@ class AOIInspector:
                     "Normalized AOI footprint is empty after union."
                 )
 
+            # Area checks
             footprint_area_ha = float(footprint.area / 10_000.0)
-
-            if footprint_area_ha <= 0:
-                raise SpatialGeometryError(
-                    "Normalized AOI footprint has zero or negative area."
-                )
-
             parts_area_ha = float(sum(part.area_ha for part in parts))
+
+            if any(
+                not isfinite(area) or area <= 0
+                for area in (footprint_area_ha, parts_area_ha)
+            ):
+                raise SpatialGeometryError(
+                    "AOI parts and footprint areas must be finite and positive."
+                )
+            
             parts_to_footprint_ratio = parts_area_ha / footprint_area_ha
 
             vertex_counts = tuple(part.vertex_count for part in parts)

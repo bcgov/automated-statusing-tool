@@ -1,0 +1,98 @@
+schema_version: 1
+
+geometry:
+  rules:
+    - id: minimum_part_area
+      check: min_area
+      scope: part
+      run_in: ["runtime", "submission"]
+      severity: error
+      threshold_ha: 0.1
+      message: >-
+        Part {subject_id} is {actual:.3f} ha.
+        The minimum permitted area is {limit:.3f} ha.
+
+    - id: maximum_part_area
+      check: max_area
+      scope: part
+      run_in: ["runtime", "submission"]
+      severity: error
+      threshold_ha: 10000.0
+      message: >-
+        Part {subject_id} is {actual:.3f} ha.
+        The maximum permitted area is {limit:.3f} ha.
+
+    - id: maximum_footprint_area
+      check: max_area
+      scope: footprint
+      run_in: ["runtime", "submission"]
+      severity: error
+      threshold_ha: 100000.0
+      message: >-
+        The AOI footprint is {actual:.1f} ha.
+        The maximum permitted area is {limit:.1f} ha.
+
+    - id: part_count_warning
+      check: max_part_count
+      scope: all_parts
+      run_in: ["runtime", "submission"]
+      severity: warning
+      threshold: 10
+      message: >-
+        The AOI contains {actual} parts.
+        The recommended maximum is {limit}.
+
+    - id: part_count_limit
+      check: max_part_count
+      scope: all_parts
+      run_in: ["runtime", "submission"]
+      severity: error
+      threshold: 50
+      message: >-
+        The AOI contains {actual} parts.
+        The processing limit is {limit}.
+
+    - id: high_part_vertex_count
+      check: max_vertices
+      scope: part
+      run_in: ["runtime", "submission"]
+      severity: error
+      threshold: 10000
+      message: >-
+        Part {subject_id} has {actual} vertices.
+        More than {limit} vertices may increase processing time.
+
+spatial:
+  - name: provincial_coverage
+    data_adapter: file
+    datasource: references/aoi_reference.gpkg/nr_regions
+    scope: footprint
+    run_in: ["runtime", "submission"]
+    area_tolerance_m2: 0.0
+    rules:
+      overlap: null
+      no_overlap: error
+      partial_outside: warning
+      multiple_units: null
+      outside_expected: null
+
+  - name: regional_coverage
+    data_adapter: file
+    datasource: references/aoi_reference.gpkg/nr_regions
+    id_field: ORG_UNIT
+    scope: footprint
+    run_in: ["runtime", "submission"]
+    expected_from: expected_unit_ids
+    area_tolerance_m2: 0.0
+    rules:
+      overlap: null
+      no_overlap: error
+      partial_outside: warning
+      multiple_units: warning
+      outside_expected: error
+
+# To check each singlepart AOIPart independently, change scope to part.
+# For fixed allowed IDs, replace expected_from with expected_ids: [A, B].
+# IDs may be strings or integers; use the type of the source column.
+# For files, use data_adapter: file and datasource: boundaries/regions.gpkg.
+# Relative file datasources are interpreted relative to project root directory.

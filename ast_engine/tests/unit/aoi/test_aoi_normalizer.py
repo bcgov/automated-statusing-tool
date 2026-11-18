@@ -16,12 +16,13 @@ from shapely.geometry import (
     Point,
     Polygon,
 )
-
-from ast_engine.core.aoi.exceptions import (
-    AOINormalizationError,
+from ast_engine.core.exceptions import (
     DataCRSError,
     SpatialDataError,
     SpatialGeometryError,
+)
+from ast_engine.core.aoi.exceptions import (
+    AOINormalizationError,
     root_cause,
 )
 from ast_engine.core.aoi.models import AOINormalizationReport

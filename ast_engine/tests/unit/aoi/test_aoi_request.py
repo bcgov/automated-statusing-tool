@@ -45,6 +45,7 @@ def test_request_uses_expected_defaults():
     assert request.dissolve_mode == "full_union"
     assert request.dissolve_fields == ()
     assert request.allow_overlaps is False
+    assert request.validation_parameters is None
 
 
 def test_request_exposes_resolved_crs_properties():
@@ -62,7 +63,7 @@ def test_request_exposes_resolved_crs_properties():
     ("dissolve_mode", "dissolve_fields"),
     [
         ("full_union", ()),
-        ("by_fields", ("REGION",)),
+        ("by_fields", ("ORG_UNIT",)),
         ("preserve_features", ()),
     ],
 )
@@ -125,7 +126,7 @@ def test_request_normalizes_dissolve_mode(
     """Test that the AOIRequest normalizes the dissolve_mode to lowercase and strips whitespace."""
 
     dissolve_fields = (
-        ("REGION",)
+        ("ORG_UNIT",)
         if expected == "by_fields"
         else ()
     )
@@ -144,7 +145,7 @@ def test_request_normalizes_dissolve_fields_to_tuple():
     request = make_aoi_request(
         dissolve_mode="by_fields",
         dissolve_fields=[
-            " REGION ",
+            " ORG_UNIT ",
             "",
             "  ",
             "UNIT_NAME ",
@@ -152,7 +153,7 @@ def test_request_normalizes_dissolve_fields_to_tuple():
     )
 
     assert request.dissolve_fields == (
-        "REGION",
+        "ORG_UNIT",
         "UNIT_NAME",
     )
     assert isinstance(request.dissolve_fields, tuple)
@@ -343,7 +344,7 @@ def test_non_field_modes_reject_dissolve_fields(
     ):
         make_aoi_request(
             dissolve_mode=dissolve_mode,
-            dissolve_fields=("REGION",),
+            dissolve_fields=("ORG_UNIT",),
         )
 
 
@@ -351,8 +352,8 @@ def test_non_field_modes_reject_dissolve_fields(
     "dissolve_fields",
     [
         None,
-        "REGION",
-        {"REGION"},
+        "ORG_UNIT",
+        {"ORG_UNIT"},
         123,
     ],
 )
@@ -374,8 +375,8 @@ def test_request_rejects_invalid_dissolve_fields_container(
 @pytest.mark.parametrize(
     "dissolve_fields",
     [
-        ("REGION", 123),
-        ("REGION", None),
+        ("ORG_UNIT", 123),
+        ("ORG_UNIT", None),
         (True,),
     ],
 )
@@ -520,10 +521,10 @@ def test_normalized_dissolve_fields_are_immutable():
 
     request = make_aoi_request(
         dissolve_mode="by_fields",
-        dissolve_fields=["REGION"],
+        dissolve_fields=["ORG_UNIT"],
     )
 
-    assert request.dissolve_fields == ("REGION",)
+    assert request.dissolve_fields == ("ORG_UNIT",)
 
     with pytest.raises(TypeError):
         request.dissolve_fields[0] = "OTHER"

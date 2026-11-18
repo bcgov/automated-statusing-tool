@@ -15,6 +15,19 @@ class Regions(str, Enum):
     SouthCoast = "South Coast"
     WestCoast = "West Coast"
 
+
+REGION_TO_ORG_UNIT: dict[Regions, str] = {
+    Regions.Cariboo: "RCB",
+    Regions.KootenayBoundary: "RKB",
+    Regions.ThompsonOkanagan: "RTO",
+    Regions.Omineca: "ROM",
+    Regions.Northeast: "RNO",
+    Regions.Skeena: "RSK",
+    Regions.SouthCoast: "RSC",
+    Regions.WestCoast: "RWC",
+}
+
+
 class JobStatus(str, Enum):
     QUEUED = "Queued"
     PROCESSING = "Processing"

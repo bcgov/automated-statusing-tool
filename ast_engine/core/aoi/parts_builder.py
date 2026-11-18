@@ -7,18 +7,19 @@ import pandas as pd
 from pandas.api.types import is_integer_dtype
 from shapely.geometry import Polygon
 
-from .exceptions import (
-    AOIPartBuildError,
-    SpatialDataError,
+from ast_engine.utils.spatial_checks import  check_polygon_frame
+from ast_engine.core.exceptions import (
     DataCRSError,
+    SpatialDataError,
     SpatialGeometryError,
 )
+from .exceptions import (
+    AOIPartBuildError,
+)
 from .models import AOIPart
-from .utils import check_gdf
+from .constants import SOURCE_ROW_COLUMN
 
 logger = logging.getLogger(__name__)
-
-_SOURCE_ROW_COLUMN = "__aoi_source_row"
 
 class AOIPartBuilder:
     """
@@ -47,11 +48,10 @@ class AOIPartBuilder:
         try:
             # Run check in strict mode to ensure the normalized AOI is ready for part building.
             # Will fail if the normalized AOI is missing a CRS, has null/empty geometry, or has non-polygon geometry.
-            check_gdf(
+            check_polygon_frame(
                 gdf,
-                req_projected_crs=True,
-                strict=True,
-                context="Normalized AOI for part building",
+                label="Normalized AOI for parts building",
+                require_metric=True
             )
 
             exploded = self._explode_to_singleparts(
@@ -99,10 +99,10 @@ class AOIPartBuilder:
         Explode normalized polygonal AOI geometry into singlepart rows.
         Retain the ogiginal AOI ID and row index in the exploded GeoDataFrame for traceability.
         """
-        if _SOURCE_ROW_COLUMN in gdf.columns:
+        if SOURCE_ROW_COLUMN in gdf.columns:
             raise SpatialDataError(
                 f"AOI {aoi_id!r} contains reserved column "
-                f"{_SOURCE_ROW_COLUMN!r}."
+                f"{SOURCE_ROW_COLUMN!r}."
             )
         
         index = gdf.index
@@ -117,7 +117,7 @@ class AOIPartBuilder:
             )
 
         source = gdf.copy()
-        source[_SOURCE_ROW_COLUMN] = source.index
+        source[SOURCE_ROW_COLUMN] = source.index
         exploded = source.explode(ignore_index=True)
 
         if exploded.empty:
@@ -148,12 +148,12 @@ class AOIPartBuilder:
                 part_id=part_id,
             )
 
-            source_row = int(row[_SOURCE_ROW_COLUMN])
+            source_row = int(row[SOURCE_ROW_COLUMN])
 
             part_gdf = self._single_part_gdf(
                 exploded,
                 row_index=int(row_index),
-            ).drop(columns=[_SOURCE_ROW_COLUMN])
+            ).drop(columns=[SOURCE_ROW_COLUMN])
 
             part = AOIPart.from_gdf(
                 parent_aoi_id=aoi_id,

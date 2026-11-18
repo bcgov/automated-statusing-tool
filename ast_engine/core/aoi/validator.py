@@ -1,131 +1,120 @@
-from __future__ import annotations
+"""Coordinate AOI preconditions and independent geometry/spatial policies."""
 
-import geopandas as gpd
+from collections.abc import Mapping, Sequence
 import logging
 
-from ast_engine.core.validation.spatial_validation import SpatialValidator
-
-from .models import (
-    AOIProperties,
-    AOINormalizationReport,
-    AOIPart,
-    AOIValidationResult,
-    ValidationIssue,
+import geopandas as gpd
+from ast_engine.core.validation.schema import(
+    ValidationProfile,
 )
+from ast_engine.core.validation.spatial.spatial_validation import (
+    SpatialValidationError,
+)
+from ast_engine.core.validation.geometry.geometry_validation import (
+    GeometryValidationError,
+)
+from ast_engine.core.validation.geometry.geometry_validation import GeometryValidator
+from ast_engine.core.validation.spatial.spatial_validation import SpatialValidator
+
+from .exceptions import AOIValidationError
+from .models import AOIPart, AOIValidationResult
 
 logger = logging.getLogger(__name__)
 
-
-SLIVER_THRESHOLD = 0.1 # Minimum area in hectares for a part to be considered valid (e.g. to filter out slivers from processing)
-LARGE_AREA_THRESHOLD = 10_000 # Area in hectares above which a part is flagged for review (e.g. to identify parts that may need to be split for reporting or processing)
-MAX_VERTICES = 10_000 # Maximum number of vertices for a part before it is flagged for review (e.g. to identify complex geometries that may cause processing issues)
-
-
-class AOIValidator():
-    """
-    Validates the AreaOfInterest object and its derived parts.
-    Ensures that the AOI meets all necessary criteria for processing and reporting.
-        - Validation is separate from inspection to allow for more complex rules that may depend on multiple properties or parts.
-        - Validation issues are categorized by severity (e.g. error, warning) to allow for flexible handling in the future.
-        - The validator can be extended with additional rules as needed without affecting the core building and inspection logic.
-        - The validation result can be included in the final AOI object for downstream use in reporting or user feedback.
-        - This design allows for a clear separation of concerns and makes the validation logic more maintainable and testable.
-        - The validator can also be used independently of the builder if needed, for example to validate AOIs that were built through other means or to re-validate AOIs after certain transformations.
-        - Overall, this approach provides a robust framework for ensuring the integrity and quality of AOIs throughout the processing pipeline.
-    """
+class AOIValidator:
     def __init__(
         self,
         *,
+        geometry_validator: GeometryValidator | None = None,
         spatial_validator: SpatialValidator | None = None,
+        profile: ValidationProfile = ValidationProfile.RUNTIME,
     ) -> None:
+        try:
+            self.profile = ValidationProfile(profile)
+        except ValueError as exc:
+            raise AOIValidationError(f"Unknown validation profile: {profile!r}.") from exc
+        for kind, child in (("geometry", geometry_validator), ("spatial", spatial_validator)):
+            if child is not None and child.profile != self.profile:
+                raise AOIValidationError(
+                    f"AOI and {kind} validators must use the same profile "
+                    f"(AOI={self.profile}, {kind}={child.profile})."
+                )
+
+        self.geometry_validator = geometry_validator
         self.spatial_validator = spatial_validator
+
+
+    @property
+    def required_spatial_parameters(self) -> frozenset[str]:
+        if self.spatial_validator is None:
+            return frozenset()
+
+        return self.spatial_validator.required_parameters
 
     def validate(
         self,
         *,
-        gdf: gpd.GeoDataFrame,
-        report: AOINormalizationReport,
+        gdf: gpd.GeoDataFrame, # Normalized AOI geometry.
         parts: tuple[AOIPart, ...],
-        properties: AOIProperties,
+        aoi_id: str,
+        parameters: Mapping[str, Sequence[str | int]] | None = None,
     ) -> AOIValidationResult:
-        issues: list[ValidationIssue] = []
 
-        if not report.allow_overlaps and report.overlaps_present_after_policy:
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    "OVERLAPS_PRESENT",
-                    "Overlapping AOI polygons remain after AOI policy application against set policy.",
+        if not self.geometry_validator and not self.spatial_validator:
+            logger.warning("Geometry and Spatial Validation are disabled. "
+                           "The AOI has not been validated against a policy."
+            )
+
+            return AOIValidationResult.empty(profile=self.profile)
+
+        issues = []
+        geometry_checks_run = False
+        checked_layers = ()
+
+        parts_gdf = gpd.GeoDataFrame(
+            geometry=[part.geometry for part in parts], crs=gdf.crs
+        )
+        part_ids = tuple(part.part_id for part in parts)
+        try:
+            if self.spatial_validator is None and parameters:
+                raise SpatialValidationError(
+                    "Validation parameters were supplied while spatial validation is disabled."
                 )
-            )
-
-        if report.null_or_empty_removed_count > 0 or report.polygon_extract_drop_count > 0:
-            issues.append(
-                ValidationIssue(
-                    "warning",
-                    "NULL_OR_NON_POLYGONS_REMOVED",
-                    "Null or non-polygonal features were removed during normalization.",
-                )
-            )
-
-        ## TODO: Continue to check normalization report for specific issues that should be elevated to validation issues
-
-        ###################################################
-
-        # Geometry issues
-        if not gdf.geometry.is_valid.all():
-            issues.append(
-                ValidationIssue("error", "INVALID_GEOMETRY", "AOI contains invalid geometry")
-            )
-
-        if properties.footprint_area_ha <= 0 or properties.parts_area_ha <= 0:
-            issues.append(
-                ValidationIssue("error", "ZERO_AREA", "AOI area is zero or negative")
-            )
-
-        # Validate AOI parts
-        if properties.part_count != len(parts):
-            issues.append(
-                ValidationIssue(
-                    "error",
-                    "PART_COUNT_MISMATCH",
-                    f"AOI part_count={properties.part_count} but built {len(parts)} parts",
-                )
-            )
-
-        for part in parts:
-            if part.area_ha <= SLIVER_THRESHOLD:
-                issues.append(
-                    ValidationIssue(
-                        "error",
-                        "ZERO_AREA_OR_SLIVER_PART",
-                        f"AOI part {part.part_id} area is zero, negative or less than the sliver threshold",
+            if self.geometry_validator is not None and self.geometry_validator.active_rules:
+                issues.extend(
+                    self.geometry_validator.validate(
+                        gdf=parts_gdf,
+                        subject_ids=part_ids,
+                        footprint_id=aoi_id,
                     )
                 )
-
-            if part.area_ha >= LARGE_AREA_THRESHOLD:
-                issues.append(
-                    ValidationIssue(
-                        "error",
-                        "LARGE_PART",
-                        f"AOI part {part.part_id} is {part.area_ha} hectares and exceeds "
-                        f"the large area threshold of {LARGE_AREA_THRESHOLD} hectares. "
-                        f"Consider reviewing for potential splitting",
+                geometry_checks_run = True
+            # Policy errors (e.g. area too large) do not prevent collecting spatial findings.
+            if self.spatial_validator is not None:
+                issues.extend(
+                    self.spatial_validator.validate(
+                        gdf=parts_gdf,
+                        subject_ids=part_ids,
+                        footprint_id=aoi_id,
+                        parameters=parameters,
                     )
                 )
-                
-            ##### VALIDATE FOR COMPLEX GEOMETRIES OF AOI PARTS #####
-            ## TODO: Validate number of vertices for each part
-            ## TODO: Validate for other complexities like holes (donuts) for each part
+                checked_layers = tuple(
+                    layer.name
+                    for layer in self.spatial_validator.active_layers
+                )
+        except (GeometryValidationError, SpatialValidationError) as exc:
+            # Execution failure is not a policy finding or a successful empty report.
+            raise AOIValidationError(str(exc)) from exc
 
-
-            ##### VALIDATE SPATIAL LOCATION of AOI parts #####
-            ## TODO: Validate if AOI part crosses REGIONAL BOUNDARY - Warn
-            ## TODO: Validate if AOI part outside expected REGIONAL BOUNDARY - Error
-            ## TODO: Validate if AOI part crosses BC bounds - Warn
-            ## TODO: Validate if AOI part not contained by BC bounds - Error
-
-
+        logger.debug("AOI Validation comeplete for %s.",
+                     aoi_id
+        )
+        
         return AOIValidationResult(
             issues=tuple(issues),
+            geometry_checks_run=geometry_checks_run,
+            spatial_checks_run=bool(checked_layers),
+            checked_spatial_layers=checked_layers,
+            profile=self.profile,
         )
