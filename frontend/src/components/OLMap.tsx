@@ -30,6 +30,8 @@ import type {
 } from "../types/tantalis";
 import CriticalConflictsPanel from "./CriticalConflictsPanel";
 import { MapFrameFooter } from "./bcgov-components";
+// The common AST datasets from the spreadsheet.
+import { COMMON_DATASET_GROUPS } from "../data/commonDatasets";
 
 // Default OpenLayers styling.
 import "ol/ol.css";
@@ -78,7 +80,9 @@ const ESRI_ATTRIBUTION = "Tiles © Esri";
 const TANTALIS_ATTRIBUTION = "Data from the Province of British Columbia";
 
 interface MapLayerDefinition {
-  name: string;
+  name: string; // Unique id for the layer in this app
+  typeName?: string; // Real BC Open Maps layer name, if different from name
+  cqlFilter?: string; // Definition query, so only matching features are drawn and searched
   label: string;
   idAttribute: { name: string; label: string; type: "text" | "number" };
   styles: TantalisStyleDefinition[];
@@ -104,94 +108,78 @@ interface MapLayerGroupDefinition {
   layers: MapLayerDefinition[];
 }
 
+// The real BC Open Maps layer name to send to the web services.
+const layerTypeName = (layer: MapLayerDefinition): string => layer.typeName ?? layer.name;
+
+// Combines a layer's definition query with a search filter.
+const withLayerFilter = (layer: MapLayerDefinition, filter: string): string =>
+  layer.cqlFilter ? `(${layer.cqlFilter}) AND (${filter})` : filter;
+
 // Layer definitions drive map overlays and their layer-specific query controls.
-const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = [
-  {
-    id: "crown-land",
-    label: "Crown land",
-    layers: [
-      {
-        name: TANTALIS_LAYER,
-        label: "Crown Tenures",
-        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
-        styles: [
-          { name: "2214", label: "Outlined" },
-          { name: "2215", label: "Colour Filled" },
-        ],
-        queryAttributes: [
-          { name: "CROWN_LANDS_FILE", label: "File number", type: "text" },
-          { name: "DISPOSITION_TRANSACTION_SID", label: "Disposition ID", type: "number" },
-          { name: "INTRID_SID", label: "Parcel ID", type: "number" },
-          { name: "TENURE_STAGE", label: "Tenure stage", type: "text" },
-          { name: "TENURE_STATUS", label: "Tenure status", type: "text" },
-          { name: "TENURE_TYPE", label: "Tenure type", type: "text" },
-          { name: "TENURE_SUBTYPE", label: "Tenure subtype", type: "text" },
-          { name: "TENURE_PURPOSE", label: "Tenure purpose", type: "text" },
-          { name: "TENURE_SUBPURPOSE", label: "Tenure subpurpose", type: "text" },
-          { name: "APPLICATION_TYPE_CDE", label: "Application type", type: "text" },
-          { name: "TENURE_DOCUMENT", label: "Tenure document", type: "text" },
-          { name: "TENURE_EXPIRY", label: "Expiry date", type: "date" },
-          { name: "TENURE_LOCATION", label: "Tenure location", type: "text" },
-          { name: "RESPONSIBLE_BUSINESS_UNIT", label: "Responsible business unit", type: "text" },
-          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
-        ],
-      },
-      {
-        name: "pub:WHSE_TANTALIS.TA_CROWN_INVENTORY_SVW",
-        label: "Crown Land Inventory",
-        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
-        styles: [
-          { name: "2173", label: "Outlined" },
-          { name: "2174", label: "Colour Filled" },
-        ],
-        queryAttributes: [
-          { name: "INTRID_SID", label: "Parcel ID", type: "number" },
-          { name: "TENURE_STAGE", label: "Tenure stage", type: "text" },
-          { name: "TENURE_STATUS", label: "Tenure status", type: "text" },
-          { name: "TENURE_TYPE", label: "Tenure type", type: "text" },
-          { name: "TENURE_SUBTYPE", label: "Tenure subtype", type: "text" },
-          { name: "TENURE_PURPOSE", label: "Tenure purpose", type: "text" },
-          { name: "TENURE_SUBPURPOSE", label: "Tenure subpurpose", type: "text" },
-          { name: "CROWN_LANDS_FILE", label: "File number", type: "text" },
-          { name: "TENURE_DOCUMENT", label: "Tenure document", type: "text" },
-          { name: "TENURE_EXPIRY", label: "Expiry date", type: "date" },
-          { name: "TENURE_LOCATION", label: "Tenure location", type: "text" },
-          { name: "RESPONSIBLE_BUSINESS_UNIT", label: "Responsible business unit", type: "text" },
-          { name: "DISPOSITION_TRANSACTION_SID", label: "Disposition ID", type: "number" },
-          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
-        ],
-      },
+// They are built from the common AST datasets spreadsheet (src/data/commonDatasets.ts).
+const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = COMMON_DATASET_GROUPS.map((group) => ({
+  id: group.id,
+  label: group.label,
+  layers: group.layers.map((dataset) => ({
+    name: dataset.name,
+    typeName: dataset.typeName,
+    cqlFilter: dataset.cqlFilter,
+    label: dataset.label,
+    idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" as const },
+    styles: [
+      { name: "outline", label: "Outlined" },
+      { name: "fill", label: "Colour Filled" },
     ],
-  },
-  {
-    id: "critical-overlaps",
-    label: "FCBC Critical Overlaps",
-    layers: [
-      {
-        name: "pub:WHSE_LEGAL_ADMIN_BOUNDARIES.FNT_TREATY_RELATED_LAND_SP",
-        label: "FCBC Treaty-Related Lands",
-        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
-        styles: [
-          { name: "217", label: "Outlined" },
-          { name: "218", label: "Colour Filled" },
-        ],
-        queryAttributes: [
-          { name: "TREATY_RELATED_LAND_ID", label: "Treaty-related land ID", type: "number" },
-          { name: "TREATY", label: "Treaty", type: "text" },
-          { name: "EFFECTIVE_DATE", label: "Effective date", type: "date" },
-          { name: "FIRST_NATION_NAME", label: "First Nation name", type: "text" },
-          { name: "LAND_TYPE", label: "Land type", type: "text" },
-          { name: "CHAPTER_REFERENCE", label: "Chapter reference", type: "text" },
-          { name: "APPENDIX_REFERENCE", label: "Appendix reference", type: "text" },
-          { name: "COMMENTS", label: "Comments", type: "text" },
-          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
-          { name: "FEATURE_AREA_SQM", label: "Feature area (m²)", type: "number" },
-          { name: "FEATURE_LENGTH_M", label: "Feature length (m)", type: "number" },
-        ],
-      },
-    ],
-  },
+    queryAttributes: dataset.fields.map((field) => ({
+      name: field,
+      label: field,
+      type: "text" as const,
+    })),
+  })),
+}));
+
+// Each layer gets its own colour, picked in order from this list, so layers are easy to tell apart.
+const LAYER_COLOURS = [
+  "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4", "#008080",
+  "#9a6324", "#800000", "#808000", "#000075", "#f032e6", "#469990",
 ];
+const LAYER_BY_NAME = new globalThis.Map<string, MapLayerDefinition>(
+  MAP_LAYER_GROUPS.flatMap((group) => group.layers).map((layer) => [layer.name, layer])
+);
+const layerColour = (layerName: string): string => {
+  const index = Array.from(LAYER_BY_NAME.keys()).indexOf(layerName);
+  return LAYER_COLOURS[Math.max(0, index) % LAYER_COLOURS.length];
+};
+
+const escapeXml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Builds the style sent to the map service (an SLD) for a layer.
+// "outline" draws only the edges. "fill" also fills polygons and points with a see-through colour.
+// One rule covers polygons, lines and points, so it works whatever shapes the layer holds.
+const buildLayerSld = (layer: MapLayerDefinition, styleName: string): string => {
+  const colour = layerColour(layer.name);
+  const isFilled = styleName === "fill";
+  const stroke = `<Stroke><CssParameter name="stroke">${colour}</CssParameter><CssParameter name="stroke-width">1.5</CssParameter></Stroke>`;
+  const polygonFill = isFilled
+    ? `<Fill><CssParameter name="fill">${colour}</CssParameter><CssParameter name="fill-opacity">0.45</CssParameter></Fill>`
+    : "";
+  const pointFill = `<Fill><CssParameter name="fill">${colour}</CssParameter><CssParameter name="fill-opacity">${isFilled ? "0.7" : "0"}</CssParameter></Fill>`;
+  return (
+    `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
+    `<NamedLayer><Name>${escapeXml(layerTypeName(layer))}</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<PolygonSymbolizer>${polygonFill}${stroke}</PolygonSymbolizer>` +
+    `<LineSymbolizer>${stroke}</LineSymbolizer>` +
+    `<PointSymbolizer><Graphic><Mark><WellKnownName>circle</WellKnownName>${pointFill}${stroke}</Mark><Size>8</Size></Graphic></PointSymbolizer>` +
+    `</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>`
+  );
+};
+
+// The top-level heading in the Layers panel. All the spreadsheet groups sit inside it.
+const PARENT_GROUP_LABEL = "FrontCounter BC Provincial Layers";
+
+// The layer the Preview Critical Conflicts check uses (First Nation Treaty Related Lands).
+const CRITICAL_CONFLICT_LAYER_NAME = "first-nation-treaty-related-lands";
 
 interface TantalisQueryResult {
   objectId: string;
@@ -464,7 +452,11 @@ const useSyncTantalisLayers = (
       layerRefs.current[name]?.setVisible(isVisible);
     });
     Object.entries(layerRefs.current).forEach(([name, layer]) => {
-      layer.getSource()?.updateParams({ STYLES: selectedStyles[name] ?? "" });
+      const definition = LAYER_BY_NAME.get(name);
+      layer.getSource()?.updateParams({
+        STYLES: "",
+        SLD_BODY: definition ? buildLayerSld(definition, selectedStyles[name] ?? "outline") : undefined,
+      });
     });
     MAP_LAYER_GROUPS.forEach((group) => {
       const enabledCount = group.layers.filter((layer) => visibleLayers[layer.name]).length;
@@ -565,7 +557,7 @@ const OLMap: FC<OLMapProps> = ({
   const [openMapPanel, setOpenMapPanel] = useState<"basemap" | "layers" | null>(null);
   const [layerPanelMaxHeight, setLayerPanelMaxHeight] = useState<number>();
   // The active layer is the most recently enabled layer and receives symbology/query actions.
-  const [activeTantalisLayer, setActiveTantalisLayer] = useState<string>(TANTALIS_LAYER);
+  const [activeTantalisLayer, setActiveTantalisLayer] = useState<string>("");
   const [openLayerQueries, setOpenLayerQueries] = useState<Record<string, boolean>>({});
   const [openLayerSymbology, setOpenLayerSymbology] = useState<Record<string, boolean>>({});
   const [openLayerActionMenu, setOpenLayerActionMenu] = useState<string | null>(null);
@@ -599,6 +591,23 @@ const OLMap: FC<OLMapProps> = ({
   const [criticalConflictStatus, setCriticalConflictStatus] = useState("");
   const [hoveredConflictLayerName, setHoveredConflictLayerName] = useState<string | null>(null);
   const [pinnedConflictLayerName, setPinnedConflictLayerName] = useState<string | null>(null);
+  // Text typed in the Layers panel search box. Empty = show every layer.
+  const [layerSearch, setLayerSearch] = useState<string>("");
+  // Whether the FrontCounter BC Provincial Layers heading is expanded. Starts open.
+  const [isParentGroupOpen, setIsParentGroupOpen] = useState<boolean>(true);
+  const searchTerm = layerSearch.trim().toLowerCase();
+  // Keeps only the layers (and groups) that match the search. A group whose name matches shows all its layers.
+  const filteredLayerGroups = MAP_LAYER_GROUPS.flatMap((group) => {
+    if (!searchTerm) {
+      return [group];
+    }
+    const groupMatches =
+      PARENT_GROUP_LABEL.toLowerCase().includes(searchTerm) || group.label.toLowerCase().includes(searchTerm);
+    const layers = groupMatches
+      ? group.layers
+      : group.layers.filter((layer) => layer.label.toLowerCase().includes(searchTerm));
+    return layers.length > 0 ? [{ ...group, layers }] : [];
+  });
 
   const toggleMapPanel = (panel: "basemap" | "layers"): void => {
     setOpenMapPanel((current) => (current === panel ? null : panel));
@@ -669,7 +678,11 @@ const OLMap: FC<OLMapProps> = ({
           visible: false,
           source: new TileWMS({
             url: TANTALIS_WMS_URL,
-            params: { LAYERS: layer.name, TILED: true },
+            params: {
+              LAYERS: layerTypeName(layer),
+              TILED: true,
+              ...(layer.cqlFilter ? { CQL_FILTER: layer.cqlFilter } : {}),
+            },
             serverType: "geoserver",
             crossOrigin: "anonymous",
             attributions: TANTALIS_ATTRIBUTION,
@@ -985,7 +998,10 @@ const OLMap: FC<OLMapProps> = ({
       map.addLayer(conflictLayer);
     }
 
-    const criticalGroup = MAP_LAYER_GROUPS.find((group) => group.id === "critical-overlaps");
+    const treatyRelatedLandsLayer = MAP_LAYER_GROUPS.flatMap((group) => group.layers).find(
+      (layer) => layer.name === CRITICAL_CONFLICT_LAYER_NAME
+    );
+    const criticalGroup = treatyRelatedLandsLayer ? { layers: [treatyRelatedLandsLayer] } : undefined;
     if (!criticalGroup) {
       setCriticalConflictStatus("Critical conflict layers are not configured.");
       setCriticalConflictsChecking(false);
@@ -1025,12 +1041,12 @@ const OLMap: FC<OLMapProps> = ({
       const checkedLayers = await Promise.all(
         criticalGroup.layers.map(async (layer): Promise<CriticalLayerCheck | null> => {
           try {
-            const geometryColumn = await readGeometryColumnName(layer.name, controller.signal);
+            const geometryColumn = await readGeometryColumnName(layerTypeName(layer), controller.signal);
             const url = new URL(TANTALIS_WFS_URL);
             url.searchParams.set("service", "WFS");
             url.searchParams.set("version", "2.0.0");
             url.searchParams.set("request", "GetFeature");
-            url.searchParams.set("typeNames", layer.name);
+            url.searchParams.set("typeNames", layerTypeName(layer));
             url.searchParams.set("outputFormat", "application/json");
             url.searchParams.set("srsName", "EPSG:4326");
             url.searchParams.set(
@@ -1095,7 +1111,7 @@ const OLMap: FC<OLMapProps> = ({
         overlaps.map(({ layer }) => ({
           name: layer.name,
           label: layer.label,
-          description: descriptions.get(layer.name) ?? "Layer description unavailable.",
+          description: descriptions.get(layerTypeName(layer)) ?? "Layer description unavailable.",
         }))
       );
       setCriticalConflictErrors(
@@ -1179,12 +1195,12 @@ const OLMap: FC<OLMapProps> = ({
     url.searchParams.set("service", "WFS");
     url.searchParams.set("version", "2.0.0");
     url.searchParams.set("request", "GetFeature");
-    url.searchParams.set("typeNames", targetLayer.name);
+    url.searchParams.set("typeNames", layerTypeName(targetLayer));
     url.searchParams.set("outputFormat", "application/json");
     url.searchParams.set("srsName", "EPSG:4326");
     url.searchParams.set(
       "CQL_FILTER",
-      `${attributeFilter.attribute.name}${attributeFilter.operator}${value}`
+      withLayerFilter(targetLayer, `${attributeFilter.attribute.name}${attributeFilter.operator}${value}`)
     );
     url.searchParams.set("count", String(TANTALIS_QUERY_RESULT_LIMIT));
     url.searchParams.set(
@@ -1215,7 +1231,7 @@ const OLMap: FC<OLMapProps> = ({
 
         return {
           objectId,
-          layerName: targetLayer.name,
+          layerName: layerTypeName(targetLayer),
           idAttribute: targetLayer.idAttribute,
           queryAttributeName: attributeFilter.attribute.name,
           attributes: targetLayer.queryAttributes.map((attribute) => ({
@@ -1260,7 +1276,7 @@ const OLMap: FC<OLMapProps> = ({
     layerZoomAbortRef.current = controller;
     setZoomingLayerName(layer.name);
     try {
-      const extent = await readWmsLayerExtent(layer.name, controller.signal);
+      const extent = await readWmsLayerExtent(layerTypeName(layer), controller.signal);
       if (!controller.signal.aborted) {
         mapRef.current?.getView().fit(extent, {
           padding: [36, 36, 36, 36],
@@ -1473,8 +1489,21 @@ const OLMap: FC<OLMapProps> = ({
             {openMapPanel === "basemap" && (
               <div id="basemap-panel" className="basemap-panel" role="group" aria-label="Basemap options">
                 {/* Picker title and close button. */}
-                <div className="basemap-panel__header">
-                  <span>Select map</span>
+                <div
+                  className="basemap-panel__header"
+                  style={{ borderBottom: "2px solid #003366", paddingBottom: 6 }}
+                >
+                  <span
+                    style={{
+                      fontVariant: "small-caps",
+                      fontSize: "1.35rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      color: "#003366",
+                    }}
+                  >
+                    Select map
+                  </span>
                   <button
                     type="button"
                     aria-label="Close basemap options"
@@ -1536,8 +1565,22 @@ const OLMap: FC<OLMapProps> = ({
                 ref={layerPanelRef}
                 style={{ maxHeight: layerPanelMaxHeight }}
               >
-                <div className="map-layer-panel__header">
-                  <div className="map-layer-panel__title">Map layers</div>
+                <div
+                  className="map-layer-panel__header"
+                  style={{ borderBottom: "2px solid #003366", paddingBottom: 6, marginBottom: 8 }}
+                >
+                  <div
+                    className="map-layer-panel__title"
+                    style={{
+                      fontVariant: "small-caps",
+                      fontSize: "1.35rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.04em",
+                      color: "#003366",
+                    }}
+                  >
+                    Map layers
+                  </div>
                   <button
                     type="button"
                     className="map-layer-panel__close"
@@ -1548,12 +1591,82 @@ const OLMap: FC<OLMapProps> = ({
                     ×
                   </button>
                 </div>
-                {MAP_LAYER_GROUPS.map((group) => {
+                <input
+                  type="search"
+                  className="map-layer-search"
+                  aria-label="Search map layers"
+                  placeholder="Search layers..."
+                  value={layerSearch}
+                  onChange={(event) => setLayerSearch(event.currentTarget.value)}
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "6px 8px",
+                    margin: "0 0 8px",
+                    border: "1px solid #60666d",
+                    borderRadius: 4,
+                    background: "#fff",
+                  }}
+                />
+                {/* Colour and transparency sliders for the Tantalis shape preview. Only shown while a shape is previewed. */}
+                {tantalisPreview && (
+                  <details className="map-query-symbology">
+                    <summary>Preview symbology</summary>
+                    <label className="map-preview-control">
+                      <span>Colour</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={previewHue}
+                        onChange={(event) => setPreviewHue(Number(event.currentTarget.value))}
+                        className="map-preview-hue-slider"
+                      />
+                    </label>
+                    <label className="map-preview-control">
+                      <span>Transparency: {previewOpacity}%</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={previewOpacity}
+                        onChange={(event) => setPreviewOpacity(Number(event.currentTarget.value))}
+                        className="map-preview-transparency-slider"
+                      />
+                    </label>
+                  </details>
+                )}
+                {filteredLayerGroups.length === 0 && (
+                  <p role="status" aria-live="polite">
+                    No layers match &quot;{layerSearch}&quot;.
+                  </p>
+                )}
+                {filteredLayerGroups.length > 0 && (
+                <details
+                  className="map-layer-parent-group"
+                  open={isParentGroupOpen || Boolean(searchTerm)}
+                  onToggle={(event) => setIsParentGroupOpen(event.currentTarget.open)}
+                >
+                <summary
+                  style={{
+                    fontSize: "1.2rem",
+                    fontWeight: 700,
+                    color: "#003366",
+                    cursor: "pointer",
+                    margin: "4px 0 10px",
+                  }}
+                >
+                  {PARENT_GROUP_LABEL}
+                </summary>
+                {filteredLayerGroups.map((group) => {
                   const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
 
                   return (
                     <fieldset className="map-layer-group" key={group.id}>
-                      <legend>{group.label}</legend>
+                      <legend style={{ fontSize: "0.95rem" }}>{group.label}</legend>
                       <label className="map-layer-option map-layer-option--group">
                         <input
                           ref={(element) => {
@@ -1787,33 +1900,6 @@ const OLMap: FC<OLMapProps> = ({
                                 </button>
                               </form>
                             )}
-                            {visibleTantalisLayers[layer.name] && tantalisPreview && layer.name === TANTALIS_LAYER && (
-                              <details className="map-query-symbology">
-                                <summary>Preview symbology</summary>
-                                <label className="map-preview-control">
-                                  <span>Colour</span>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="360"
-                                    value={previewHue}
-                                    onChange={(event) => setPreviewHue(Number(event.currentTarget.value))}
-                                    className="map-preview-hue-slider"
-                                  />
-                                </label>
-                                <label className="map-preview-control">
-                                  <span>Transparency: {previewOpacity}%</span>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={previewOpacity}
-                                    onChange={(event) => setPreviewOpacity(Number(event.currentTarget.value))}
-                                    className="map-preview-transparency-slider"
-                                  />
-                                </label>
-                              </details>
-                            )}
                             {visibleTantalisLayers[layer.name] &&
                               openLayerQueries[layer.name] &&
                               activeTantalisLayer === layer.name &&
@@ -1873,6 +1959,8 @@ const OLMap: FC<OLMapProps> = ({
                     </fieldset>
                   );
                 })}
+                </details>
+                )}
               </div>
             )}
           </div>
