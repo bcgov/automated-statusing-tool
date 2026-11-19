@@ -121,7 +121,8 @@ class DiagnosticTracker:
             snap.extra,
         )
 
-        # Optional structured JSONL output
+        # Optional structured JSONL output. default=str writes values plain JSON
+        # cannot hold as text - e.g. the run's job_id, which is a UUID.
         if self.jsonl_path:
             with self.jsonl_path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps(asdict(snap)) + "\n")
+                f.write(json.dumps(asdict(snap), default=str) + "\n")

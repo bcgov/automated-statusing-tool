@@ -1,8 +1,15 @@
-# tests/conftest.py
+from __future__ import annotations
+
 from pathlib import Path
-import sys
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-#AST_ROOT = REPO_ROOT / "ast_engine"
+import pytest
 
-sys.path.insert(0, str(REPO_ROOT))
+
+@pytest.fixture
+def tests_root() -> Path:
+    return Path(__file__).resolve().parent
+
+
+@pytest.fixture
+def test_data_dir(tests_root: Path) -> Path:
+    return tests_root / "data"

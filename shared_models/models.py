@@ -23,53 +23,26 @@ class JobStatus(str, Enum):
     FAILED = "Failed"
 
 
-class JobBase(BaseModel):
-    user: str
-    date: str
-
-class JobSubmission(JobBase):
-    region: Regions
-    area_of_interest: str
-    crown_file_number: str
-    disposition_number: str
-    parcel_number: str
-
-    output_directory: str
-    retain_existing_outputs: bool = False
-    suppress_tab_3: bool = False
-    suppress_map_creation: bool = False
-    open_output_directory_on_completion: bool = False
-    enable_portable_spreadsheet: bool = False
-
-    registries: list[str]
-    aoi_id: str
-    aoi_name: str
-    aoi: dict
-
-class CreateJob(JobBase):
-    status: Optional [JobStatus]
-
-    region: Regions
-    area_of_interest: str
-    crown_file_number: str
-    disposition_number: str
-    parcel_number: str
-
-    output_directory: str
-    retain_existing_outputs: bool = False
-    suppress_tab_3: bool = False
-    suppress_map_creation: bool = False
-    open_output_directory_on_completion: bool = False
-    enable_portable_spreadsheet: bool = False
+class CreateJob(BaseModel):
+    name: str
+    email: str
+    region: Regions | str
+    source: Literal["1", "2"]
+    crown_file_number: str | None = None
+    disposition_number: str | None = None
+    parcel_number: str | None = None
+    generate_maps: bool = False
+    export_overlap_results: bool = False
+    status: JobStatus = JobStatus.QUEUED
 
 
-class JobQueueItem(JobBase):
-    registries: list[str]
-    created_at: str | None = None
-
-    aoi_id: str
-    aoi_name: str
-    aoi: dict
+class JobQueueItem(BaseModel):
+    job_id: str
+    name: str
+    email: str
+    region: str
+    source: Literal["1", "2"]
+    status: JobStatus = JobStatus.QUEUED
 
 class JobPayload(BaseModel):
     job: CreateJob

@@ -5,7 +5,8 @@ For one AOI, this runs each dataset's analysis and assembles a single AstResults
 It is the glue between the four pieces that are already built:
 
   - adapters (Oracle / file) read features for an AOI;
-  - operators (overlay / proximity / adjacency) compute one result per dataset;
+  - operators (overlay / proximity / adjacency) read each dataset once (nearest:
+    once per AOI part) and compute one result per AOI part;
   - the registry says, per dataset, which analysis to run and with what params;
   - the results model collects everything into AstResults.
 
@@ -37,11 +38,13 @@ import geopandas as gpd
 from .aoi import AreaOfInterest
 from .data_adapters.base import BaseSpatialAdapter
 from .data_adapters.file.adapter import FileSpatialAdapter
+from .data_adapters.duckdb.adapter import DuckDBAdapter, DuckDBConfig
 from .data_adapters.oracle import OracleAdapter, OracleConnection
 from .operator import adjacent, overlay, proximity
 from .results import AstResults, DatasetResultGroup, OperatorOutcome
 from ..utils.diagnostics import DiagnosticTracker
 from ..config.settings import Settings
+from ..config.registry.models import DataAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +58,7 @@ ADJACENCY = "adjacency"
 # Source types, from the registry data_adapter value (lower-cased).
 ORACLE = "oracle"
 FILE = "file"
+DUCKDB_GEOPARQUET = "duckdb_geoparquet"
 
 
 @dataclass
@@ -81,7 +85,7 @@ class AnalysisTask:
 
     dataset_id: str
     dataset_name: str
-    source_type: str
+    source_type: DataAdapter
     datasource: str
     operator: str
     geom_type: Optional[str] = None
@@ -148,7 +152,7 @@ def _task_from_dataset(dataset: Any, source_registry: Optional[str]) -> Analysis
     return AnalysisTask(
         dataset_id=str(dataset.id),
         dataset_name=dataset.name,
-        source_type=str(dataset.data_adapter).lower(),
+        source_type=dataset.data_adapter,
         datasource=dataset.datasource,
         operator=op.type,
         geom_type=(str(dataset.geometry_type).lower() or None) if dataset.geometry_type else None,
@@ -199,13 +203,23 @@ def run_analysis(
     tasks = list(tasks)
     tracker = tracker or DiagnosticTracker()
     settings = settings or Settings()
+    duckdb_config = DuckDBConfig(s3_endpoint_url=settings.results_s3_endpoint_url,
+                                 s3_access_key=settings.results_s3_access_id,
+                                 s3_secret_key=settings.results_s3_key,s3_use_ssl=settings.s3_use_ssl)
     file_adapter = FileSpatialAdapter()
     oracle_adapter = _oracle_adapter(tasks, oracle_connection)
+    duckdb_geoparquet_adapter = DuckDBAdapter(config=duckdb_config)
+    
+    # Results come back one per AOI part (one row of the AOI). An AOI with no rows
+    # would make every dataset look like a success with nothing in it, so stop
+    # before the run.
+    if aoi.gdf.empty:
+        raise ValueError(f"AOI {aoi.aoi_id} has no rows to analyse.")
 
     timings: list[tuple[str, float]] = []
     tracker.log("run_start", job_id=job_id, aoi_id=aoi.aoi_id, task_count=len(tasks))
     groups = [
-        _run_one_task(task, aoi, file_adapter, oracle_adapter, tracker, timings, settings)
+        _run_one_task(task, aoi, file_adapter, oracle_adapter, duckdb_geoparquet_adapter, tracker, timings, settings)
         for task in tasks
     ]
     _log_timing_summary(timings, tracker)
@@ -225,7 +239,7 @@ def _oracle_adapter(
     """
     if oracle_connection is not None:
         return OracleAdapter(oracle_connection.connection, oracle_connection.cursor)
-    if any(task.source_type == ORACLE for task in tasks):
+    if any(task.source_type == DataAdapter.ORACLE for task in tasks):
         raise RuntimeError(
             "Oracle-backed tasks need an open connection; pass oracle_connection= "
             "to run_analysis (open one with OracleConnection)."
@@ -238,45 +252,52 @@ def _run_one_task(
     aoi: AreaOfInterest,
     file_adapter: FileSpatialAdapter,
     oracle_adapter: Optional[OracleAdapter],
+    duckdb_geoparquet_adapter: Optional[DuckDBAdapter],
     tracker: DiagnosticTracker,
     timings: list[tuple[str, float]],
     settings: Settings,
 ) -> DatasetResultGroup:
-    """Run one task and wrap its result in a DatasetResultGroup.
+    """Run one task and wrap its per-part results in a DatasetResultGroup.
 
     A failure is logged and recorded as an empty group marked status="failure" so
     the run continues. The status is what tells a dataset that failed apart from
-    one that ran and found nothing near the AOI - both come back with no results.
+    one that ran and found nothing near the AOI - both come back with no features.
 
-    The operator hands back its matched features alongside the result. When
-    record_spatial is on they are saved here, one dataset at a time, and the file
-    path is recorded on the result as spatial_link. The features are dropped as
-    soon as the task ends, so only one dataset's geometry is ever held in memory.
+    The operator reads the dataset once and hands back one result per AOI part,
+    with each part's matched features alongside. When record_spatial is on they
+    are saved here, one file per part, and the file path is recorded on that
+    part's result as spatial_link. The features are dropped as soon as the task
+    ends, so only one dataset's geometry is ever held in memory.
     """
     start = time.perf_counter()
     try:
-        adapter = _pick_adapter(task, file_adapter, oracle_adapter)
+        adapter = _pick_adapter(task, file_adapter, oracle_adapter, duckdb_geoparquet_adapter)
         outcome = _run_operator(task, aoi, adapter)
-        result = outcome.result
 
-        if settings.record_spatial:
-            write_start = time.perf_counter()
-            result.spatial_link = _write_spatial(
-                gdf=outcome.dataframe,
-                dataset_name=task.dataset_name,
-                operator_name=task.operator,
-                output_dir=settings.temp_dir,
-                source_registry=task.source_registry,
-            )
-            # Only logged when a file was actually written - a dataset with no
-            # matches, or a write that failed, records nothing.
-            if result.spatial_link:
-                tracker.log(
-                    "spatial_written",
-                    dataset=task.dataset_name,
-                    path=result.spatial_link,
-                    seconds=round(time.perf_counter() - write_start, 3),
+        for part in outcome.parts:
+            result = part.result
+            result.registry = task.source_registry
+
+            if settings.record_spatial:
+                write_start = time.perf_counter()
+                result.spatial_link = _write_spatial(
+                    gdf=outcome.dataframes.get(part.aoi_part_id),
+                    dataset_name=task.dataset_name,
+                    part_id=part.aoi_part_id,
+                    operator_name=task.operator,
+                    output_dir=settings.temp_dir,
+                    source_registry=task.source_registry,
                 )
+                # Only logged when a file was actually written - a part with no
+                # matches, or a write that failed, records nothing.
+                if result.spatial_link:
+                    tracker.log(
+                        "spatial_written",
+                        dataset=task.dataset_name,
+                        part=part.aoi_part_id,
+                        path=result.spatial_link,
+                        seconds=round(time.perf_counter() - write_start, 3),
+                    )
 
         elapsed = time.perf_counter() - start
         timings.append((task.dataset_name, elapsed))
@@ -286,7 +307,8 @@ def _run_one_task(
             dataset=task.dataset_name,
             operator=task.operator,
             source=task.source_type,
-            features=result.feature_count,
+            # summed over the parts: a feature that crosses two parts is counted in each
+            features=sum(part.result.feature_count for part in outcome.parts),
             seconds=round(elapsed, 3),
         )
 
@@ -294,7 +316,7 @@ def _run_one_task(
             dataset_id=task.dataset_id,
             dataset_name=task.dataset_name,
             status=outcome.status,
-            results=[result],
+            parts=outcome.parts,
         )
     except Exception as exc:
         elapsed = time.perf_counter() - start
@@ -316,25 +338,31 @@ def _run_one_task(
             dataset_name=task.dataset_name,
             status="failure",
             error=f"{type(exc).__name__}: {exc}",
-            results=[],
-            execution_time=round(elapsed, 3),
+            parts=[],
         )
 
 
 def _pick_adapter(
     task: AnalysisTask,
     file_adapter: FileSpatialAdapter,
-    oracle_adapter: Optional[OracleAdapter],
+    oracle_adapter: Optional[OracleAdapter] = None,
+    duckdb_geoparquet_adapter: Optional[DuckDBAdapter] = None,
 ) -> BaseSpatialAdapter:
     """Pick the reused adapter for a task's source type."""
-    if task.source_type == FILE:
+    if task.source_type == DataAdapter.FILE:
         return file_adapter
-    if task.source_type == ORACLE:
+    if task.source_type == DataAdapter.ORACLE:
         if oracle_adapter is None:
             raise RuntimeError(
                 f"dataset {task.dataset_name!r} needs an Oracle connection but none is available"
             )
         return oracle_adapter
+    if task.source_type == DataAdapter.DUCKDB_GEOPARQUET:
+        if duckdb_geoparquet_adapter is None:
+            raise RuntimeError(
+                f"dataset {task.dataset_name!r} needs an S3 connection but none is available"
+            )
+        return duckdb_geoparquet_adapter
     raise ValueError(
         f"unknown source type {task.source_type!r} for dataset {task.dataset_name!r}"
     )
@@ -342,8 +370,10 @@ def _pick_adapter(
 
 def _source_kwargs(task: AnalysisTask) -> dict[str, str]:
     """Dataset identity for the adapter read: table for Oracle, path for files."""
-    if task.source_type == ORACLE:
+    if task.source_type == DataAdapter.ORACLE:
         return {"table": task.datasource}
+    if task.source_type == DataAdapter.DUCKDB_GEOPARQUET:
+        return {"source": task.datasource}
     return {"path": task.datasource}
 
 
@@ -356,7 +386,6 @@ def _run_operator(task: AnalysisTask, aoi: AreaOfInterest, adapter: BaseSpatialA
     common = dict(
         aoi=aoi,
         adapter=adapter,
-        registry=task.source_registry,
         feature_id_field=task.feature_id_field,
         keep_properties=task.keep_properties or None,
         where=task.where,
@@ -393,17 +422,22 @@ def _log_timing_summary(timings: list[tuple[str, float]], tracker: DiagnosticTra
 def _write_spatial(
     gdf: Optional[gpd.GeoDataFrame],
     dataset_name: str,
+    part_id: str,
     operator_name: str,
     output_dir: Optional[str],
     source_registry: Optional[str] = None,
 ) -> Optional[str]:
-    """Save one dataset's matched features as a GeoPackage; return the path, or None.
+    """Save one AOI part's matched features as a GeoPackage; return the path, or None.
 
     Files are grouped by registry and then by analysis:
-    <output_dir>/<registry>/<operator>/<dataset name>.gpkg. One file per dataset
-    rather than one shared GeoPackage, so parallel workers never write to the same
-    file. Nothing is written when the output folder is not set or the dataset
-    matched no features.
+    <output_dir>/<registry>/<operator>/<dataset name>_<part id>.gpkg. One file per
+    part rather than one shared GeoPackage, so parallel workers never write to the
+    same file. The file name carries both the dataset and the part, so the parts
+    of one dataset never overwrite each other, and the layer inside the GeoPackage
+    (which takes the file's name) says what it is when opened in a GIS. There is
+    no folder per dataset: with the dataset name in both the folder and the file,
+    long dataset names went past the 260-character path limit on Windows. Nothing
+    is written when the output folder is not set or the part matched no features.
 
     The registry folder is what keeps two datasets apart when they share a name.
     That happens for real: Tab 1 is a curated selection of datasets that also
@@ -421,7 +455,7 @@ def _write_spatial(
     folder = Path(output_dir)
     if source_registry:
         folder = folder / _safe_filename(source_registry)
-    path = folder / operator_name / f"{_safe_filename(dataset_name)}.gpkg"
+    path = folder / operator_name / f"{_safe_filename(dataset_name)}_{_safe_filename(part_id)}.gpkg"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         gdf.to_file(path, driver="GPKG")

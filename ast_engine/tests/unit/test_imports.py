@@ -30,6 +30,7 @@ AST_MODULES = [
     "ast_engine.core.data_adapters",
     "ast_engine.core.data_adapters.file",
     "ast_engine.core.data_adapters.oracle",
+    "ast_engine.core.data_adapters.duckdb",
     "ast_engine.core.data_adapters.where_compiler",
     "ast_engine.core.operator",
     "ast_engine.core.operator.adjacent",
@@ -47,6 +48,7 @@ AST_MODULES = [
     "ast_engine.storage.publisher",
     "ast_engine.storage.s3_writer",
     "ast_engine.storage.writer",
+    "ast_engine.entry.worker",
 ]
 
 @pytest.mark.parametrize("module_name", AST_MODULES)

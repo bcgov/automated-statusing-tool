@@ -1031,6 +1031,29 @@ Use a lightweight feature branch workflow.
 | Refactor    | `refactor/aoi-builder-cleanup`   | Internal code cleanup      |
 | Docs        | `docs/engine-readme`             | Documentation-only changes |
 
+### Versioning
+
+Commit Message
+
+When committing a change, use fix/feat/breaking change prior to message.
+Tagging follows [Angular Commit Message Type](https://www.conventionalcommits.org/en/v1.0.0-beta.4/)
+ 
+| Commit Type       | Example                                                  | Version Bump Example       |
+| ----------------- | -------------------------------------------------------- | -------------------------- |
+| fix:              | `fix: correct map rendering bug`                         | Patch (1.2.3 → 1.2.4)      |
+| feat:             | `feat: add user authentication`                          | Minor (1.2.3 → 1.3.0)      |
+| BREAKING CHANGE:  | `refactor/aoi-builder-cleanup`                           | Major (1.2.3 → 2.0.0)      |
+| fix! (or) feat!:  | `BREAKING CHANGE: existing tokens must be regenerated`   | Major (1.2.3 → 2.0.0)      |
+
+Patch
+Bug fixes, documentation updates, maintenance, or small improvements that do not add new functionality or break existing functionality.
+
+Minor 
+Adds new functionality or features while remaining fully backward compatible.
+
+Major
+Introduces a breaking change that requires users, integrations, or deployments to update something to continue working.
+
 ### Standard Workflow
 
 Start from the latest `main`:
@@ -1076,7 +1099,7 @@ Open a pull request into `main`.
 * [ ] No secrets, credentials, or local-only paths committed
 * [ ] Logging uses module-level loggers
 * [ ] Exceptions and validation results follow engine conventions
-
+* [ ] Commit message starts with version type fix:/feat:/BREAKING CHANGE:
 ---
 
 ## Development Standards

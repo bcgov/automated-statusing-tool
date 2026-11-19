@@ -10,11 +10,16 @@ import ASTForm, { INITIAL_INPUTS, type FormInputs } from "../components/ast-form
 // The map (right side of the page).
 import OLMap from "../components/OLMap";
 import type { CriticalConflictsRequest, TantalisIdentifiers } from "../types/tantalis";
+import { LoginLogoutButton } from "../components/button-auth";
+import { useAuth } from '../auth/AuthContext';
 
 // The landing page. The form and the map can't talk to each other directly,
 // so this page holds the shared information and passes it between them:
 // ASTForm <-> LandingPage <-> OLMap
 const LandingPage = () => {
+  // Assesses authentication status in app
+  const { isAuthenticated, isLoadingAuth } = useAuth();
+
   // Shared form values: a map click updates these immediately through the event handler,
   // so ASTForm does not need an effect to synchronize a selection prop after rendering.
   const [formInputs, setFormInputs] = useState<FormInputs>(INITIAL_INPUTS);
@@ -55,37 +60,51 @@ const LandingPage = () => {
 
   // What appears on the page.
   return (
-    <div className="landing-page">
-      {/* The form.
-          mapSelection = the clicked shape, used to fill in the ID fields.
-          onViewTantalis = saves the identifiers when "View shape on map" is clicked.
-          setTantalisPreview is passed straight in, because saving the values is all it needs to do. */}
-      <ASTForm
-        inputs={formInputs}
-        onInputsChange={setFormInputs}
-        isShapePreviewEnabled={isShapePreviewEnabled}
-        onShapePreviewEnabledChange={setIsShapePreviewEnabled}
-        previewMessage={previewMessage}
-        onPreviewMessageChange={setPreviewMessage}
-        onViewTantalis={setTantalisPreview}
-        isShapeLoaded={shapeLoaded}
-        isCriticalConflictsOpen={isCriticalConflictsOpen}
-        onPreviewCriticalConflicts={handlePreviewCriticalConflicts}
-        onClearCriticalConflicts={handleCloseCriticalConflicts}
-      />
+    <>
+      {isLoadingAuth ? ( // Show a loading message while authentication status is being determined
+        <p>Loading authentication status...</p>
+      ) : (
+        <>
+          {isAuthenticated ? ( // Render only if the user is authenticated
+            <div className="landing-page">
+              {/* The form.
+                  inputs / onInputsChange = the shared form values, held here on LandingPage.
+                  onViewTantalis = saves the identifiers when the "View Tantalis Shape on Map" switch is turned on.
+                  setTantalisPreview is passed straight in, because saving the values is all it needs to do. */}
+              <ASTForm
+                inputs={formInputs}
+                onInputsChange={setFormInputs}
+                isShapePreviewEnabled={isShapePreviewEnabled}
+                onShapePreviewEnabledChange={setIsShapePreviewEnabled}
+                previewMessage={previewMessage}
+                onPreviewMessageChange={setPreviewMessage}
+                onViewTantalis={setTantalisPreview}
+                isShapeLoaded={shapeLoaded}
+                isCriticalConflictsOpen={isCriticalConflictsOpen}
+                onPreviewCriticalConflicts={handlePreviewCriticalConflicts}
+                onClearCriticalConflicts={handleCloseCriticalConflicts}
+              />
 
-      {/* The map.
-          onPolygonClick = runs when a shape is clicked.
-          tantalisPreview = the identifiers to look up and show. */}
-      <OLMap
-        onPolygonClick={handlePolygonClick}
-        tantalisPreview={tantalisPreview}
-        onShapeLoaded={setShapeLoaded}
-        criticalConflictsRequest={criticalConflictsRequest}
-        isCriticalConflictsOpen={isCriticalConflictsOpen}
-        onCloseCriticalConflicts={handleCloseCriticalConflicts}
-      />
-    </div>
+              {/* The map.
+                  onPolygonClick = runs when a shape is clicked.
+                  tantalisPreview = the identifiers to look up and show. */}
+              <OLMap
+                onPolygonClick={handlePolygonClick}
+                tantalisPreview={tantalisPreview}
+                onShapeLoaded={setShapeLoaded}
+                criticalConflictsRequest={criticalConflictsRequest}
+                isCriticalConflictsOpen={isCriticalConflictsOpen}
+                onCloseCriticalConflicts={handleCloseCriticalConflicts}
+              />
+            </div>
+          ) : (
+            <div className="login-container">
+              <LoginLogoutButton />
+            </div>
+          )}
+        </>
+      )}
+    </>
   );
 };
 

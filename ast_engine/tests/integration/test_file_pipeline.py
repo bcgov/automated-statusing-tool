@@ -16,7 +16,8 @@ from uuid import uuid4
 import geopandas as gpd
 import pytest
 
-from ast_engine.core.aoi.aoi_builder import AOIBuilder, AOIRequest
+from ast_engine.core.aoi.models import AOIBuildRequest, AOIRequest
+from ast_engine.core.aoi.aoi_builder import AOIBuilder
 from ast_engine.core.execution import AnalysisTask, run_analysis
 from ast_engine.core.results import (
     AdjacencyResult,
@@ -25,7 +26,7 @@ from ast_engine.core.results import (
     PolyOverlayResult,
     ProximityResult,
 )
-
+from ast_engine.config.registry.models import DataAdapter
 
 # --- Test data --------------------------------------------------------------
 DATA_DIR = Path(__file__).parents[1] / "data"
@@ -61,7 +62,7 @@ def _file_task(name: str, datasource, operator: str, **params) -> AnalysisTask:
     return AnalysisTask(
         dataset_id=name,
         dataset_name=name,
-        source_type="file",
+        source_type=DataAdapter.FILE,
         datasource=str(datasource),
         operator=operator,
         **params,
@@ -72,10 +73,12 @@ def _only_result(group: DatasetResultGroup):
     """Pull the single result out of one dataset's group.
 
     A dataset that failed to read comes back as an empty group, so check for
-    that first and name it in the failure.
+    that first and name it in the failure. The test AOIs are one row each,
+    so a dataset that ran has exactly one AOI part.
     """
-    assert group.results, f"dataset {group.dataset_name!r} produced no result - the read failed"
-    return group.results[0]
+    assert group.parts, f"dataset {group.dataset_name!r} produced no result - the read failed"
+    assert len(group.parts) == 1, f"expected one AOI part, got {len(group.parts)}"
+    return group.parts[0].result
 
 
 # --- The tests --------------------------------------------------------------
@@ -158,7 +161,7 @@ def test_failed_dataset_is_isolated(aoi):
     assert [group.dataset_name for group in results.results] == ["parcels", "missing", "roads"]
     parcels, missing, roads = results.results
 
-    assert missing.results == []
+    assert missing.parts == []
     assert _only_result(parcels).feature_count == PARCELS_IN_AOI
     assert _only_result(roads).feature_count == ROADS_CROSSING_AOI
 
@@ -177,7 +180,11 @@ def test_kml_aoi_reprojects():
         name="Integration AOI from KML",
         target_crs="EPSG:3005",
     )
-    kml_aoi = AOIBuilder().from_gdf(request, kml_gdf)
+    build_request = AOIBuildRequest(
+        spec=request,
+        raw_gdf=kml_gdf,
+    )
+    kml_aoi = AOIBuilder().build_from_request(build_request).aoi
     assert kml_aoi.crs_epsg == 3005
 
     task = _file_task("parcels", PARCELS_GDB, "overlay", geom_type="polygon")

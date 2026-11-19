@@ -10,6 +10,7 @@ from functools import partial
 from typing import List, Union, Literal, Annotated, Dict
 from pydantic import BaseModel, Field, computed_field, ConfigDict
 import geopandas as gpd
+import pandas as pd
 
 class FeatureRecord(BaseModel):
     # non-spatial record
@@ -94,23 +95,89 @@ AnalysisResult = Annotated[
     Field(discriminator="operator_type")
 ]
 
+class AOIPartResult(BaseModel):
+    """One dataset's result for one part of the AOI.
+
+    A part is one ROW of the AOI, as the AOI's dissolve rule left it
+    (AreaOfInterest.gdf):
+      - full_union (the default): everything is dissolved into one row, so the
+        whole AOI is one part;
+      - by_fields: one row, so one part, per value of the dissolve field(s);
+      - preserve_features: one row, so one part, per input feature.
+    A row that is a multipart polygon stays ONE part - users think of it as one
+    area. (This is not the AOI module's AOIPart, which is a single polygon used
+    for the AOI checks.)
+
+    The dataset is read once for the whole AOI, then its features are measured
+    against each part on its own. nearest is the exception: it searches the
+    dataset once per part (a search against the whole AOI can miss the nearest
+    feature to a part that sits away from the others).
+
+    part_attributes are the row's own attribute values, e.g. the dissolve field
+    value that names the part ("A"). Empty for full_union, which keeps no
+    attributes.
+
+    Adding the parts up: when the parts do not overlap, the per-part area, length
+    and shared-border totals add up to the figure for the whole AOI. Feature
+    counts do not - a feature that crosses two parts is counted once in each.
+    With allow_overlaps=True the parts can overlap, so area and length inside an
+    overlap are counted twice.
+    """
+    aoi_part_id: str
+    part_index: int
+    part_area_ha: float
+    part_attributes: Dict[str, str|int|float] = Field(default_factory=dict)
+    result: AnalysisResult
+
+def part_result(aoi, position: int, result) -> AOIPartResult:
+    """Wrap an operator result with the AOI part (row) it was measured against.
+
+    aoi is the AreaOfInterest and position is the row's position in aoi.gdf
+    (0 for the first row). Parts are numbered from 1: <aoi id>_part_1, _part_2...
+    """
+    row = aoi.gdf.iloc[position]
+    geometry_column = aoi.gdf.geometry.name
+
+    # The row's own attributes, e.g. the dissolve field value that names the part.
+    # Numbers and text are kept as they are, anything else (dates...) as text.
+    attributes = {}
+    for column, value in row.drop(labels=[geometry_column]).to_dict().items():
+        if value is None or pd.isna(value):
+            continue
+        if isinstance(value, (int, float, str)):
+            attributes[column] = value
+        else:
+            attributes[column] = str(value)
+
+    return AOIPartResult(
+        aoi_part_id=f"{aoi.aoi_id}_part_{position + 1}",
+        part_index=position + 1,
+        part_area_ha=float(row[geometry_column].area / 10_000.0),
+        part_attributes=attributes,
+        result=result,
+    )
+
 class OperatorOutcome(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     status: Literal["success", "failure"]
-    result: AnalysisResult | None = None
-    dataframe: gpd.GeoDataFrame | None = None
+    # one entry per AOI part
+    parts: List[AOIPartResult] = Field(default_factory=list)
+    # each part's matched features, keyed by aoi_part_id, for the orchestrator to
+    # save; carried here only, never serialized
+    dataframes: Dict[str, gpd.GeoDataFrame] = Field(default_factory=dict)
 
 class DatasetResultGroup(BaseModel):
     dataset_id: str
     dataset_name: str
     # did this dataset run? set by the orchestrator, not the operator. Tells a
     # dataset that failed apart from one that ran and found nothing - both come
-    # back with no results.
+    # back with no features.
     status: Literal["success", "failure"] = "success"
     # why it failed; empty when the dataset ran
     error: str | None = None
-    results: List[AnalysisResult]
+    # one entry per AOI part; empty when the dataset failed
+    parts: List[AOIPartResult]
 
 class AstResults(BaseModel):
     job_id: UUID

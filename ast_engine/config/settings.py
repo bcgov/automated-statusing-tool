@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     s3_retry_mode: Literal["standard"] = "standard"
     s3_use_ssl: bool = True
 
+    # Registry storage settings
+    registry_spreadsheet_path: str | None = None
+    registry_output_path: str | None = None
+
     # retain spatial results
     record_spatial: bool = False
 

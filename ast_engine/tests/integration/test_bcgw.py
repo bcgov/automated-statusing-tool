@@ -27,6 +27,7 @@ from ast_engine.core.data_adapters.base import ReadOptions, SpatialFilter
 from ast_engine.core.data_adapters.oracle import fetch_tantalis_aoi
 from ast_engine.core.execution import AnalysisTask, run_analysis
 from ast_engine.core.results import PolyOverlayResult
+from ast_engine.config.registry.models import DataAdapter
 
 
 # --- BCGW tables--------------------------------------------
@@ -208,7 +209,7 @@ def test_run_analysis_over_bcgw(aoi, data_dir, bcgw_connection):
         AnalysisTask(
             dataset_id="1",
             dataset_name="parcels_bcgw",
-            source_type="oracle",
+            source_type=DataAdapter.ORACLE,
             datasource=PMBC,
             operator="overlay",
             geom_type="polygon",
@@ -217,7 +218,7 @@ def test_run_analysis_over_bcgw(aoi, data_dir, bcgw_connection):
         AnalysisTask(
             dataset_id="2",
             dataset_name="parcels_file",
-            source_type="file",
+            source_type=DataAdapter.FILE,
             datasource=str(parcels_gdb),
             operator="overlay",
             geom_type="polygon",
@@ -234,11 +235,11 @@ def test_run_analysis_over_bcgw(aoi, data_dir, bcgw_connection):
 
     assert len(results.results) == 2
     bcgw_group, file_group = results.results
-    assert bcgw_group.results, "the BCGW dataset produced no result - the read failed"
-    assert file_group.results, "the file dataset produced no result - the read failed"
+    assert bcgw_group.parts, "the BCGW dataset produced no result - the read failed"
+    assert file_group.parts, "the file dataset produced no result - the read failed"
 
-    from_bcgw = bcgw_group.results[0]
-    from_file = file_group.results[0]
+    from_bcgw = bcgw_group.parts[0].result
+    from_file = file_group.parts[0].result
 
     assert isinstance(from_bcgw, PolyOverlayResult)
     assert from_bcgw.feature_count > 0

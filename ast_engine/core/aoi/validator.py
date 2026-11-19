@@ -1,17 +1,27 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import geopandas as gpd
+import logging
 
-from .models import AOIProperties, AOINormalizationReport, AOIPart, AOIValidationResult, ValidationIssue
-from .inspector import AOIProperties
-from .normalizer import AOINormalizationReport
+from ast_engine.core.validation.spatial_validation import SpatialValidator
+
+from .models import (
+    AOIProperties,
+    AOINormalizationReport,
+    AOIPart,
+    AOIValidationResult,
+    ValidationIssue,
+)
+
+logger = logging.getLogger(__name__)
+
 
 SLIVER_THRESHOLD = 0.1 # Minimum area in hectares for a part to be considered valid (e.g. to filter out slivers from processing)
 LARGE_AREA_THRESHOLD = 10_000 # Area in hectares above which a part is flagged for review (e.g. to identify parts that may need to be split for reporting or processing)
+MAX_VERTICES = 10_000 # Maximum number of vertices for a part before it is flagged for review (e.g. to identify complex geometries that may cause processing issues)
 
 
-class AOIValidator:
+class AOIValidator():
     """
     Validates the AreaOfInterest object and its derived parts.
     Ensures that the AOI meets all necessary criteria for processing and reporting.
@@ -23,6 +33,12 @@ class AOIValidator:
         - The validator can also be used independently of the builder if needed, for example to validate AOIs that were built through other means or to re-validate AOIs after certain transformations.
         - Overall, this approach provides a robust framework for ensuring the integrity and quality of AOIs throughout the processing pipeline.
     """
+    def __init__(
+        self,
+        *,
+        spatial_validator: SpatialValidator | None = None,
+    ) -> None:
+        self.spatial_validator = spatial_validator
 
     def validate(
         self,
@@ -34,33 +50,12 @@ class AOIValidator:
     ) -> AOIValidationResult:
         issues: list[ValidationIssue] = []
 
-        # Validate AOI object for required properties
-        if gdf.empty:
-            issues.append(
-                ValidationIssue("error", "NO_GDF", "AOI has no Geopandas GeoDataFrame")
-            )
-        if not properties:
-            issues.append(
-                ValidationIssue("error", "NO_PROPERTIES", "AOI has no properties")
-            )
-
-        if not parts:
-            issues.append(
-                ValidationIssue("error", "NO_PARTS", "AOI has no parts")
-            )
-
-        ##### VALIDATE AGAINST NORMALIZATION REPORT #####
-        if not report:
-            issues.append(
-                ValidationIssue("error", "NO_NORMALIZATION_REPORT", "AOI has no normalization report")
-            )
-
         if not report.allow_overlaps and report.overlaps_present_after_policy:
             issues.append(
                 ValidationIssue(
                     "error",
                     "OVERLAPS_PRESENT",
-                    "Overlapping AOI polygons remain after policy but are not allowed.",
+                    "Overlapping AOI polygons remain after AOI policy application against set policy.",
                 )
             )
 
@@ -83,7 +78,7 @@ class AOIValidator:
                 ValidationIssue("error", "INVALID_GEOMETRY", "AOI contains invalid geometry")
             )
 
-        if properties.footprint_area_ha <= 0 or properties.overlay_area_ha <= 0:
+        if properties.footprint_area_ha <= 0 or properties.parts_area_ha <= 0:
             issues.append(
                 ValidationIssue("error", "ZERO_AREA", "AOI area is zero or negative")
             )
@@ -132,6 +127,5 @@ class AOIValidator:
 
 
         return AOIValidationResult(
-            is_valid=not any(i.severity == "error" for i in issues),
             issues=tuple(issues),
         )

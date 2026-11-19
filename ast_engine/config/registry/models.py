@@ -1,5 +1,6 @@
 from typing import Optional, List, Union, Literal, Annotated
 from pydantic import BaseModel,model_validator,field_validator,Field
+from enum import StrEnum
 from .query import WhereClause, LogicalGroup,definition_to_where
 
 import logging
@@ -104,7 +105,10 @@ class BaseDataset(BaseModel):
 
         return self
 
-
+class DataAdapter(StrEnum):
+    FILE = "FILE"
+    ORACLE = "ORACLE"
+    DUCKDB_GEOPARQUET = "DUCKDB_GEOPARQUET"
 
 class RegistryDataset(BaseDataset):
     # Enriched metadata
@@ -113,7 +117,7 @@ class RegistryDataset(BaseDataset):
     geom_column: str
     geometry_type: str
     crs: str
-    data_adapter: str
+    data_adapter: DataAdapter
     row_count: int
 
 

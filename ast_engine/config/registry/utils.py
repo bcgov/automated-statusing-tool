@@ -1,12 +1,34 @@
 from copy import deepcopy
+import sys
+import os
+import getpass
 from .models import Registry, BaseDataset, SkippedDataset
 from pydantic import ValidationError
 import pandas as pd
 from pathlib import Path
 import yaml
+from ast_engine.config.settings import Settings
+
 
 import logging
 logger = logging.getLogger(__name__)
+
+settings = Settings()
+
+def get_credentials() -> tuple[str, str, str]:
+    '''BCGW credentials from the settings module, falling back to a prompt.'''
+    user = settings.oracle_user or input("BCGW username: ").strip()
+    if settings.oracle_password:
+        password = settings.oracle_password.get_secret_value()
+    else:
+        password = getpass.getpass("BCGW password: ")
+    if settings.oracle_host and settings.oracle_database:
+        host = f"{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}"
+    else:
+        host = input("BCGW host/DSN (e.g. bcgw.bcgov:1521/idwprod1.bcgov): ").strip()
+    if not (user and password and host):
+        sys.exit("Missing BCGW credentials; aborting.")
+    return user, password, host
 
 def load_yaml(file_path: Path, os_name:str|None = None) -> Registry:
     from os import name
@@ -25,7 +47,10 @@ def dump_yaml(registry: Registry, file_path: Path):
         # by_alias=True so a where LogicalGroup is written with its 'and' / 'or'
         # keys (not the Python field names 'and_' / 'or_'); otherwise load_yaml
         # cannot parse the where back. Matches enrichment.build()'s dump.
-        yaml.dump(registry.model_dump(by_alias=True), f, sort_keys=False)
+        yaml.dump(registry.model_dump(mode="json",
+                                      by_alias=True),
+                                      f,
+                                      sort_keys=False)
 
 def short_reason(exc: Exception) -> str:
     '''Turn an error into one readable line for the build report.
@@ -150,7 +175,8 @@ def ingest_spreadsheet(template: dict, inp_xlsx: str) -> list: # Or should the i
 
 def path_translate(in_path:str, path_dict:dict|None = None) -> str:
     '''
-    Translates paths from nt (windows) to posix (linux) or vice versa
+    Translates paths from nt (windows) to posix (linux) or vice versa.
+    This process currently gets applied to both file paths and database strings. It hasn't caused issues, but exclusion logic may be required in the future.
         in_path: the path to translate
         path_dict: string replaces to do
                     Usually to translate a windows share to a mount location on linux
@@ -166,6 +192,10 @@ def path_translate(in_path:str, path_dict:dict|None = None) -> str:
         if path_dict is not None:
             for old, new in path_dict.items():
                 in_path = in_path.replace(old, new)
+                in_path_lower = in_path.lower().replace(old.lower(), new)
+                if not exists(dirname(in_path)):
+                    if exists(dirname(in_path_lower)):
+                        in_path = in_path_lower
         else:
             logger.warning("Warning: No path translation provided. Absolute paths may be invalid")
         in_path = in_path.replace("\\", "/")
