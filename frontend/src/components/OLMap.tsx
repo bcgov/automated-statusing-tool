@@ -15,7 +15,7 @@ import XYZ from "ol/source/XYZ"; // Loads tiles from a URL pattern like {z}/{y}/
 import TileWMS from "ol/source/TileWMS";
 import VectorSource from "ol/source/Vector"; // Holds the shapes shown in a vector layer
 import { GeoJSON, WKT } from "ol/format";
-import { fromLonLat, transformExtent } from "ol/proj"; // Converts coordinates and layer extents
+import { fromLonLat, getPointResolution, transformExtent } from "ol/proj"; // Converts coordinates and layer extents
 import { Fill, Stroke, Style } from "ol/style"; // Fill colour, outline and full shape style
 import { createEmpty, extend as extendExtent } from "ol/extent";
 import ScaleLine from "ol/control/ScaleLine"; // The scale bar
@@ -29,6 +29,7 @@ import type {
   TantalisIdentifiers,
 } from "../types/tantalis";
 import CriticalConflictsPanel from "./CriticalConflictsPanel";
+import { MapFrameFooter } from "./bcgov-components";
 
 // Default OpenLayers styling.
 import "ol/ol.css";
@@ -538,6 +539,7 @@ const OLMap: FC<OLMapProps> = ({
 }) => {
   // The <div> the map is drawn inside.
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const scaleBarTargetRef = useRef<HTMLDivElement | null>(null);
   const mapFrameRef = useRef<HTMLDivElement | null>(null);
   const mapControlsRef = useRef<HTMLDivElement | null>(null);
   const layerPanelRef = useRef<HTMLDivElement | null>(null);
@@ -747,7 +749,17 @@ const OLMap: FC<OLMapProps> = ({
 
     // Add the scale bar in metres/kilometres.
     // The class name matches the existing CSS that positions and styles it.
-    map.addControl(new ScaleLine({ className: "map-scale", units: "metric", minWidth: 140 }));
+    const scaleLineControl = new ScaleLine({
+      className: "map-scale",
+      units: "metric",
+      minWidth: 140,
+      bar: true,
+      steps: 1,
+      text: true,
+      target: scaleBarTargetRef.current ?? undefined,
+    });
+    scaleBarTargetRef.current?.replaceChildren();
+    map.addControl(scaleLineControl);
 
     // Save the map so the rest of the file can use it.
     mapRef.current = map;
@@ -761,6 +773,7 @@ const OLMap: FC<OLMapProps> = ({
       if (target) {
         target.style.cursor = "";
       }
+      map.removeControl(scaleLineControl);
       map.setTarget(undefined);
       mapRef.current = null;
       queryHighlightLayerRef.current = null;
@@ -1387,12 +1400,29 @@ const OLMap: FC<OLMapProps> = ({
     view.animate({ zoom: (view.getZoom() ?? zoom) + delta, duration: 200 });
   };
 
+  const setMapScale = (scaleDenominator: number): void => {
+    const view = mapRef.current?.getView();
+    const center = view?.getCenter();
+    if (!view || !center) {
+      return;
+    }
+
+    const metersPerProjectionUnit = getPointResolution(view.getProjection(), 1, center, "m");
+    const resolution = (scaleDenominator * 0.00028) / metersPerProjectionUnit;
+    view.animate({ resolution, duration: 200 });
+  };
+
   // What appears on the page.
   return (
     <div className="map-shell">
       <div className="map-frame" ref={mapFrameRef}>
         {/* OpenLayers draws the map inside this div. */}
         <div ref={mapContainerRef} className="map-container" aria-label="Interactive map" />
+        {/* Change: a compact white utility bar combines the scale bar area with map/policy links. */}
+        <MapFrameFooter
+          scaleBarTargetRef={scaleBarTargetRef}
+          onScaleChange={setMapScale}
+        />
 
         {/* Loading and error messages for the Tantalis lookup. Only shown when there is a message.
             role="status" lets screen readers announce it. */}
@@ -1451,7 +1481,7 @@ const OLMap: FC<OLMapProps> = ({
                     title="Close basemap options"
                     onClick={() => setOpenMapPanel(null)}
                   >
-                    −
+                    ×
                   </button>
                 </div>
 
@@ -1506,7 +1536,18 @@ const OLMap: FC<OLMapProps> = ({
                 ref={layerPanelRef}
                 style={{ maxHeight: layerPanelMaxHeight }}
               >
-                <div className="map-layer-panel__title">Map layers</div>
+                <div className="map-layer-panel__header">
+                  <div className="map-layer-panel__title">Map layers</div>
+                  <button
+                    type="button"
+                    className="map-layer-panel__close"
+                    aria-label="Close map layers"
+                    title="Close map layers"
+                    onClick={() => setOpenMapPanel(null)}
+                  >
+                    ×
+                  </button>
+                </div>
                 {MAP_LAYER_GROUPS.map((group) => {
                   const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
 
@@ -1575,6 +1616,16 @@ const OLMap: FC<OLMapProps> = ({
                                   </button>
                                   {openLayerActionMenu === layer.name && (
                                     <div className="map-layer-menu-options" role="menu" aria-label={`${layer.label} options`}>
+                                      <button
+                                        type="button"
+                                        className="map-layer-menu-close"
+                                        role="menuitem"
+                                        aria-label={`Close ${layer.label} options`}
+                                        title="Close options"
+                                        onClick={() => setOpenLayerActionMenu(null)}
+                                      >
+                                        ×
+                                      </button>
                                       <button
                                         type="button"
                                         role="menuitemcheckbox"

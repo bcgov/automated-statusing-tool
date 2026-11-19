@@ -2,7 +2,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 // import useState hook from React
 import { useState } from 'react'
-import { PageHeader, PageFooter, AlertBannerComponent } from "./components/bcgov-components";
+import { PageHeader, AlertBannerComponent } from "./components/bcgov-components";
 import LandingPage from "./pages/LandingPage";
 import "./index.scss";
 
@@ -22,7 +22,6 @@ if (appElement) {
         <Routes>
           <Route path="/" element={<LandingPage />} />
         </Routes>
-      <PageFooter />
     </Router>
   );
 }
