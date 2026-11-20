@@ -2,15 +2,48 @@
 // useState = store a value that redraws the component when it changes.
 import { useState } from "react";
 // Types only. These add nothing to the final app.
-// ChangeEvent = the event from a normal HTML input or dropdown. FC = "function component".
-import type { ChangeEvent, FC } from "react";
+// FC = "function component".
+import type { FC, FormEvent, RefObject } from "react";
 // Ready-made page pieces from the BC Government design system.
-import { Header, Footer, AlertBanner } from "@bcgov/design-system-react-components";
+import { Footer } from "@bcgov/design-system-react-components";
 
-// The GeoBC logo shown in the header.
-import geobcLogo from "../assets/geobc_logo.png";
+// The GeoBC logo shown in the top bar.
+import geobcLogo from "../assets/geobc_logo_white.png";
 
-// One link in the footer's "More info" dropdown.
+// Colours and font shared by the top bar and the map footer bar. BC blue background with white text.
+const HEADER_BACKGROUND = "#013366";
+const HEADER_TEXT = "#ffffff";
+const HEADER_FONT = '"BC Sans", "Noto Sans", Verdana, Arial, sans-serif';
+// Colour of the map scale bar lines and blocks (BC gold). The scale numbers stay white.
+const SCALE_BAR_COLOUR = "#fcba19";
+
+// Colours for the map footer bar (scale bar, Support, More Information).
+// The popup menus that open above it are not changed.
+const FOOTER_STYLES = `
+  .map-frame-footer {
+    background: ${HEADER_BACKGROUND} !important;
+    color: ${HEADER_TEXT} !important;
+    border-top: 0.25px solid #011a33 !important;
+  }
+  .map-frame-footer .map-frame-footer__more {
+    background: transparent !important;
+    color: ${HEADER_TEXT} !important;
+    border-color: ${HEADER_TEXT} !important;
+  }
+  .map-frame-footer .map-frame-footer__scale,
+  .map-frame-footer .map-frame-footer__scale * {
+    color: ${HEADER_TEXT} !important;
+    border-color: ${SCALE_BAR_COLOUR} !important;
+  }
+  .map-frame-footer .map-frame-footer__scale [class*="singlebar-odd"] {
+    background-color: ${SCALE_BAR_COLOUR} !important;
+  }
+  .map-frame-footer .map-frame-footer__scale [class*="singlebar-even"] {
+    background-color: transparent !important;
+  }
+`;
+
+// One link in the map-frame footer.
 interface FooterLink {
   label: string; // Text shown in the dropdown
   value: string; // Web address that opens when it's picked
@@ -25,161 +58,320 @@ const FOOTER_LINKS: FooterLink[] = [
   { label: "Disclaimer", value: `${GOV_BC_BASE_URL}79F93E018712422FBC8E674A67A70535` },
   { label: "Privacy", value: `${GOV_BC_BASE_URL}9E890E16955E4FF4BF3B0E07B4722932` },
   { label: "Accessibility", value: `${GOV_BC_BASE_URL}E08E79740F9C41B9B0C484685CC5E412` },
-  { label: "Contact us", value: `${GOV_BC_BASE_URL}6A77C17D0CCB48F897F8598CCC019111` },
 ];
 
-// Text and link shown in the "in development" banner at the top of the app.
-const ALERT_MESSAGE = "This site is currently in development.";
-const PROJECT_REPO_URL = "https://github.com/bcgov/automated-statusing-tool";
+const SUPPORT_LINKS: FooterLink[] = [
+  {
+    label: "AST Intranet Page",
+    value: "https://intranet.gov.bc.ca/intranet/content?id=3E0EC1527C4B4750A5595AF07BBD6E54",
+  },
+  { label: "Contact FrontCounter BC", value: "mailto:FCBCIntranet-SharePointSupport@gov.bc.ca" },
+];
 
-// Page header: the BC Gov branded top bar with the site title and GeoBC logo.
-const PageHeader: FC = () => {
-  return (
-    <div className="bcgov-header">
-      <Header
-        title="Automated Statusing Tool"
-        // The logo is wrapped in this link, so clicking it goes back to the home page.
-        logoLinkElement={<a href="/" title="Return home"></a>}
-        // The logo image. alt text is read by screen readers.
-        // Its size is set in index.scss (.bcgov-header img).
-        logoImage={<img src={geobcLogo} alt="GeoBC Logo" />}
-      />
-    </div>
-  );
-};
+const MIN_SCALE_DENOMINATOR = 1_000;
+const MAX_SCALE_DENOMINATOR = 10_000_000;
+const PRESET_SCALES = [
+  1_000,
+  2_500,
+  5_000,
+  10_000,
+  25_000,
+  50_000,
+  100_000,
+  250_000,
+  500_000,
+  1_000_000,
+  2_500_000,
+  5_000_000,
+  MAX_SCALE_DENOMINATOR,
+];
 
-// Page footer: a bar with the "More info" link dropdown,
-// a button to show/hide the territorial acknowledgement,
-// and a button to shrink the whole footer into a small tab.
-const PageFooter: FC = () => {
-  // Whether the territorial acknowledgement (the BC Gov footer) is showing. Starts hidden.
-  const [isExpanded, setIsExpanded] = useState<boolean>(false);
-  // Whether the whole footer is shrunk down to the small "More information" tab. Starts full size.
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+// Compact footer information for the bottom edge of the map.
+// Change: the former page-level collapsible footer now stays with the map frame.
+interface MapFrameFooterProps {
+  scaleBarTargetRef: RefObject<HTMLDivElement | null>;
+  onScaleChange: (scaleDenominator: number) => void;
+}
 
-  // Runs when a link is picked in the dropdown. Opens that page in a new tab.
-  const handleFooterSelect = (event: ChangeEvent<HTMLSelectElement>): void => {
-    const nextValue = event.target.value;
+const MapFrameFooter: FC<MapFrameFooterProps> = ({ scaleBarTargetRef, onScaleChange }) => {
+  const [isMoreInformationOpen, setIsMoreInformationOpen] = useState(false);
+  const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [isAcknowledgementOpen, setIsAcknowledgementOpen] = useState(false);
+  const [isScaleMenuOpen, setIsScaleMenuOpen] = useState(false);
+  const [customScale, setCustomScale] = useState("");
+  const [scaleInputError, setScaleInputError] = useState("");
 
-    // Only open a page if a real link was picked (not the "More info" placeholder).
-    if (nextValue) {
-      // "noopener,noreferrer" is a security setting. It stops the new page
-      // from being able to access or control this page.
-      window.open(nextValue, "_blank", "noopener,noreferrer");
+  const applyCustomScale = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const match = customScale.trim().match(/^(?:1\s*:\s*)?([\d,]+)$/);
+    const denominator = match ? Number(match[1].replaceAll(",", "")) : Number.NaN;
+    if (
+      !Number.isFinite(denominator) ||
+      denominator < MIN_SCALE_DENOMINATOR ||
+      denominator > MAX_SCALE_DENOMINATOR
+    ) {
+      setScaleInputError("Enter a scale from 1:1,000 to 1:10,000,000 (provincial scale).");
+      return;
     }
+
+    onScaleChange(denominator);
+    setScaleInputError("");
+    setCustomScale("");
+    setIsScaleMenuOpen(false);
   };
 
-  // What appears on the page.
-  // <> </> is an empty wrapper. It groups items without adding an extra <div>.
   return (
     <>
-      {/* condition ? A : B means "if the condition is true show A, otherwise show B".
-          Collapsed = show only the small tab. Not collapsed = show the full footer. */}
-      {isCollapsed ? (
-        // Small tab. Clicking it brings the full footer back.
-        <button
-          type="button"
-          className="bcgov-footer-tab"
-          aria-label="Show more information"
-          title="Show more information"
-          onClick={() => setIsCollapsed(false)}
-        >
-          More information
-        </button>
-      ) : (
-        // Full footer. The "expanded" or "collapsed" class tells the CSS how to style it.
-        <div className={`bcgov-page-footer ${isExpanded ? "expanded" : "collapsed"}`}>
-          <div className="bcgov-footer-toolbar">
-            {/* Left side of the footer bar. */}
-            <div className="bcgov-footer-controls-left">
-              {/* "More info" dropdown. Picking a link opens that policy page.
-                  value="" keeps it showing "More info", so it resets after every pick. */}
-              <select
-                className="bcgov-footer-select"
-                value=""
-                onChange={handleFooterSelect}
-                aria-label="Select disclaimer information"
-              >
-                {/* Placeholder option. Its empty value means "nothing picked". */}
-                <option value="">More info</option>
-                {/* One option for each link in FOOTER_LINKS.
-                    key gives React a unique name for each option so it can track them. */}
-                {FOOTER_LINKS.map((link) => (
-                  <option key={link.label} value={link.value}>
-                    {link.label}
-                  </option>
-                ))}
-              </select>
-
-              {/* Shows or hides the territorial acknowledgement.
-                  aria-expanded tells screen readers whether it's open. */}
-              <button
-                type="button"
-                className="bcgov-footer-toggle"
-                aria-expanded={isExpanded}
-                aria-label={isExpanded ? "Collapse territorial acknowledgement" : "Expand territorial acknowledgement"}
-                onClick={() => setIsExpanded((isOpen) => !isOpen)}
-              >
-                <span>{isExpanded ? "Hide Territorial Acknowledgement" : "Show Territorial Acknowledgement"}</span>
-                {/* Arrow points up when open, down when closed. Hidden from screen readers. */}
-                <span className="bcgov-footer-arrow" aria-hidden="true">
-                  {isExpanded ? "↑" : "↓"}
-                </span>
-              </button>
-            </div>
-
-            {/* Right side of the footer bar: shrinks the footer down to the small tab. */}
-            <button
-              type="button"
-              className="bcgov-footer-collapse"
-              aria-label="Collapse footer"
-              title="Collapse footer"
-              onClick={() => setIsCollapsed(true)}
-            >
-              <span>Collapse Footer</span>
-              <span className="bcgov-footer-arrow" aria-hidden="true">
-                ↓
-              </span>
-            </button>
-          </div>
-
-          {/* The BC Gov footer (with the territorial acknowledgement). Only shown when expanded. */}
-          {isExpanded && (
-            <div className="bcgov-footer-content">
-              <Footer />
-            </div>
-          )}
+      <style>{FOOTER_STYLES}</style>
+      {isAcknowledgementOpen && (
+        <div className="map-frame-acknowledgement" role="region" aria-label="Territorial acknowledgement">
+          <button
+            type="button"
+            className="map-frame-acknowledgement__close"
+            aria-label="Close territorial acknowledgement"
+            onClick={() => setIsAcknowledgementOpen(false)}
+          >
+            ×
+          </button>
+          <Footer hideLogoAndLinks hideCopyright />
         </div>
       )}
+      {isScaleMenuOpen && (
+        <div className="map-frame-footer__scale-menu" role="group" aria-label="Preset map scales">
+          <div className="map-frame-footer__scale-menu-header">
+            <span>Map scale</span>
+            <button
+              type="button"
+              className="map-frame-footer__menu-close"
+              aria-label="Close scale options"
+              title="Close scale options"
+              onClick={() => setIsScaleMenuOpen(false)}
+            >
+              ×
+            </button>
+          </div>
+          {PRESET_SCALES.map((scale) => (
+            <button
+              type="button"
+              key={scale}
+              onClick={() => {
+                onScaleChange(scale);
+                setScaleInputError("");
+                setIsScaleMenuOpen(false);
+              }}
+            >
+              1:{scale.toLocaleString()}
+            </button>
+          ))}
+          <form className="map-frame-footer__custom-scale" onSubmit={applyCustomScale}>
+            <label htmlFor="custom-map-scale">Custom scale</label>
+            <input
+              id="custom-map-scale"
+              type="text"
+              inputMode="numeric"
+              placeholder="1:500,000"
+              value={customScale}
+              aria-invalid={Boolean(scaleInputError)}
+              aria-describedby={scaleInputError ? "custom-map-scale-error" : undefined}
+              onChange={(event) => {
+                setCustomScale(event.currentTarget.value);
+                setScaleInputError("");
+              }}
+            />
+            {scaleInputError && (
+              <span id="custom-map-scale-error" className="map-frame-footer__scale-error" role="alert">
+                {scaleInputError}
+              </span>
+            )}
+            <button type="submit">Apply scale</button>
+          </form>
+        </div>
+      )}
+      <div className="map-frame-footer" role="contentinfo" aria-label="Map and policy information">
+        <div
+          ref={scaleBarTargetRef}
+          className="map-frame-footer__scale"
+          role="button"
+          tabIndex={0}
+          aria-label="Choose map scale"
+          aria-haspopup="menu"
+          aria-expanded={isScaleMenuOpen}
+          onClick={() => setIsScaleMenuOpen((isOpen) => !isOpen)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setIsScaleMenuOpen((isOpen) => !isOpen);
+            }
+          }}
+        >
+        </div>
+        <div className="map-frame-footer__actions">
+          <div className="map-frame-footer__support">
+            <button
+              type="button"
+              className="map-frame-footer__more"
+              aria-expanded={isSupportOpen}
+              aria-haspopup="menu"
+              onClick={() => {
+                setIsSupportOpen((isOpen) => !isOpen);
+                setIsMoreInformationOpen(false);
+              }}
+            >
+              Support <span aria-hidden="true">↑</span>
+            </button>
+            {isSupportOpen && (
+              <nav className="map-frame-footer__menu" role="menu" aria-label="Support">
+                <button
+                  type="button"
+                  className="map-frame-footer__menu-close"
+                  role="menuitem"
+                  aria-label="Close Support"
+                  title="Close Support"
+                  onClick={() => setIsSupportOpen(false)}
+                >
+                  ×
+                </button>
+                {SUPPORT_LINKS.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.value}
+                    target={link.value.startsWith("mailto:") ? undefined : "_blank"}
+                    rel={link.value.startsWith("mailto:") ? undefined : "noopener noreferrer"}
+                    role="menuitem"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </nav>
+            )}
+          </div>
+          <div className="map-frame-footer__information">
+            <button
+              type="button"
+              className="map-frame-footer__more"
+              aria-expanded={isMoreInformationOpen}
+              aria-haspopup="menu"
+              onClick={() => {
+                setIsMoreInformationOpen((isOpen) => !isOpen);
+                setIsSupportOpen(false);
+              }}
+            >
+              More Information <span aria-hidden="true">↑</span>
+            </button>
+            {isMoreInformationOpen && (
+              <nav className="map-frame-footer__menu" role="menu" aria-label="More information">
+                <button
+                  type="button"
+                  className="map-frame-footer__menu-close"
+                  role="menuitem"
+                  aria-label="Close More Information"
+                  title="Close More Information"
+                  onClick={() => setIsMoreInformationOpen(false)}
+                >
+                  ×
+                </button>
+                {FOOTER_LINKS.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    role="menuitem"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setIsMoreInformationOpen(false);
+                    setIsAcknowledgementOpen(true);
+                  }}
+                >
+                  Territorial Acknowledgement
+                </button>
+              </nav>
+            )}
+          </div>
+        </div>
+      </div>
     </>
   );
 };
 
-// Alert banner: the blue "in development" message across the top of the app,
-// with a link to the project's GitHub page.
+// Text and link shown on the right of the top bar.
+const ALERT_MESSAGE = "This site is currently in development.";
+const PROJECT_REPO_URL = "https://github.com/bcgov/automated-statusing-tool";
+
+// The top bar: one blue bar with the GeoBC logo and site title on the left
+// and the "in development" notice on the right.
 const AlertBannerComponent: FC = () => {
   return (
-    <AlertBanner
-      variant="info" // Blue information style
-      isIconHidden={false} // Show the info icon
-      isCloseable={false} // Users can't close it
-      layout="fixed"
+    <div
+      className="bcgov-top-bar"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 12,
+        boxSizing: "border-box",
+        width: "100%",
+        padding: "10px 24px",
+        borderBottom: "0.5px solid #011a33",
+        background: HEADER_BACKGROUND,
+        color: HEADER_TEXT,
+        fontFamily: HEADER_FONT,
+      }}
     >
-      {ALERT_MESSAGE}
-      {/* Adds a space between the message and "Learn more". */}
-      {" "}
-      {/* Opens the GitHub page in a new tab. noopener noreferrer is the same security setting as above. */}
+      {/* Logo and title. Clicking them goes back to the home page. */}
       <a
-        href={PROJECT_REPO_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: "white", textDecoration: "underline" }}
+        href="/"
+        title="Return home"
+        style={{ display: "flex", alignItems: "flex-end", gap: 12, color: HEADER_TEXT, textDecoration: "none" }}
       >
-        Learn more
+        <img src={geobcLogo} alt="GeoBC Logo" style={{ display: "block", height: 28, width: "auto" }} />
+        <span
+          style={{
+            fontFamily: '"Times New Roman", Times, serif',
+            fontSize: "2.1rem",
+            lineHeight: 0.8, // Keeps the title shorter than the logo, so the logo sets the bar height
+            marginBottom: -2, // Nudges the text so its bottom lines up with the bottom of the logo
+            fontWeight: 700,
+            fontVariant: "small-caps",
+            letterSpacing: "0.04em",
+            color: HEADER_TEXT,
+          }}
+        >
+          Automated Status Tool
+        </span>
       </a>
-    </AlertBanner>
+
+      {/* In development notice, on the right. */}
+      <div
+        style={{
+          alignSelf: "flex-end",
+          fontFamily: HEADER_FONT,
+          fontSize: "1.05rem",
+          lineHeight: 1,
+          textAlign: "right",
+          color: HEADER_TEXT,
+        }}
+        > 
+        {ALERT_MESSAGE}{" "}
+        <a
+          href={PROJECT_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: HEADER_TEXT, textDecoration: "underline" }}
+        >
+          Learn more
+        </a>
+      </div>
+    </div>
   );
 };
 
-// Makes these three components available to other files (for example, App.tsx).
-export { PageHeader, PageFooter, AlertBannerComponent };
+// Makes these components available to other files (for example, main.tsx).
+export { MapFrameFooter, AlertBannerComponent };

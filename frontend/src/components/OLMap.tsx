@@ -2,9 +2,9 @@
 // useEffect = run code after the page draws (for example, set up the map).
 // useRef = keep a value between redraws without causing a redraw.
 // useState = store a value that redraws the page when it changes.
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 // FC = "function component". Used here only as a type, so it adds nothing to the final app.
-import type { FC, FormEvent } from "react";
+import type { FC, FormEvent, RefObject } from "react";
 // OpenLayers pieces used to build the map.
 import Map from "ol/Map";
 import View from "ol/View"; // Controls where the map looks (center and zoom)
@@ -14,27 +14,30 @@ import VectorLayer from "ol/layer/Vector"; // Layer for shapes (Tantalis preview
 import XYZ from "ol/source/XYZ"; // Loads tiles from a URL pattern like {z}/{y}/{x}
 import TileWMS from "ol/source/TileWMS";
 import VectorSource from "ol/source/Vector"; // Holds the shapes shown in a vector layer
-import { GeoJSON } from "ol/format"; // Reads and writes GeoJSON shapes
-import { fromLonLat } from "ol/proj"; // Converts longitude/latitude into map coordinates
+import { GeoJSON, WKT } from "ol/format";
+import { fromLonLat, getPointResolution, transformExtent } from "ol/proj"; // Converts coordinates and layer extents
 import { Fill, Stroke, Style } from "ol/style"; // Fill colour, outline and full shape style
-import Attribution from "ol/control/Attribution";
+import { createEmpty, extend as extendExtent } from "ol/extent";
 import ScaleLine from "ol/control/ScaleLine"; // The scale bar
 import { unByKey } from "ol/Observable"; // Removes an event listener that was added with map.on()
 // Feature = one shape on the map. Used only as a type.
 import type Feature from "ol/Feature";
+import type {
+  CriticalConflictError,
+  CriticalConflictLayer,
+  CriticalConflictsRequest,
+  TantalisIdentifiers,
+} from "../types/tantalis";
+import CriticalConflictsPanel from "./CriticalConflictsPanel";
+import { MapFrameFooter } from "./bcgov-components";
+// The common AST datasets from the spreadsheet.
+import { COMMON_DATASET_GROUPS } from "../data/commonDatasets";
 
 // Default OpenLayers styling.
 import "ol/ol.css";
 
 // The only two basemap choices.
 type BasemapId = "street" | "satellite";
-
-// The three Tantalis identifiers. All values are kept as strings in the app
-interface TantalisIdentifiers {
-  fileNumber: string;
-  dispositionId: string;
-  parcelId: string;
-}
 
 // Everything LandingPage can pass into this map. The ? means the value is optional.
 interface OLMapProps {
@@ -46,6 +49,10 @@ interface OLMapProps {
   onPolygonClick?: (selection: TantalisIdentifiers) => void;
   // Identifiers sent from the form. When this changes, the map looks up and shows the shape.
   tantalisPreview?: TantalisIdentifiers | null;
+  onShapeLoaded: (isLoaded: boolean) => void;
+  criticalConflictsRequest: CriticalConflictsRequest | null;
+  isCriticalConflictsOpen: boolean;
+  onCloseCriticalConflicts: () => void;
 }
 
 // Starting colour of the preview shape. 120 on the colour wheel = green.
@@ -65,7 +72,7 @@ const SATELLITE_URL =
 // BC Open Maps web service (WFS) used to look up Tantalis shapes.
 const TANTALIS_WFS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
 const TANTALIS_WMS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
-// The Tantalis Crown tenures layer to search.
+// The Tantalis Crown tenures layer used to look up and preview a shape from the form.
 const TANTALIS_LAYER = "pub:WHSE_TANTALIS.TA_CROWN_TENURES_SVW";
 
 // Credit shown for the Esri basemap tiles.
@@ -73,7 +80,9 @@ const ESRI_ATTRIBUTION = "Tiles © Esri";
 const TANTALIS_ATTRIBUTION = "Data from the Province of British Columbia";
 
 interface MapLayerDefinition {
-  name: string;
+  name: string; // Unique id for the layer in this app
+  typeName?: string; // Real BC Open Maps layer name, if different from name
+  cqlFilter?: string; // Definition query, so only matching features are drawn and searched
   label: string;
   idAttribute: { name: string; label: string; type: "text" | "number" };
   styles: TantalisStyleDefinition[];
@@ -91,100 +100,96 @@ interface TantalisQueryAttribute {
   type: "text" | "number" | "date";
 }
 
+type QueryOperator = "<" | "<=" | "=" | ">=" | ">" | "<>";
+
 interface MapLayerGroupDefinition {
   id: string;
   label: string;
   layers: MapLayerDefinition[];
 }
 
+// The real BC Open Maps layer name to send to the web services.
+const layerTypeName = (layer: MapLayerDefinition): string => layer.typeName ?? layer.name;
+
+// Combines a layer's definition query with a search filter.
+const withLayerFilter = (layer: MapLayerDefinition, filter: string): string =>
+  layer.cqlFilter ? `(${layer.cqlFilter}) AND (${filter})` : filter;
+
 // Layer definitions drive map overlays and their layer-specific query controls.
-const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = [
-  {
-    id: "crown-land",
-    label: "Crown land",
-    layers: [
-      {
-        name: TANTALIS_LAYER,
-        label: "Crown tenures",
-        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
-        styles: [
-          { name: "2214", label: "Outlined" },
-          { name: "2215", label: "Colour Filled" },
-        ],
-        queryAttributes: [
-          { name: "CROWN_LANDS_FILE", label: "File number", type: "text" },
-          { name: "DISPOSITION_TRANSACTION_SID", label: "Disposition ID", type: "number" },
-          { name: "INTRID_SID", label: "Parcel ID", type: "number" },
-          { name: "TENURE_STAGE", label: "Tenure stage", type: "text" },
-          { name: "TENURE_STATUS", label: "Tenure status", type: "text" },
-          { name: "TENURE_TYPE", label: "Tenure type", type: "text" },
-          { name: "TENURE_SUBTYPE", label: "Tenure subtype", type: "text" },
-          { name: "TENURE_PURPOSE", label: "Tenure purpose", type: "text" },
-          { name: "TENURE_SUBPURPOSE", label: "Tenure subpurpose", type: "text" },
-          { name: "APPLICATION_TYPE_CDE", label: "Application type", type: "text" },
-          { name: "TENURE_DOCUMENT", label: "Tenure document", type: "text" },
-          { name: "TENURE_EXPIRY", label: "Expiry date", type: "date" },
-          { name: "TENURE_LOCATION", label: "Tenure location", type: "text" },
-          { name: "RESPONSIBLE_BUSINESS_UNIT", label: "Responsible business unit", type: "text" },
-          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
-        ],
-      },
-      {
-        name: "pub:WHSE_TANTALIS.TA_CROWN_INVENTORY_SVW",
-        label: "Crown land inventory",
-        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
-        styles: [
-          { name: "2173", label: "Outlined" },
-          { name: "2174", label: "Colour Filled" },
-        ],
-        queryAttributes: [
-          { name: "INTRID_SID", label: "Parcel ID", type: "number" },
-          { name: "TENURE_STAGE", label: "Tenure stage", type: "text" },
-          { name: "TENURE_STATUS", label: "Tenure status", type: "text" },
-          { name: "TENURE_TYPE", label: "Tenure type", type: "text" },
-          { name: "TENURE_SUBTYPE", label: "Tenure subtype", type: "text" },
-          { name: "TENURE_PURPOSE", label: "Tenure purpose", type: "text" },
-          { name: "TENURE_SUBPURPOSE", label: "Tenure subpurpose", type: "text" },
-          { name: "CROWN_LANDS_FILE", label: "File number", type: "text" },
-          { name: "TENURE_DOCUMENT", label: "Tenure document", type: "text" },
-          { name: "TENURE_EXPIRY", label: "Expiry date", type: "date" },
-          { name: "TENURE_LOCATION", label: "Tenure location", type: "text" },
-          { name: "RESPONSIBLE_BUSINESS_UNIT", label: "Responsible business unit", type: "text" },
-          { name: "DISPOSITION_TRANSACTION_SID", label: "Disposition ID", type: "number" },
-          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
-        ],
-      },
+// They are built from the common AST datasets spreadsheet (src/data/commonDatasets.ts).
+const MAP_LAYER_GROUPS: MapLayerGroupDefinition[] = COMMON_DATASET_GROUPS.map((group) => ({
+  id: group.id,
+  label: group.label,
+  layers: group.layers.map((dataset) => ({
+    name: dataset.name,
+    typeName: dataset.typeName,
+    cqlFilter: dataset.cqlFilter,
+    label: dataset.label,
+    idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" as const },
+    styles: [
+      { name: "outline", label: "Outlined" },
+      { name: "fill", label: "Colour Filled" },
     ],
-  },
-  {
-    id: "critical-overlaps",
-    label: "Critical overlaps",
-    layers: [
-      {
-        name: "pub:WHSE_LEGAL_ADMIN_BOUNDARIES.FNT_TREATY_RELATED_LAND_SP",
-        label: "FCBC treaty-related lands",
-        idAttribute: { name: "OBJECTID", label: "Object ID", type: "number" },
-        styles: [
-          { name: "217", label: "Outlined" },
-          { name: "218", label: "Colour Filled" },
-        ],
-        queryAttributes: [
-          { name: "TREATY_RELATED_LAND_ID", label: "Treaty-related land ID", type: "number" },
-          { name: "TREATY", label: "Treaty", type: "text" },
-          { name: "EFFECTIVE_DATE", label: "Effective date", type: "date" },
-          { name: "FIRST_NATION_NAME", label: "First Nation name", type: "text" },
-          { name: "LAND_TYPE", label: "Land type", type: "text" },
-          { name: "CHAPTER_REFERENCE", label: "Chapter reference", type: "text" },
-          { name: "APPENDIX_REFERENCE", label: "Appendix reference", type: "text" },
-          { name: "COMMENTS", label: "Comments", type: "text" },
-          { name: "FEATURE_CODE", label: "Feature code", type: "text" },
-          { name: "FEATURE_AREA_SQM", label: "Feature area (m²)", type: "number" },
-          { name: "FEATURE_LENGTH_M", label: "Feature length (m)", type: "number" },
-        ],
-      },
-    ],
-  },
+    queryAttributes: dataset.fields.map((field) => ({
+      name: field,
+      label: field,
+      type: "text" as const,
+    })),
+  })),
+}));
+
+// Each layer gets its own colour, picked in order from this list, so layers are easy to tell apart.
+const LAYER_COLOURS = [
+  "#e6194b", "#3cb44b", "#4363d8", "#f58231", "#911eb4", "#008080",
+  "#9a6324", "#800000", "#808000", "#000075", "#f032e6", "#469990",
 ];
+const LAYER_BY_NAME = new globalThis.Map<string, MapLayerDefinition>(
+  MAP_LAYER_GROUPS.flatMap((group) => group.layers).map((layer) => [layer.name, layer])
+);
+const layerColour = (layerName: string): string => {
+  const index = Array.from(LAYER_BY_NAME.keys()).indexOf(layerName);
+  return LAYER_COLOURS[Math.max(0, index) % LAYER_COLOURS.length];
+};
+
+const escapeXml = (value: string): string =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+// Builds the style sent to the map service (an SLD) for a layer.
+// "outline" draws only the edges. "fill" also fills polygons and points with a see-through colour.
+// One rule covers polygons, lines and points, so it works whatever shapes the layer holds.
+const buildLayerSld = (layer: MapLayerDefinition, styleName: string): string => {
+  const colour = layerColour(layer.name);
+  const isFilled = styleName === "fill";
+  const stroke = `<Stroke><CssParameter name="stroke">${colour}</CssParameter><CssParameter name="stroke-width">1.5</CssParameter></Stroke>`;
+  const polygonFill = isFilled
+    ? `<Fill><CssParameter name="fill">${colour}</CssParameter><CssParameter name="fill-opacity">0.45</CssParameter></Fill>`
+    : "";
+  const pointFill = `<Fill><CssParameter name="fill">${colour}</CssParameter><CssParameter name="fill-opacity">${isFilled ? "0.7" : "0"}</CssParameter></Fill>`;
+  return (
+    `<StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">` +
+    `<NamedLayer><Name>${escapeXml(layerTypeName(layer))}</Name><UserStyle><FeatureTypeStyle><Rule>` +
+    `<PolygonSymbolizer>${polygonFill}${stroke}</PolygonSymbolizer>` +
+    `<LineSymbolizer>${stroke}</LineSymbolizer>` +
+    `<PointSymbolizer><Graphic><Mark><WellKnownName>circle</WellKnownName>${pointFill}${stroke}</Mark><Size>8</Size></Graphic></PointSymbolizer>` +
+    `</Rule></FeatureTypeStyle></UserStyle></NamedLayer></StyledLayerDescriptor>`
+  );
+};
+
+// The top-level heading in the Layers panel. All the spreadsheet groups sit inside it.
+const PARENT_GROUP_LABEL = "FrontCounter BC Provincial Layers";
+
+// The layer the Preview Critical Conflicts check uses (First Nation Treaty Related Lands).
+const CRITICAL_CONFLICT_LAYER_NAME = "first-nation-treaty-related-lands";
+
+// Style shared by the main panel titles ("Select map" and "Map layers").
+const PANEL_TITLE_STYLE = {
+  fontFamily: '"BC Sans", "Noto Sans", Verdana, Arial, sans-serif',
+  fontVariant: "small-caps",
+  fontSize: "1.35rem",
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  color: "#003366",
+} as const;
 
 interface TantalisQueryResult {
   objectId: string;
@@ -197,6 +202,13 @@ interface TantalisQueryResult {
 interface TantalisQueryResponse {
   features: Array<{ properties: Record<string, unknown> | null }>;
   numberMatched?: number | string;
+}
+
+interface CriticalLayerCheck {
+  layer: MapLayerDefinition;
+  features: Feature[];
+  status: "success" | "error";
+  message?: string;
 }
 
 const TANTALIS_QUERY_RESULT_LIMIT = 10;
@@ -264,95 +276,152 @@ const isDigitsOnly = (value: string): boolean => /^\d+$/.test(value);
 // Doubles any apostrophes (' becomes '') so text is safe inside a quoted filter value.
 const escapeCqlText = (value: string): string => value.replace(/'/g, "''");
 
-// The map component. It creates the OpenLayers map and handles everything the map does.
-const OLMap: FC<OLMapProps> = ({
-  // If LandingPage doesn't send a center or zoom, use the defaults.
-  center = DEFAULT_CENTER,
-  zoom = DEFAULT_ZOOM,
-  onPolygonClick,
-  tantalisPreview,
-}) => {
-  // The <div> the map is drawn inside.
-  const mapContainerRef = useRef<HTMLDivElement | null>(null);
-  const mapFrameRef = useRef<HTMLDivElement | null>(null);
-  const mapControlsRef = useRef<HTMLDivElement | null>(null);
-  const layerPanelRef = useRef<HTMLDivElement | null>(null);
-  // The OpenLayers map, so every part of this file can reach it.
-  const mapRef = useRef<Map | null>(null);
-  // The layer showing the current TANTALIS preview shape, so the sliders can restyle it.
-  const previewLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
-  // References let the layer panel update individual OpenLayers WMS layers.
-  const tantalisLayerRefs = useRef<Record<string, TileLayer<TileWMS>>>({});
-  const layerGroupToggleRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const queryHighlightLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
-  const queryAbortRef = useRef<AbortController | null>(null);
+const readWmsLayerExtent = async (layerName: string, signal: AbortSignal): Promise<number[]> => {
+  const url = new URL(TANTALIS_WMS_URL);
+  url.searchParams.set("service", "WMS");
+  url.searchParams.set("version", "1.3.0");
+  url.searchParams.set("request", "GetCapabilities");
 
-  // Which basemap is selected. Starts on satellite.
-  const [selectedBasemap, setSelectedBasemap] = useState<BasemapId>("satellite");
-  // One active popup keeps map tools from stacking on top of each other.
-  const [openMapPanel, setOpenMapPanel] = useState<"basemap" | "layers" | null>(null);
-  const [layerPanelMaxHeight, setLayerPanelMaxHeight] = useState<number>();
-  // The active layer is the most recently enabled layer and receives symbology/query actions.
-  const [activeTantalisLayer, setActiveTantalisLayer] = useState<string>(TANTALIS_LAYER);
-  const [selectedTantalisStyles, setSelectedTantalisStyles] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, layer.styles[0]?.name ?? ""]))
+  const response = await fetch(url.toString(), { signal });
+  if (!response.ok) {
+    throw new Error(`WMS capabilities returned status ${response.status}`);
+  }
+  const xml = new DOMParser().parseFromString(await response.text(), "application/xml");
+  if (xml.querySelector("parsererror")) {
+    throw new Error("the WMS capabilities were not valid XML");
+  }
+
+  const layer = Array.from(xml.getElementsByTagNameNS("*", "Layer")).find((element) =>
+    Array.from(element.children).some(
+      (child) => child.localName === "Name" && child.textContent?.trim() === layerName
     )
   );
-  const [selectedQueryAttributes, setSelectedQueryAttributes] = useState<Record<string, string>>({});
-  const [queryAttributeValues, setQueryAttributeValues] = useState<Record<string, string>>({});
-  const [queryResults, setQueryResults] = useState<TantalisQueryResult[]>([]);
-  const [queryStatus, setQueryStatus] = useState<string>("");
-  const [isQuerying, setIsQuerying] = useState<boolean>(false);
-  const [zoomingObjectId, setZoomingObjectId] = useState<string | null>(null);
-  // Keep the sample overlays off until the user enables them.
-  const [visibleTantalisLayers, setVisibleTantalisLayers] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, false])))
+  if (!layer) {
+    throw new Error("the layer extent was not found in WMS capabilities");
+  }
+
+  const boundingBoxes = Array.from(layer.children).filter((child) => child.localName === "BoundingBox");
+  const mercatorBox = boundingBoxes.find(
+    (box) => box.getAttribute("CRS") === "EPSG:3857" || box.getAttribute("SRS") === "EPSG:3857"
   );
-  // Current colour slider value.
-  const [previewHue, setPreviewHue] = useState<number>(DEFAULT_PREVIEW_HUE);
-  // Current transparency slider value.
-  const [previewOpacity, setPreviewOpacity] = useState<number>(DEFAULT_PREVIEW_OPACITY);
-  // Message shown on the map while loading, or when the lookup fails or finds nothing.
-  // An empty string means no message is shown.
-  const [previewStatus, setPreviewStatus] = useState<string>("");
+  const geographicBox = Array.from(layer.children).find((child) => child.localName === "EX_GeographicBoundingBox");
+  const selectedBox = mercatorBox ?? boundingBoxes.find((box) =>
+    ["CRS:84", "EPSG:4326"].includes(box.getAttribute("CRS") ?? box.getAttribute("SRS") ?? "")
+  );
 
-  const toggleMapPanel = (panel: "basemap" | "layers"): void => {
-    setOpenMapPanel((current) => (current === panel ? null : panel));
-  };
+  if (mercatorBox) {
+    const extent = [
+      Number(mercatorBox.getAttribute("minx")),
+      Number(mercatorBox.getAttribute("miny")),
+      Number(mercatorBox.getAttribute("maxx")),
+      Number(mercatorBox.getAttribute("maxy")),
+    ];
+    if (extent.every(Number.isFinite)) {
+      return extent;
+    }
+  }
 
+  if (selectedBox) {
+    const crs = selectedBox.getAttribute("CRS") ?? selectedBox.getAttribute("SRS");
+    const values = [
+      Number(selectedBox.getAttribute("minx")),
+      Number(selectedBox.getAttribute("miny")),
+      Number(selectedBox.getAttribute("maxx")),
+      Number(selectedBox.getAttribute("maxy")),
+    ];
+    if (values.every(Number.isFinite)) {
+      const geographicExtent = crs === "EPSG:4326"
+        ? [values[1], values[0], values[3], values[2]]
+        : values;
+      return transformExtent(geographicExtent, "EPSG:4326", "EPSG:3857");
+    }
+  }
+
+  if (geographicBox) {
+    const readValue = (name: string): number =>
+      Number(geographicBox.getElementsByTagNameNS("*", name)[0]?.textContent);
+    const extent = [
+      readValue("westBoundLongitude"),
+      readValue("southBoundLatitude"),
+      readValue("eastBoundLongitude"),
+      readValue("northBoundLatitude"),
+    ];
+    if (extent.every(Number.isFinite)) {
+      return transformExtent(extent, "EPSG:4326", "EPSG:3857");
+    }
+  }
+
+  throw new Error("the layer extent could not be read");
+};
+
+const readGeometryColumnName = async (layerName: string, signal: AbortSignal): Promise<string> => {
+  const url = new URL(TANTALIS_WFS_URL);
+  url.searchParams.set("service", "WFS");
+  url.searchParams.set("version", "2.0.0");
+  url.searchParams.set("request", "DescribeFeatureType");
+  url.searchParams.set("typeNames", layerName);
+
+  const response = await fetch(url.toString(), { signal });
+  if (!response.ok) {
+    throw new Error(`the layer description returned status ${response.status}`);
+  }
+
+  const xml = new DOMParser().parseFromString(await response.text(), "application/xml");
+  if (xml.querySelector("parsererror")) {
+    throw new Error("the layer description was not valid XML");
+  }
+
+  const geometryElement = Array.from(xml.getElementsByTagNameNS("*", "element")).find((element) =>
+    /^[^:]+:.*PropertyType$/i.test(element.getAttribute("type") ?? "")
+  );
+  const geometryName = geometryElement?.getAttribute("name");
+  if (!geometryName || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(geometryName)) {
+    throw new Error("the layer geometry column could not be identified");
+  }
+  return geometryName;
+};
+
+const parseLayerDescriptions = (xmlText: string): globalThis.Map<string, string> => {
+  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+  if (xml.querySelector("parsererror")) {
+    throw new Error("the WMS capabilities were not valid XML");
+  }
+
+  const descriptions = new globalThis.Map<string, string>();
+  Array.from(xml.getElementsByTagNameNS("*", "Layer")).forEach((layer) => {
+    const name = Array.from(layer.children).find((child) => child.localName === "Name")?.textContent?.trim();
+    const abstract = Array.from(layer.children).find((child) => child.localName === "Abstract")?.textContent?.trim();
+    if (name && abstract) {
+      descriptions.set(name, abstract);
+    }
+  });
+  return descriptions;
+};
+
+// Named hooks keep external OpenLayers and DOM synchronization in focused lifecycle boundaries.
+// Keeps the Layers panel from growing taller than the space left in the window.
+const useLayerPanelHeight = (
+  openMapPanel: "basemap" | "layers" | null,
+  panelRef: RefObject<HTMLDivElement | null>,
+  frameRef: RefObject<HTMLDivElement | null>,
+  controlsRef: RefObject<HTMLDivElement | null>,
+  setMaxHeight: (height: number) => void
+): void => {
   useEffect(() => {
-    if (openMapPanel !== "layers") {
-      return;
-    }
+    if (openMapPanel !== "layers") return;
 
-    const panel = layerPanelRef.current;
-    const frame = mapFrameRef.current;
-    const controls = mapControlsRef.current;
-    if (!panel || !frame || !controls) {
-      return;
-    }
+    const panel = panelRef.current;
+    const frame = frameRef.current;
+    const controls = controlsRef.current;
+    if (!panel || !frame || !controls) return;
 
-    let observedFooter: HTMLElement | null = null;
-    let resizeObserver: ResizeObserver | undefined;
     const updateLayerPanelHeight = (): void => {
-      const footer = document.querySelector<HTMLElement>(".bcgov-page-footer");
       const panelTop = panel.getBoundingClientRect().top;
-      const availableBottom = footer?.getBoundingClientRect().top ?? window.innerHeight;
-      const availableHeight = Math.max(0, availableBottom - panelTop - 8);
-      setLayerPanelMaxHeight(Math.min(380, availableHeight));
-      if (footer !== observedFooter) {
-        if (observedFooter) {
-          resizeObserver?.unobserve(observedFooter);
-        }
-        observedFooter = footer;
-        if (footer) {
-          resizeObserver?.observe(footer);
-        }
-      }
+      const availableHeight = Math.max(0, window.innerHeight - panelTop - 8);
+      setMaxHeight(Math.min(380, availableHeight));
     };
 
-    resizeObserver = new ResizeObserver(updateLayerPanelHeight);
+    const resizeObserver = new ResizeObserver(updateLayerPanelHeight);
     resizeObserver.observe(frame);
     resizeObserver.observe(controls);
     const mutationObserver = new MutationObserver(updateLayerPanelHeight);
@@ -369,7 +438,218 @@ const OLMap: FC<OLMapProps> = ({
       mutationObserver.disconnect();
       window.removeEventListener("resize", updateLayerPanelHeight);
     };
-  }, [openMapPanel]);
+  }, [openMapPanel, panelRef, frameRef, controlsRef, setMaxHeight]);
+};
+
+const useSyncTantalisLayers = (
+  visibleLayers: Record<string, boolean>,
+  selectedStyles: Record<string, string>,
+  layerRefs: RefObject<Record<string, TileLayer<TileWMS>>>,
+  toggleRefs: RefObject<Record<string, HTMLInputElement | null>>
+): void => {
+  useEffect(() => {
+    // Visibility and WMS style synchronization is a named external-system hook.
+    Object.entries(visibleLayers).forEach(([name, isVisible]) => {
+      layerRefs.current[name]?.setVisible(isVisible);
+    });
+    Object.entries(layerRefs.current).forEach(([name, layer]) => {
+      const definition = LAYER_BY_NAME.get(name);
+      layer.getSource()?.updateParams({
+        STYLES: "",
+        SLD_BODY: definition ? buildLayerSld(definition, selectedStyles[name] ?? "outline") : undefined,
+      });
+    });
+    MAP_LAYER_GROUPS.forEach((group) => {
+      const enabledCount = group.layers.filter((layer) => visibleLayers[layer.name]).length;
+      const groupToggle = toggleRefs.current[group.id];
+      if (groupToggle) {
+        groupToggle.indeterminate = enabledCount > 0 && enabledCount < group.layers.length;
+      }
+    });
+  }, [visibleLayers, selectedStyles, layerRefs, toggleRefs]);
+};
+
+const useSyncMapView = (
+  mapRef: RefObject<Map | null>,
+  center: [number, number],
+  zoom: number
+): void => {
+  useEffect(() => {
+    // OpenLayers view synchronization is isolated from component rendering.
+    mapRef.current?.getView().animate({ center: fromLonLat(center), zoom, duration: 400 });
+  }, [center, zoom, mapRef]);
+};
+
+const useSyncBasemap = (
+  mapRef: RefObject<Map | null>,
+  selectedBasemap: BasemapId
+): void => {
+  useEffect(() => {
+    // Swapping external tile sources is explicit and independently testable.
+    const baseLayer = mapRef.current?.getLayers().item(0);
+    if (!(baseLayer instanceof TileLayer)) return;
+    const url = selectedBasemap === "street" ? STREET_URL : SATELLITE_URL;
+    baseLayer.setSource(createBasemapSource(url));
+  }, [selectedBasemap, mapRef]);
+};
+
+const useMapResize = (
+  mapContainerRef: RefObject<HTMLDivElement | null>,
+  mapRef: RefObject<Map | null>
+): void => {
+  useEffect(() => {
+    // ResizeObserver lifecycle is named and no component-render logic is mixed into it.
+    const mapContainer = mapContainerRef.current;
+    if (!mapContainer) return;
+    const resizeObserver = new ResizeObserver(() => mapRef.current?.updateSize());
+    resizeObserver.observe(mapContainer);
+    return () => resizeObserver.disconnect();
+  }, [mapContainerRef, mapRef]);
+};
+
+const useSyncPreviewStyle = (
+  previewLayerRef: RefObject<VectorLayer<VectorSource> | null>,
+  previewHue: number,
+  previewOpacity: number
+): void => {
+  useEffect(() => {
+    // Restyling an external OpenLayers layer is kept in a named synchronization hook.
+    previewLayerRef.current?.setStyle(buildPreviewStyle(previewHue, previewOpacity));
+  }, [previewHue, previewOpacity, previewLayerRef]);
+};
+
+// The map component. It creates the OpenLayers map and handles everything the map does.
+const OLMap: FC<OLMapProps> = ({
+  // If LandingPage doesn't send a center or zoom, use the defaults.
+  center = DEFAULT_CENTER,
+  zoom = DEFAULT_ZOOM,
+  onPolygonClick,
+  tantalisPreview,
+  onShapeLoaded,
+  criticalConflictsRequest,
+  isCriticalConflictsOpen,
+  onCloseCriticalConflicts,
+}) => {
+  // The <div> the map is drawn inside.
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const scaleBarTargetRef = useRef<HTMLDivElement | null>(null);
+  const mapFrameRef = useRef<HTMLDivElement | null>(null);
+  const mapControlsRef = useRef<HTMLDivElement | null>(null);
+  const layerPanelRef = useRef<HTMLDivElement | null>(null);
+  // The OpenLayers map, so every part of this file can reach it.
+  const mapRef = useRef<Map | null>(null);
+  // The layer showing the current Tantalis preview shape, so the sliders can restyle it.
+  const previewLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  // References let the layer panel update individual OpenLayers WMS layers.
+  const tantalisLayerRefs = useRef<Record<string, TileLayer<TileWMS>>>({});
+  const layerGroupToggleRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const queryHighlightLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const queryAbortRef = useRef<AbortController | null>(null);
+  const criticalConflictLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
+  const criticalConflictsAbortRef = useRef<AbortController | null>(null);
+  const layerZoomAbortRef = useRef<AbortController | null>(null);
+  const criticalConflictHoverRef = useRef<object | null>(null);
+  const criticalConflictPinnedRef = useRef<object | null>(null);
+  const criticalConflictDescriptionsRef = useRef<Promise<globalThis.Map<string, string>> | null>(null);
+
+  // Which basemap is selected. Starts on satellite.
+  const [selectedBasemap, setSelectedBasemap] = useState<BasemapId>("satellite");
+  // One active popup keeps map tools from stacking on top of each other.
+  const [openMapPanel, setOpenMapPanel] = useState<"basemap" | "layers" | null>(null);
+  const [layerPanelMaxHeight, setLayerPanelMaxHeight] = useState<number>();
+  // The active layer is the most recently enabled layer and receives symbology/query actions.
+  const [activeTantalisLayer, setActiveTantalisLayer] = useState<string>("");
+  const [openLayerQueries, setOpenLayerQueries] = useState<Record<string, boolean>>({});
+  const [openLayerSymbology, setOpenLayerSymbology] = useState<Record<string, boolean>>({});
+  const [openLayerActionMenu, setOpenLayerActionMenu] = useState<string | null>(null);
+  const [selectedTantalisStyles, setSelectedTantalisStyles] = useState<Record<string, string>>(() =>
+    Object.fromEntries(
+      MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, layer.styles[0]?.name ?? ""]))
+    )
+  );
+  const [selectedQueryAttributes, setSelectedQueryAttributes] = useState<Record<string, string>>({});
+  const [selectedQueryOperators, setSelectedQueryOperators] = useState<Record<string, QueryOperator>>({});
+  const [queryAttributeValues, setQueryAttributeValues] = useState<Record<string, string>>({});
+  const [queryResults, setQueryResults] = useState<TantalisQueryResult[]>([]);
+  const [queryStatus, setQueryStatus] = useState<string>("");
+  const [isQuerying, setIsQuerying] = useState<boolean>(false);
+  const [zoomingObjectId, setZoomingObjectId] = useState<string | null>(null);
+  const [zoomingLayerName, setZoomingLayerName] = useState<string | null>(null);
+  // Keep the overlays off until the user enables them.
+  const [visibleTantalisLayers, setVisibleTantalisLayers] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, false])))
+  );
+  // Current colour slider value.
+  const [previewHue, setPreviewHue] = useState<number>(DEFAULT_PREVIEW_HUE);
+  // Current transparency slider value.
+  const [previewOpacity, setPreviewOpacity] = useState<number>(DEFAULT_PREVIEW_OPACITY);
+  // Message shown on the map while loading, or when the lookup fails or finds nothing.
+  // An empty string means no message is shown.
+  const [previewStatus, setPreviewStatus] = useState<string>("");
+  const [criticalConflictLayers, setCriticalConflictLayers] = useState<CriticalConflictLayer[]>([]);
+  const [criticalConflictErrors, setCriticalConflictErrors] = useState<CriticalConflictError[]>([]);
+  const [criticalConflictsChecking, setCriticalConflictsChecking] = useState(false);
+  const [criticalConflictStatus, setCriticalConflictStatus] = useState("");
+  const [hoveredConflictLayerName, setHoveredConflictLayerName] = useState<string | null>(null);
+  const [pinnedConflictLayerName, setPinnedConflictLayerName] = useState<string | null>(null);
+  // Text typed in the Layers panel search box. Empty = show every layer.
+  const [layerSearch, setLayerSearch] = useState<string>("");
+  // Whether the FrontCounter BC Provincial Layers heading is expanded. Starts open.
+  const [isParentGroupOpen, setIsParentGroupOpen] = useState<boolean>(true);
+  const searchTerm = layerSearch.trim().toLowerCase();
+  // Keeps only the layers (and groups) that match the search. A group whose name matches shows all its layers.
+  const filteredLayerGroups = MAP_LAYER_GROUPS.flatMap((group) => {
+    if (!searchTerm) {
+      return [group];
+    }
+    const groupMatches =
+      PARENT_GROUP_LABEL.toLowerCase().includes(searchTerm) || group.label.toLowerCase().includes(searchTerm);
+    const layers = groupMatches
+      ? group.layers
+      : group.layers.filter((layer) => layer.label.toLowerCase().includes(searchTerm));
+    return layers.length > 0 ? [{ ...group, layers }] : [];
+  });
+
+  const toggleMapPanel = (panel: "basemap" | "layers"): void => {
+    setOpenMapPanel((current) => (current === panel ? null : panel));
+  };
+
+  const clearCriticalConflicts = useCallback((): void => {
+    criticalConflictsAbortRef.current?.abort();
+    criticalConflictsAbortRef.current = null;
+    const map = mapRef.current;
+    const layer = criticalConflictLayerRef.current;
+    if (map && layer) {
+      map.removeLayer(layer);
+      layer.getSource()?.clear();
+    }
+    criticalConflictHoverRef.current = null;
+    criticalConflictPinnedRef.current = null;
+    const target = map?.getTargetElement();
+    if (target) {
+      target.style.cursor = "";
+    }
+    setCriticalConflictLayers([]);
+    setCriticalConflictErrors([]);
+    setCriticalConflictsChecking(false);
+    setCriticalConflictStatus("");
+    setHoveredConflictLayerName(null);
+    setPinnedConflictLayerName(null);
+  }, []);
+
+  const handleCloseCriticalConflicts = useCallback((): void => {
+    clearCriticalConflicts();
+    onCloseCriticalConflicts();
+  }, [clearCriticalConflicts, onCloseCriticalConflicts]);
+
+  // External DOM observers remain effects because they synchronize OpenLayers UI with browser layout.
+  useLayerPanelHeight(
+    openMapPanel,
+    layerPanelRef,
+    mapFrameRef,
+    mapControlsRef,
+    setLayerPanelMaxHeight
+  );
 
   const selectQueryLayer = (layerName: string): void => {
     queryAbortRef.current?.abort();
@@ -399,7 +679,11 @@ const OLMap: FC<OLMapProps> = ({
           visible: false,
           source: new TileWMS({
             url: TANTALIS_WMS_URL,
-            params: { LAYERS: layer.name, TILED: true },
+            params: {
+              LAYERS: layerTypeName(layer),
+              TILED: true,
+              ...(layer.cqlFilter ? { CQL_FILTER: layer.cqlFilter } : {}),
+            },
             serverType: "geoserver",
             crossOrigin: "anonymous",
             attributions: TANTALIS_ATTRIBUTION,
@@ -431,12 +715,65 @@ const OLMap: FC<OLMapProps> = ({
     map.addLayer(queryHighlightLayer);
     queryHighlightLayerRef.current = queryHighlightLayer;
 
-    // Keep provider credits available while using custom map controls.
-    map.addControl(new Attribution({ collapsible: true, collapsed: true }));
+    const normalConflictStyle = new Style({
+      fill: new Fill({ color: "rgba(220, 38, 38, 0.18)" }),
+      stroke: new Stroke({ color: "#dc2626", width: 2 }),
+    });
+    const highlightedConflictStyle = new Style({
+      fill: new Fill({ color: "rgba(220, 38, 38, 0.3)" }),
+      stroke: new Stroke({ color: "#b91c1c", width: 4 }),
+    });
+    const criticalConflictLayer = new VectorLayer({
+      source: new VectorSource(),
+      style: (feature) =>
+        feature === criticalConflictHoverRef.current || feature === criticalConflictPinnedRef.current
+          ? highlightedConflictStyle
+          : normalConflictStyle,
+      zIndex: 115,
+    });
+    criticalConflictLayerRef.current = criticalConflictLayer;
+
+    const findCriticalConflict = (pixel: number[]): object | null =>
+      map.forEachFeatureAtPixel(
+        pixel,
+        (feature) => feature,
+        { layerFilter: (layer) => layer === criticalConflictLayerRef.current, hitTolerance: 4 }
+      ) ?? null;
+
+    const pointerMoveKey = map.on("pointermove", (event) => {
+      const feature = event.dragging ? null : findCriticalConflict(event.pixel);
+      const target = map.getTargetElement();
+      if (target) {
+        target.style.cursor = feature ? "pointer" : "";
+      }
+      if (criticalConflictHoverRef.current !== feature) {
+        criticalConflictHoverRef.current = feature;
+        criticalConflictLayer.changed();
+      }
+      const layerName = feature ? (feature as Feature).get("criticalConflictLayerName") : null;
+      setHoveredConflictLayerName(typeof layerName === "string" ? layerName : null);
+    });
+    const conflictClickKey = map.on("click", (event) => {
+      const feature = findCriticalConflict(event.pixel);
+      criticalConflictPinnedRef.current = feature;
+      criticalConflictLayer.changed();
+      const layerName = feature ? (feature as Feature).get("criticalConflictLayerName") : null;
+      setPinnedConflictLayerName(typeof layerName === "string" ? layerName : null);
+    });
 
     // Add the scale bar in metres/kilometres.
     // The class name matches the existing CSS that positions and styles it.
-    map.addControl(new ScaleLine({ className: "map-scale", units: "metric", minWidth: 140 }));
+    const scaleLineControl = new ScaleLine({
+      className: "map-scale",
+      units: "metric",
+      minWidth: 140,
+      bar: true,
+      steps: 1,
+      text: true,
+      target: scaleBarTargetRef.current ?? undefined,
+    });
+    scaleBarTargetRef.current?.replaceChildren();
+    map.addControl(scaleLineControl);
 
     // Save the map so the rest of the file can use it.
     mapRef.current = map;
@@ -444,83 +781,62 @@ const OLMap: FC<OLMapProps> = ({
     // Clean up when the component is removed from the page.
     return () => {
       queryAbortRef.current?.abort();
+      criticalConflictsAbortRef.current?.abort();
+      unByKey([pointerMoveKey, conflictClickKey]);
+      const target = map.getTargetElement();
+      if (target) {
+        target.style.cursor = "";
+      }
+      map.removeControl(scaleLineControl);
       map.setTarget(undefined);
       mapRef.current = null;
       queryHighlightLayerRef.current = null;
+      criticalConflictLayerRef.current = null;
     };
     // The empty list [] means this runs only once. Later center/zoom changes are handled in step 2.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync WMS layer visibility and the group's partial-selection checkbox state.
-  useEffect(() => {
-    Object.entries(visibleTantalisLayers).forEach(([name, isVisible]) => {
-      tantalisLayerRefs.current[name]?.setVisible(isVisible);
-    });
-
-    MAP_LAYER_GROUPS.forEach((group) => {
-      const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
-      const groupToggle = layerGroupToggleRefs.current[group.id];
-      if (groupToggle) {
-        groupToggle.indeterminate = enabledCount > 0 && enabledCount < group.layers.length;
-      }
-    });
-  }, [visibleTantalisLayers]);
-
-  // Apply each overlay's own published WMS style without changing its visibility.
-  useEffect(() => {
-    Object.entries(tantalisLayerRefs.current).forEach(([name, layer]) => {
-      layer.getSource()?.updateParams({ STYLES: selectedTantalisStyles[name] ?? "" });
-    });
-  }, [selectedTantalisStyles]);
+  // External OpenLayers state stays synchronized through one named hook.
+  useSyncTantalisLayers(
+    visibleTantalisLayers,
+    selectedTantalisStyles,
+    tantalisLayerRefs,
+    layerGroupToggleRefs
+  );
 
   // 2. Move the map smoothly when the center or zoom props change.
-  useEffect(() => {
-    mapRef.current?.getView().animate({ center: fromLonLat(center), zoom, duration: 400 });
-  }, [center, zoom]);
+  useSyncMapView(mapRef, center, zoom);
 
   // 3. Swap the basemap tiles when the user picks Street or Satellite.
-  useEffect(() => {
-    // The basemap is always the first layer.
-    const baseLayer = mapRef.current?.getLayers().item(0);
-
-    // Stop if the map isn't ready or the first layer isn't a tile layer.
-    if (!(baseLayer instanceof TileLayer)) {
-      return;
-    }
-
-    const url = selectedBasemap === "street" ? STREET_URL : SATELLITE_URL;
-    baseLayer.setSource(createBasemapSource(url));
-  }, [selectedBasemap]);
+  useSyncBasemap(mapRef, selectedBasemap);
 
   // 4. Resize the map whenever its container changes size (for example, when the layout shifts).
-  useEffect(() => {
-    const mapContainer = mapContainerRef.current;
-    if (!mapContainer) {
-      return;
-    }
+  useMapResize(mapContainerRef, mapRef);
 
-    // ResizeObserver watches the <div> and runs updateSize whenever its size changes.
-    const resizeObserver = new ResizeObserver(() => {
-      mapRef.current?.updateSize();
-    });
-    resizeObserver.observe(mapContainer);
-
-    // Stop watching when the component is removed.
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, []);
-
-  // 5. Look up and show the Tantalis shape whenever the form sends new identifiers.
+  // 5. Show the selected Tantalis shape whenever the form requests a preview.
   // The sliders are left out of the list at the bottom, so moving them doesn't repeat the lookup.
   useEffect(() => {
     const map = mapRef.current;
+    onShapeLoaded(false);
+    clearCriticalConflicts();
+    onCloseCriticalConflicts();
 
     // Stop if the map isn't ready or nothing has been sent yet.
     if (!map || !tantalisPreview) {
+      setPreviewStatus("");
       return;
     }
+
+    const previewSource = new VectorSource();
+    const previewLayer = new VectorLayer({
+      source: previewSource,
+      style: buildPreviewStyle(previewHue, previewOpacity),
+      zIndex: 120,
+    });
+    map.addLayer(previewLayer);
+    previewLayerRef.current = previewLayer;
+    const controller = new AbortController();
 
     // Remove extra spaces from the start and end of each value.
     const fileNumber = tantalisPreview.fileNumber.trim();
@@ -531,6 +847,11 @@ const OLMap: FC<OLMapProps> = ({
     // so stop here if they contain anything other than digits.
     if (!isDigitsOnly(dispositionId) || !isDigitsOnly(parcelId)) {
       setPreviewStatus("Disposition ID and Parcel ID must contain numbers only.");
+      onShapeLoaded(false);
+      map.removeLayer(previewLayer);
+      if (previewLayerRef.current === previewLayer) {
+        previewLayerRef.current = null;
+      }
       return;
     }
 
@@ -554,20 +875,7 @@ const OLMap: FC<OLMapProps> = ({
       ].join(" AND ")
     );
 
-    // Create an empty layer for the preview shape, using the current slider values.
-    const previewSource = new VectorSource();
-    const previewLayer = new VectorLayer({
-      source: previewSource,
-      style: buildPreviewStyle(previewHue, previewOpacity),
-      zIndex: 120, // Draw above the basemap
-    });
-
-    map.addLayer(previewLayer);
-    previewLayerRef.current = previewLayer;
-    setPreviewStatus("Loading TANTALIS shape...");
-
-    // Lets us cancel this request if new identifiers arrive before it finishes.
-    const controller = new AbortController();
+    setPreviewStatus("Loading Tantalis shape...");
 
     // Send the request to BC Open Maps.
     fetch(url.toString(), { signal: controller.signal })
@@ -591,7 +899,8 @@ const OLMap: FC<OLMapProps> = ({
 
         // Nothing matched, so tell the user.
         if (features.length === 0) {
-          setPreviewStatus("No TANTALIS shape matched all three identifiers. Check the values and try again.");
+          setPreviewStatus("No Tantalis shape matched all three identifiers. Check the values and try again.");
+          onShapeLoaded(false);
           return;
         }
 
@@ -602,7 +911,8 @@ const OLMap: FC<OLMapProps> = ({
         // getExtent() can return null (no box), so check it before zooming.
         const extent = previewSource.getExtent();
         if (!extent) {
-          setPreviewStatus("The TANTALIS shape was found but has no area to zoom to.");
+          setPreviewStatus("The Tantalis shape was found but has no area to zoom to.");
+          onShapeLoaded(false);
           return;
         }
 
@@ -615,6 +925,7 @@ const OLMap: FC<OLMapProps> = ({
 
         // Success, so clear the loading message.
         setPreviewStatus("");
+        onShapeLoaded(true);
       })
       .catch((error: unknown) => {
         // A cancelled request is normal when a newer one replaces it, so ignore it.
@@ -624,7 +935,8 @@ const OLMap: FC<OLMapProps> = ({
 
         // Anything else is a real problem, so show it on the map.
         const reason = error instanceof Error ? error.message : "unknown error";
-        setPreviewStatus(`Could not load the TANTALIS shape: ${reason}.`);
+        setPreviewStatus(`Could not load the Tantalis shape: ${reason}.`);
+        onShapeLoaded(false);
       });
 
     // Clean up: runs before the next lookup or when the map is removed.
@@ -638,13 +950,221 @@ const OLMap: FC<OLMapProps> = ({
     };
     // Only rerun when new identifiers arrive. The slider values are left out on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tantalisPreview]);
+  }, [
+    tantalisPreview,
+    onShapeLoaded,
+    clearCriticalConflicts,
+    onCloseCriticalConflicts,
+  ]);
+
+  useEffect(() => {
+    if (!criticalConflictsRequest) {
+      clearCriticalConflicts();
+      return;
+    }
+
+    criticalConflictsAbortRef.current?.abort();
+    const controller = new AbortController();
+    criticalConflictsAbortRef.current = controller;
+    setCriticalConflictsChecking(true);
+    setCriticalConflictStatus("");
+    setCriticalConflictLayers([]);
+    setCriticalConflictErrors([]);
+    criticalConflictHoverRef.current = null;
+    criticalConflictPinnedRef.current = null;
+    setHoveredConflictLayerName(null);
+    setPinnedConflictLayerName(null);
+
+    const map = mapRef.current;
+    const inputSource = previewLayerRef.current?.getSource();
+    const conflictLayer = criticalConflictLayerRef.current;
+    const conflictSource = conflictLayer?.getSource();
+    const inputFeatures = inputSource?.getFeatures() ?? [];
+    const inputWkts = inputFeatures.flatMap((feature) => {
+      const geometry = feature.getGeometry();
+      return geometry
+        ? [new WKT().writeGeometry(geometry.clone().transform("EPSG:3857", "EPSG:4326"))]
+        : [];
+    });
+    const previewExtent = inputSource?.getExtent();
+
+    if (!map || !inputSource || !conflictLayer || !conflictSource || inputWkts.length === 0 || !previewExtent) {
+      setCriticalConflictStatus("The selected shape is not available on the map.");
+      setCriticalConflictsChecking(false);
+      return () => controller.abort();
+    }
+
+    conflictSource.clear();
+    if (!map.getLayers().getArray().includes(conflictLayer)) {
+      map.addLayer(conflictLayer);
+    }
+
+    // The conflict check uses the First Nation Treaty Related Lands layer from the spreadsheet.
+    const treatyRelatedLandsLayer = MAP_LAYER_GROUPS.flatMap((group) => group.layers).find(
+      (layer) => layer.name === CRITICAL_CONFLICT_LAYER_NAME
+    );
+    const criticalGroup = treatyRelatedLandsLayer ? { layers: [treatyRelatedLandsLayer] } : undefined;
+    if (!criticalGroup) {
+      setCriticalConflictStatus("Critical conflict layers are not configured.");
+      setCriticalConflictsChecking(false);
+      return () => controller.abort();
+    }
+
+    const getLayerDescriptions = (): Promise<globalThis.Map<string, string>> => {
+      if (!criticalConflictDescriptionsRef.current) {
+        const url = new URL(TANTALIS_WMS_URL);
+        url.searchParams.set("service", "WMS");
+        url.searchParams.set("version", "1.3.0");
+        url.searchParams.set("request", "GetCapabilities");
+        let descriptionRequest: Promise<globalThis.Map<string, string>>;
+        descriptionRequest = fetch(url.toString(), { signal: controller.signal })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error(`WMS capabilities returned status ${response.status}`);
+            }
+            return response.text();
+          })
+          .then(parseLayerDescriptions)
+          .catch((error: unknown) => {
+            if (controller.signal.aborted) {
+              if (criticalConflictDescriptionsRef.current === descriptionRequest) {
+                criticalConflictDescriptionsRef.current = null;
+              }
+              throw error;
+            }
+            return new globalThis.Map<string, string>();
+          });
+        criticalConflictDescriptionsRef.current = descriptionRequest;
+      }
+      return criticalConflictDescriptionsRef.current;
+    };
+
+    const checkCriticalConflicts = async (): Promise<void> => {
+      const checkedLayers = await Promise.all(
+        criticalGroup.layers.map(async (layer): Promise<CriticalLayerCheck | null> => {
+          try {
+            const geometryColumn = await readGeometryColumnName(layerTypeName(layer), controller.signal);
+            const url = new URL(TANTALIS_WFS_URL);
+            url.searchParams.set("service", "WFS");
+            url.searchParams.set("version", "2.0.0");
+            url.searchParams.set("request", "GetFeature");
+            url.searchParams.set("typeNames", layerTypeName(layer));
+            url.searchParams.set("outputFormat", "application/json");
+            url.searchParams.set("srsName", "EPSG:4326");
+            url.searchParams.set(
+              "CQL_FILTER",
+              inputWkts.map((wkt) => `INTERSECTS(${geometryColumn},${wkt})`).join(" OR ")
+            );
+
+            const response = await fetch(url.toString(), { signal: controller.signal });
+            if (!response.ok) {
+              throw new Error(`the map service returned status ${response.status}`);
+            }
+            const geoJson: unknown = await response.json();
+            if (!isTantalisQueryResponse(geoJson)) {
+              throw new Error("the map service returned an unexpected conflict response");
+            }
+            const features = new GeoJSON().readFeatures(geoJson, {
+              dataProjection: "EPSG:4326",
+              featureProjection: "EPSG:3857",
+            }) as Feature[];
+            features.forEach((feature) => feature.set("criticalConflictLayerName", layer.name));
+            return { layer, features, status: "success" };
+          } catch (error) {
+            if (controller.signal.aborted) {
+              return null;
+            }
+            return {
+              layer,
+              features: [],
+              status: "error",
+              message: error instanceof Error ? error.message : "unknown error",
+            };
+          }
+        })
+      );
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      const overlaps = checkedLayers.filter(
+        (result): result is CriticalLayerCheck =>
+          result !== null && result.status === "success" && result.features.length > 0
+      );
+      overlaps.forEach(({ features }) => conflictSource.addFeatures(features));
+      if (overlaps.length > 0) {
+        setVisibleTantalisLayers((current) => ({
+          ...current,
+          ...Object.fromEntries(overlaps.map(({ layer }) => [layer.name, true])),
+        }));
+      }
+
+      let descriptions = new globalThis.Map<string, string>();
+      if (overlaps.length > 0) {
+        descriptions = await getLayerDescriptions();
+      }
+
+      if (controller.signal.aborted) {
+        return;
+      }
+
+      setCriticalConflictLayers(
+        overlaps.map(({ layer }) => ({
+          name: layer.name,
+          label: layer.label,
+          description: descriptions.get(layerTypeName(layer)) ?? "Layer description unavailable.",
+        }))
+      );
+      setCriticalConflictErrors(
+        checkedLayers.flatMap((result) =>
+          result?.status === "error"
+            ? [{
+                layerName: result.layer.name,
+                layerLabel: result.layer.label,
+                message: result.message ?? "unknown error",
+              }]
+            : []
+        )
+      );
+
+      const extent = createEmpty();
+      extendExtent(extent, previewExtent);
+      conflictSource.getFeatures().forEach((feature) => {
+        const featureExtent = feature.getGeometry()?.getExtent();
+        if (featureExtent) {
+          extendExtent(extent, featureExtent);
+        }
+      });
+      map.getView().fit(extent, {
+        padding: [30, 30, 30, 30],
+        maxZoom: 16,
+        duration: 600,
+      });
+      setCriticalConflictsChecking(false);
+    };
+
+    void checkCriticalConflicts().catch((error: unknown) => {
+      if (controller.signal.aborted) {
+        return;
+      }
+      setCriticalConflictStatus(`Could not check critical conflicts: ${error instanceof Error ? error.message : "unknown error"}`);
+      setCriticalConflictsChecking(false);
+    });
+
+    return () => {
+      controller.abort();
+      if (criticalConflictsAbortRef.current === controller) {
+        criticalConflictsAbortRef.current = null;
+      }
+    };
+  }, [criticalConflictsRequest, clearCriticalConflicts]);
 
   // Search only attribute fields first; the WMS overlay stays hidden unless its checkbox is enabled.
   const searchTantalisLayer = async (
     event: FormEvent<HTMLFormElement>,
     targetLayer: MapLayerDefinition,
-    attributeFilter: { attribute: TantalisQueryAttribute; value: string }
+    attributeFilter: { attribute: TantalisQueryAttribute; value: string; operator: QueryOperator }
   ): Promise<void> => {
     event.preventDefault();
     queryAbortRef.current?.abort();
@@ -677,10 +1197,13 @@ const OLMap: FC<OLMapProps> = ({
     url.searchParams.set("service", "WFS");
     url.searchParams.set("version", "2.0.0");
     url.searchParams.set("request", "GetFeature");
-    url.searchParams.set("typeNames", targetLayer.name);
+    url.searchParams.set("typeNames", layerTypeName(targetLayer));
     url.searchParams.set("outputFormat", "application/json");
     url.searchParams.set("srsName", "EPSG:4326");
-    url.searchParams.set("CQL_FILTER", `${attributeFilter.attribute.name}=${value}`);
+    url.searchParams.set(
+      "CQL_FILTER",
+      withLayerFilter(targetLayer, `${attributeFilter.attribute.name}${attributeFilter.operator}${value}`)
+    );
     url.searchParams.set("count", String(TANTALIS_QUERY_RESULT_LIMIT));
     url.searchParams.set(
       "propertyName",
@@ -710,7 +1233,7 @@ const OLMap: FC<OLMapProps> = ({
 
         return {
           objectId,
-          layerName: targetLayer.name,
+          layerName: layerTypeName(targetLayer),
           idAttribute: targetLayer.idAttribute,
           queryAttributeName: attributeFilter.attribute.name,
           attributes: targetLayer.queryAttributes.map((attribute) => ({
@@ -740,11 +1263,39 @@ const OLMap: FC<OLMapProps> = ({
         return;
       }
       const reason = error instanceof Error ? error.message : "unknown error";
-      setQueryStatus(`Could not search TANTALIS: ${reason}.`);
+      setQueryStatus(`Could not search Tantalis: ${reason}.`);
     } finally {
       if (queryAbortRef.current === controller) {
         queryAbortRef.current = null;
         setIsQuerying(false);
+      }
+    }
+  };
+
+  const zoomToTantalisLayer = async (layer: MapLayerDefinition): Promise<void> => {
+    layerZoomAbortRef.current?.abort();
+    const controller = new AbortController();
+    layerZoomAbortRef.current = controller;
+    setZoomingLayerName(layer.name);
+    try {
+      const extent = await readWmsLayerExtent(layerTypeName(layer), controller.signal);
+      if (!controller.signal.aborted) {
+        mapRef.current?.getView().fit(extent, {
+          padding: [36, 36, 36, 36],
+          maxZoom: 16,
+          duration: 600,
+        });
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setQueryStatus(
+          `Could not zoom to ${layer.label}: ${error instanceof Error ? error.message : "unknown error"}.`
+        );
+      }
+    } finally {
+      if (layerZoomAbortRef.current === controller) {
+        layerZoomAbortRef.current = null;
+        setZoomingLayerName(null);
       }
     }
   };
@@ -813,9 +1364,7 @@ const OLMap: FC<OLMapProps> = ({
   };
 
   // 6. Restyle the current preview shape when the colour or transparency slider moves.
-  useEffect(() => {
-    previewLayerRef.current?.setStyle(buildPreviewStyle(previewHue, previewOpacity));
-  }, [previewHue, previewOpacity]);
+  useSyncPreviewStyle(previewLayerRef, previewHue, previewOpacity);
 
   // 7. When a shape is clicked, send its three identifiers back up to LandingPage.
   useEffect(() => {
@@ -869,20 +1418,47 @@ const OLMap: FC<OLMapProps> = ({
     view.animate({ zoom: (view.getZoom() ?? zoom) + delta, duration: 200 });
   };
 
+  const setMapScale = (scaleDenominator: number): void => {
+    const view = mapRef.current?.getView();
+    const center = view?.getCenter();
+    if (!view || !center) {
+      return;
+    }
+
+    const metersPerProjectionUnit = getPointResolution(view.getProjection(), 1, center, "m");
+    const resolution = (scaleDenominator * 0.00028) / metersPerProjectionUnit;
+    view.animate({ resolution, duration: 200 });
+  };
+
   // What appears on the page.
   return (
     <div className="map-shell">
       <div className="map-frame" ref={mapFrameRef}>
         {/* OpenLayers draws the map inside this div. */}
         <div ref={mapContainerRef} className="map-container" aria-label="Interactive map" />
+        {/* A compact utility bar combines the scale bar area with map/policy links. */}
+        <MapFrameFooter
+          scaleBarTargetRef={scaleBarTargetRef}
+          onScaleChange={setMapScale}
+        />
 
-        {/* Loading and error messages for the TANTALIS lookup. Only shown when there is a message.
+        {/* Loading and error messages for the Tantalis lookup. Only shown when there is a message.
             role="status" lets screen readers announce it. */}
         {previewStatus && (
           <div className="map-preview-status" role="status" aria-live="polite">
             {previewStatus}
           </div>
         )}
+
+        <CriticalConflictsPanel
+          layers={criticalConflictLayers}
+          errors={criticalConflictErrors}
+          isChecking={criticalConflictsChecking}
+          isOpen={isCriticalConflictsOpen}
+          selectedLayerName={pinnedConflictLayerName ?? hoveredConflictLayerName}
+          status={criticalConflictStatus}
+          onClose={handleCloseCriticalConflicts}
+        />
 
         {/* Compact, bordered tool panel; each action remains a distinct button. */}
         <div className="map-controls map-controls--right" ref={mapControlsRef}>
@@ -915,15 +1491,18 @@ const OLMap: FC<OLMapProps> = ({
             {openMapPanel === "basemap" && (
               <div id="basemap-panel" className="basemap-panel" role="group" aria-label="Basemap options">
                 {/* Picker title and close button. */}
-                <div className="basemap-panel__header">
-                  <span>Select map</span>
+                <div
+                  className="basemap-panel__header"
+                  style={{ borderBottom: "1px solid #fcba19", paddingBottom: 4 }}
+                >
+                  <span style={PANEL_TITLE_STYLE}>Select map</span>
                   <button
                     type="button"
                     aria-label="Close basemap options"
                     title="Close basemap options"
                     onClick={() => setOpenMapPanel(null)}
                   >
-                    −
+                    ×
                   </button>
                 </div>
 
@@ -978,219 +1557,393 @@ const OLMap: FC<OLMapProps> = ({
                 ref={layerPanelRef}
                 style={{ maxHeight: layerPanelMaxHeight }}
               >
-                <div className="map-layer-panel__title">Map layers</div>
-                {MAP_LAYER_GROUPS.map((group) => {
-                  const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
+                <div
+                  className="map-layer-panel__header"
+                  style={{ borderBottom: "1px solid #fcba19", paddingBottom: 4, marginBottom: 8 }}
+                >
+                  <div className="map-layer-panel__title" style={PANEL_TITLE_STYLE}>
+                    Map layers
+                  </div>
+                  <button
+                    type="button"
+                    className="map-layer-panel__close"
+                    aria-label="Close map layers"
+                    title="Close map layers"
+                    onClick={() => setOpenMapPanel(null)}
+                  >
+                    ×
+                  </button>
+                </div>
+                <input
+                  type="search"
+                  className="map-layer-search"
+                  aria-label="Search map layers"
+                  placeholder="Search layers..."
+                  value={layerSearch}
+                  onChange={(event) => setLayerSearch(event.currentTarget.value)}
+                  style={{
+                    position: "sticky",
+                    top: 0,
+                    zIndex: 1,
+                    width: "100%",
+                    boxSizing: "border-box",
+                    padding: "6px 8px",
+                    margin: "0 0 8px",
+                    border: "1px solid #60666d",
+                    borderRadius: 4,
+                    background: "#fff",
+                  }}
+                />
+                {/* Colour and transparency sliders for the Tantalis shape preview. Only shown while a shape is previewed. */}
+                {tantalisPreview && (
+                  <details className="map-query-symbology">
+                    <summary>Preview symbology</summary>
+                    <label className="map-preview-control">
+                      <span>Colour</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={previewHue}
+                        onChange={(event) => setPreviewHue(Number(event.currentTarget.value))}
+                        className="map-preview-hue-slider"
+                      />
+                    </label>
+                    <label className="map-preview-control">
+                      <span>Transparency: {previewOpacity}%</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={previewOpacity}
+                        onChange={(event) => setPreviewOpacity(Number(event.currentTarget.value))}
+                        className="map-preview-transparency-slider"
+                      />
+                    </label>
+                  </details>
+                )}
+                {filteredLayerGroups.length === 0 && (
+                  <p role="status" aria-live="polite">
+                    No layers match &quot;{layerSearch}&quot;.
+                  </p>
+                )}
+                {filteredLayerGroups.length > 0 && (
+                  <details
+                    className="map-layer-parent-group"
+                    open={isParentGroupOpen || Boolean(searchTerm)}
+                    onToggle={(event) => setIsParentGroupOpen(event.currentTarget.open)}
+                  >
+                    <summary
+                      style={{
+                        fontSize: "1.2rem",
+                        fontWeight: 700,
+                        color: "#003366",
+                        cursor: "pointer",
+                        margin: "4px 0 10px",
+                      }}
+                    >
+                      {PARENT_GROUP_LABEL}
+                    </summary>
+                    {filteredLayerGroups.map((group) => {
+                      const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
 
-                  return (
-                    <fieldset className="map-layer-group" key={group.id}>
-                      <legend>{group.label}</legend>
-                      <label className="map-layer-option map-layer-option--group">
-                        <input
-                          ref={(element) => {
-                            layerGroupToggleRefs.current[group.id] = element;
-                          }}
-                          type="checkbox"
-                          checked={enabledCount === group.layers.length}
-                          aria-label={`Toggle all ${group.label} layers`}
-                          onChange={(event) => {
-                            const isVisible = event.currentTarget.checked;
-                            setVisibleTantalisLayers((current) => ({
-                              ...current,
-                              ...Object.fromEntries(group.layers.map((layer) => [layer.name, isVisible])),
-                            }));
-                          }}
-                        />
-                        <span>Show all</span>
-                      </label>
-                      {group.layers.map((layer) => {
-                        const selectedAttribute = layer.queryAttributes.find(
-                          (attribute) => attribute.name === selectedQueryAttributes[layer.name]
-                        );
-                        return (
-                          <div className="map-layer-entry" key={layer.name}>
-                            <div className="map-layer-row">
-                              <label className="map-layer-option map-layer-option--active">
-                                <input
-                                  type="checkbox"
-                                  checked={visibleTantalisLayers[layer.name]}
-                                  aria-label={`Toggle ${layer.label} layer`}
-                                  onChange={(event) => {
-                                    const isVisible = event.currentTarget.checked;
-                                    setVisibleTantalisLayers((current) => ({ ...current, [layer.name]: isVisible }));
-                                    if (isVisible) {
-                                      selectQueryLayer(layer.name);
-                                    }
-                                  }}
-                                />
-                                <span className="map-layer-name">{layer.label}</span>
-                              </label>
-                            </div>
-                            {visibleTantalisLayers[layer.name] && (
-                              <form
-                                className="map-layer-filter-row"
-                                onSubmit={(event) => {
-                                  if (!selectedAttribute) {
-                                    event.preventDefault();
-                                    return;
-                                  }
-                                  void searchTantalisLayer(event, layer, {
-                                    attribute: selectedAttribute,
-                                    value: queryAttributeValues[layer.name] ?? "",
-                                  });
-                                }}
-                              >
-                                <select
-                                  className="map-layer-style-select"
-                                  aria-label="Symbology"
-                                  title="Symbology"
-                                  value={selectedTantalisStyles[layer.name] ?? ""}
-                                  onChange={(event) => {
-                                    const styleName = event.currentTarget.value;
-                                    setSelectedTantalisStyles((current) => ({
-                                      ...current,
-                                      [layer.name]: styleName,
-                                    }));
-                                  }}
-                                >
-                                  {layer.styles.map((style) => (
-                                    <option value={style.name} key={style.name || "default"}>
-                                      {style.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <select
-                                  aria-label={`${layer.label} query field`}
-                                  title={`${layer.label} query fields`}
-                                  value={selectedQueryAttributes[layer.name] ?? ""}
-                                  onChange={(event) => {
-                                    const attributeName = event.currentTarget.value;
-                                    setSelectedQueryAttributes((current) => ({
-                                      ...current,
-                                      [layer.name]: attributeName,
-                                    }));
-                                  }}
-                                >
-                                  <option value="">Choose a field...</option>
-                                  {layer.queryAttributes.map((attribute) => (
-                                    <option value={attribute.name} key={attribute.name}>
-                                      {attribute.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <input
-                                  type={selectedAttribute?.type === "date" ? "date" : "text"}
-                                  inputMode={selectedAttribute?.type === "number" ? "numeric" : undefined}
-                                  aria-label={`${layer.label} ${selectedAttribute?.label ?? "attribute"} value`}
-                                  placeholder={selectedAttribute?.label ?? "Value"}
-                                  value={queryAttributeValues[layer.name] ?? ""}
-                                  disabled={!selectedAttribute}
-                                  onChange={(event) => {
-                                    const attributeValue = event.currentTarget.value;
-                                    setQueryAttributeValues((current) => ({
-                                      ...current,
-                                      [layer.name]: attributeValue,
-                                    }));
-                                  }}
-                                />
-                                <button
-                                  type="submit"
-                                  className="map-layer-filter-submit tantalis-preview-link"
-                                  aria-label="Search and Zoom to Layer"
-                                  title="Search and Zoom to Layer"
-                                  disabled={
-                                    !selectedQueryAttributes[layer.name] ||
-                                    !queryAttributeValues[layer.name]?.trim() ||
-                                    isQuerying
-                                  }
-                                >
-                                  <span>Search and</span>
-                                  <span>Zoom to Layer</span>
-                                </button>
-                              </form>
-                            )}
-                            {visibleTantalisLayers[layer.name] && tantalisPreview && layer.name === TANTALIS_LAYER && (
-                              <details className="map-query-symbology">
-                                <summary>Preview symbology</summary>
-                                <label className="map-preview-control">
-                                  <span>Colour</span>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="360"
-                                    value={previewHue}
-                                    onChange={(event) => setPreviewHue(Number(event.currentTarget.value))}
-                                    className="map-preview-hue-slider"
-                                  />
-                                </label>
-                                <label className="map-preview-control">
-                                  <span>Transparency: {previewOpacity}%</span>
-                                  <input
-                                    type="range"
-                                    min="0"
-                                    max="100"
-                                    value={previewOpacity}
-                                    onChange={(event) => setPreviewOpacity(Number(event.currentTarget.value))}
-                                    className="map-preview-transparency-slider"
-                                  />
-                                </label>
-                              </details>
-                            )}
-                            {visibleTantalisLayers[layer.name] && activeTantalisLayer === layer.name && queryStatus && (
-                              <div className="map-query-status" role="status" aria-live="polite">
-                                {queryStatus}
-                              </div>
-                            )}
-                            {visibleTantalisLayers[layer.name] &&
-                              activeTantalisLayer === layer.name &&
-                              queryResults.length > 0 && (
-                              <ul className="map-query-results">
-                                {queryResults.map((result) => {
-                                  const primaryAttribute =
-                                    result.attributes.find(
-                                      (attribute) =>
-                                        attribute.name === result.queryAttributeName && attribute.value
-                                    ) ?? result.attributes.find((attribute) => attribute.value);
-                                  const additionalAttributes = result.attributes
-                                    .filter(
-                                      (attribute) =>
-                                        attribute.value && attribute.name !== primaryAttribute?.name
-                                    )
-                                    .slice(0, 3);
-
-                                  return (
-                                    <li key={`${result.layerName}-${result.objectId}`}>
-                                      <div className="map-query-result__details">
-                                        <strong>
-                                          {primaryAttribute
-                                            ? `${primaryAttribute.label}: ${primaryAttribute.value}`
-                                            : `${result.idAttribute.label}: ${result.objectId}`}
-                                        </strong>
-                                        {additionalAttributes.map((attribute) => (
-                                          <span key={attribute.name}>
-                                            {attribute.label}: {attribute.value}
-                                          </span>
-                                        ))}
-                                      </div>
+                      return (
+                        <fieldset className="map-layer-group" key={group.id}>
+                          <legend style={{ fontSize: "0.95rem" }}>{group.label}</legend>
+                          <label className="map-layer-option map-layer-option--group">
+                            <input
+                              ref={(element) => {
+                                layerGroupToggleRefs.current[group.id] = element;
+                              }}
+                              type="checkbox"
+                              checked={enabledCount === group.layers.length}
+                              aria-label={`Toggle all ${group.label} layers`}
+                              onChange={(event) => {
+                                const isVisible = event.currentTarget.checked;
+                                setVisibleTantalisLayers((current) => ({
+                                  ...current,
+                                  ...Object.fromEntries(group.layers.map((layer) => [layer.name, isVisible])),
+                                }));
+                              }}
+                            />
+                            <span>Show all</span>
+                          </label>
+                          {group.layers.map((layer) => {
+                            const selectedAttribute = layer.queryAttributes.find(
+                              (attribute) => attribute.name === selectedQueryAttributes[layer.name]
+                            );
+                            return (
+                              <div className="map-layer-entry" key={layer.name}>
+                                <div className="map-layer-row">
+                                  <label className="map-layer-option map-layer-option--active">
+                                    <input
+                                      type="checkbox"
+                                      checked={visibleTantalisLayers[layer.name]}
+                                      aria-label={`Toggle ${layer.label} layer`}
+                                      onChange={(event) => {
+                                        const isVisible = event.currentTarget.checked;
+                                        setVisibleTantalisLayers((current) => ({ ...current, [layer.name]: isVisible }));
+                                        if (!isVisible) {
+                                          setOpenLayerActionMenu(null);
+                                        }
+                                        if (isVisible) {
+                                          selectQueryLayer(layer.name);
+                                        }
+                                      }}
+                                    />
+                                    <span className="map-layer-name">{layer.label}</span>
+                                  </label>
+                                  {visibleTantalisLayers[layer.name] && (
+                                    <div className="map-layer-menu">
                                       <button
                                         type="button"
-                                        className="map-query-zoom"
-                                        disabled={zoomingObjectId !== null}
-                                        onClick={() => void zoomToQueryResult(result)}
+                                        className="map-layer-menu-toggle"
+                                        aria-label={`${openLayerActionMenu === layer.name ? "Close" : "Open"} ${layer.label} options`}
+                                        aria-haspopup="menu"
+                                        aria-expanded={openLayerActionMenu === layer.name}
+                                        title={`${layer.label} options`}
+                                        onClick={() => {
+                                          setOpenLayerActionMenu((current) =>
+                                            current === layer.name ? null : layer.name
+                                          );
+                                        }}
                                       >
-                                        {zoomingObjectId === result.objectId ? "Loading..." : "Zoom to"}
+                                        <span aria-hidden="true">▾</span>
                                       </button>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </fieldset>
-                  );
-                })}
+                                      {openLayerActionMenu === layer.name && (
+                                        <div className="map-layer-menu-options" role="menu" aria-label={`${layer.label} options`}>
+                                          <button
+                                            type="button"
+                                            className="map-layer-menu-close"
+                                            role="menuitem"
+                                            aria-label={`Close ${layer.label} options`}
+                                            title="Close options"
+                                            onClick={() => setOpenLayerActionMenu(null)}
+                                          >
+                                            ×
+                                          </button>
+                                          <button
+                                            type="button"
+                                            role="menuitemcheckbox"
+                                            aria-checked={Boolean(openLayerQueries[layer.name])}
+                                            onClick={() => {
+                                              const isOpening = !openLayerQueries[layer.name];
+                                              setOpenLayerQueries((current) => ({ ...current, [layer.name]: isOpening }));
+                                              setOpenLayerSymbology((current) => ({ ...current, [layer.name]: false }));
+                                              setOpenLayerActionMenu(null);
+                                              if (isOpening && activeTantalisLayer !== layer.name) {
+                                                selectQueryLayer(layer.name);
+                                              }
+                                            }}
+                                          >
+                                            Query Layer
+                                          </button>
+                                          <button
+                                            type="button"
+                                            role="menuitemcheckbox"
+                                            aria-checked={Boolean(openLayerSymbology[layer.name])}
+                                            onClick={() => {
+                                              const isOpening = !openLayerSymbology[layer.name];
+                                              setOpenLayerSymbology((current) => ({
+                                                ...current,
+                                                [layer.name]: isOpening,
+                                              }));
+                                              setOpenLayerQueries((current) => ({ ...current, [layer.name]: false }));
+                                              setOpenLayerActionMenu(null);
+                                            }}
+                                          >
+                                            Symbology
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                {visibleTantalisLayers[layer.name] && openLayerSymbology[layer.name] && (
+                                  <div className="map-layer-symbology-controls">
+                                    <select
+                                      aria-label={`${layer.label} symbology`}
+                                      title={`${layer.label} symbology`}
+                                      value={selectedTantalisStyles[layer.name] ?? ""}
+                                      onChange={(event) => {
+                                        const styleName = event.currentTarget.value;
+                                        setSelectedTantalisStyles((current) => ({
+                                          ...current,
+                                          [layer.name]: styleName,
+                                        }));
+                                      }}
+                                    >
+                                      {layer.styles.map((style) => (
+                                        <option value={style.name} key={style.name || "default"}>
+                                          {style.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      className="map-layer-filter-submit"
+                                      aria-label={`Zoom to ${layer.label}`}
+                                      title={`Zoom to ${layer.label}`}
+                                      disabled={zoomingLayerName !== null}
+                                      onClick={() => void zoomToTantalisLayer(layer)}
+                                    >
+                                      {zoomingLayerName === layer.name ? "Loading..." : "Zoom to Layer"}
+                                    </button>
+                                  </div>
+                                )}
+                                {visibleTantalisLayers[layer.name] && openLayerQueries[layer.name] && (
+                                  <form
+                                    className="map-layer-filter-row"
+                                    onSubmit={(event) => {
+                                      if (!selectedAttribute) {
+                                        event.preventDefault();
+                                        return;
+                                      }
+                                      void searchTantalisLayer(event, layer, {
+                                        attribute: selectedAttribute,
+                                        value: queryAttributeValues[layer.name] ?? "",
+                                        operator: selectedQueryOperators[layer.name] ?? "=",
+                                      });
+                                    }}
+                                  >
+                                    <label className="map-layer-query-control">
+                                      <span>Field</span>
+                                      <select
+                                        aria-label={`${layer.label} query field`}
+                                        title={`${layer.label} query fields`}
+                                        value={selectedQueryAttributes[layer.name] ?? ""}
+                                        onChange={(event) => {
+                                          const attributeName = event.currentTarget.value;
+                                          setSelectedQueryAttributes((current) => ({
+                                            ...current,
+                                            [layer.name]: attributeName,
+                                          }));
+                                        }}
+                                      >
+                                        <option value="">Choose a field...</option>
+                                        {layer.queryAttributes.map((attribute) => (
+                                          <option value={attribute.name} key={attribute.name}>
+                                            {attribute.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                    <label className="map-layer-query-control">
+                                      <span>Operator</span>
+                                      <select
+                                        aria-label={`${layer.label} query operator`}
+                                        title={`${layer.label} query operator`}
+                                        value={selectedQueryOperators[layer.name] ?? "="}
+                                        onChange={(event) => {
+                                          const operator = event.currentTarget.value as QueryOperator;
+                                          setSelectedQueryOperators((current) => ({
+                                            ...current,
+                                            [layer.name]: operator,
+                                          }));
+                                        }}
+                                      >
+                                        <option value="<">Less than (&lt;)</option>
+                                        <option value="<=">Less than or equal to (&lt;=)</option>
+                                        <option value="=">Equal to (=)</option>
+                                        <option value=">=">Greater than or equal to (&gt;=)</option>
+                                        <option value=">">Greater than (&gt;)</option>
+                                        <option value="<>">Not equal to (&lt;&gt;)</option>
+                                      </select>
+                                    </label>
+                                    <label className="map-layer-query-control map-layer-query-control--value">
+                                      <span>Value</span>
+                                      <input
+                                        type={selectedAttribute?.type === "date" ? "date" : "text"}
+                                        inputMode={selectedAttribute?.type === "number" ? "numeric" : undefined}
+                                        aria-label={`${layer.label} ${selectedAttribute?.label ?? "attribute"} value`}
+                                        placeholder={selectedAttribute?.label ?? "Enter a value"}
+                                        value={queryAttributeValues[layer.name] ?? ""}
+                                        disabled={!selectedAttribute}
+                                        onChange={(event) => {
+                                          const attributeValue = event.currentTarget.value;
+                                          setQueryAttributeValues((current) => ({
+                                            ...current,
+                                            [layer.name]: attributeValue,
+                                          }));
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      type="submit"
+                                      className="map-layer-filter-submit map-layer-filter-submit--inline"
+                                      aria-label="Search and Zoom"
+                                      title="Search and Zoom"
+                                      disabled={
+                                        !selectedQueryAttributes[layer.name] ||
+                                        !queryAttributeValues[layer.name]?.trim() ||
+                                        isQuerying
+                                      }
+                                    >
+                                      Search and Zoom
+                                    </button>
+                                  </form>
+                                )}
+                                {visibleTantalisLayers[layer.name] &&
+                                  openLayerQueries[layer.name] &&
+                                  activeTantalisLayer === layer.name &&
+                                  queryStatus && (
+                                  <div className="map-query-status" role="status" aria-live="polite">
+                                    {queryStatus}
+                                  </div>
+                                )}
+                                {visibleTantalisLayers[layer.name] &&
+                                  openLayerQueries[layer.name] &&
+                                  activeTantalisLayer === layer.name &&
+                                  queryResults.length > 0 && (
+                                  <ul className="map-query-results">
+                                    {queryResults.map((result) => {
+                                      const primaryAttribute =
+                                        result.attributes.find(
+                                          (attribute) =>
+                                            attribute.name === result.queryAttributeName && attribute.value
+                                        ) ?? result.attributes.find((attribute) => attribute.value);
+                                      const additionalAttributes = result.attributes
+                                        .filter(
+                                          (attribute) =>
+                                            attribute.value && attribute.name !== primaryAttribute?.name
+                                        )
+                                        .slice(0, 3);
+
+                                      return (
+                                        <li key={`${result.layerName}-${result.objectId}`}>
+                                          <div className="map-query-result__details">
+                                            <strong>
+                                              {primaryAttribute
+                                                ? `${primaryAttribute.label}: ${primaryAttribute.value}`
+                                                : `${result.idAttribute.label}: ${result.objectId}`}
+                                            </strong>
+                                            {additionalAttributes.map((attribute) => (
+                                              <span key={attribute.name}>
+                                                {attribute.label}: {attribute.value}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="map-query-zoom"
+                                            disabled={zoomingObjectId !== null}
+                                            onClick={() => void zoomToQueryResult(result)}
+                                          >
+                                            {zoomingObjectId === result.objectId ? "Loading..." : "Zoom to"}
+                                          </button>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </fieldset>
+                      );
+                    })}
+                  </details>
+                )}
               </div>
             )}
           </div>

@@ -1,44 +1,46 @@
 // React tools:
-// useEffect = run code when something changes (for example, when a map shape is clicked).
 // useRef = keep a direct link to an element on the page (the file picker).
-// useState = store a value that redraws the form when it changes.
-import { useEffect, useRef, useState } from "react";
+// useState = store local UI values that redraw the form when they change.
+import { useRef, useState } from "react";
 // Types only. These add nothing to the final app.
 // ChangeEvent = the event from a normal HTML input. FC = "function component".
 import type { ChangeEvent, FC } from "react";
 // Ready-made form pieces from the BC Government design system.
-import { Button, Switch, Select, Radio, RadioGroup, TextField } from "@bcgov/design-system-react-components";
+import { Button, Switch, Select, Radio, RadioGroup } from "@bcgov/design-system-react-components";
 import type { TantalisIdentifiers } from "../types/tantalis";
 // Styles for this form.
 import "./ast-form.scss";
 
-// A shape clicked on the map, passed down from LandingPage.
-// clickedAt makes each click count as new, even if the same shape is clicked twice.
-interface MapSelection extends TantalisIdentifiers {
-  clickedAt: number;
-}
-
 // Everything LandingPage passes into this form. The ? means the value is optional.
 interface ASTFormProps {
-  // The shape most recently clicked on the map, or null if nothing has been clicked.
-  mapSelection?: MapSelection | null;
+  // Shared form values owned by LandingPage.
+  inputs: FormInputs;
+  onInputsChange: (updater: (values: FormInputs) => FormInputs) => void;
+  isShapePreviewEnabled: boolean;
+  onShapePreviewEnabledChange: (isEnabled: boolean) => void;
+  previewMessage: string;
+  onPreviewMessageChange: (message: string) => void;
   // Sends the three identifiers up to LandingPage so the map can show the shape.
   // Required, because the "View shape on map" button can't work without it.
-  onViewTantalis: (request: TantalisIdentifiers) => void;
+  onViewTantalis: (request: TantalisIdentifiers | null) => void;
+  isShapeLoaded: boolean;
+  isCriticalConflictsOpen: boolean;
+  onPreviewCriticalConflicts: () => void;
+  onClearCriticalConflicts: () => void;
 }
 
 // Every field in the form and the type of value it holds.
-interface FormInputs {
+export interface FormInputs {
   name: string;
   email: string;
   region: string; // Region id, for example "omineca". Empty = nothing picked.
-  source: string; // "1" = TANTALIS, "2" = Upload. Empty = nothing picked.
+  source: string; // "1" = Tantalis, "2" = Upload. Empty = nothing picked.
   fileNumber: string;
   dispositionId: string;
   parcelId: string;
-  uploadFile: File | null;
+  uploadFiles: File[];
   maps: boolean; // Generate Maps switch (true = on)
-  overlaps: boolean; // Export Overlap Results switch (true = on)
+  overlaps: boolean; // Export results by default; false opts out
 }
 
 // Values for the two Source radio buttons.
@@ -47,7 +49,7 @@ const SOURCE_UPLOAD = "2";
 
 // Starting values for every field. Also used when the form is cleared.
 // Kept outside the component so it isn't rebuilt on every redraw.
-const INITIAL_INPUTS: FormInputs = {
+export const INITIAL_INPUTS: FormInputs = {
   name: "",
   email: "",
   region: "",
@@ -55,9 +57,9 @@ const INITIAL_INPUTS: FormInputs = {
   fileNumber: "",
   dispositionId: "",
   parcelId: "",
-  uploadFile: null,
+  uploadFiles: [],
   maps: false,
-  overlaps: false,
+  overlaps: true,
 };
 
 // Options for the Region dropdown. id = value stored, label = text shown.
@@ -73,19 +75,25 @@ const REGION_ITEMS = [
 ];
 
 // The AST form component.
-const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
-  // All current field values, stored together in one object.
-  const [inputs, setInputs] = useState<FormInputs>(INITIAL_INPUTS);
-  // Message shown under the "View shape on map" button. Empty = no message.
-  const [previewMessage, setPreviewMessage] = useState<string>("");
-  // Direct link to the file picker, so it can be emptied.
+const ASTForm: FC<ASTFormProps> = ({
+  inputs,
+  onInputsChange,
+  isShapePreviewEnabled,
+  onShapePreviewEnabledChange,
+  previewMessage,
+  onPreviewMessageChange,
+  onViewTantalis,
+  onClearCriticalConflicts,
+}) => {
+  const [selectedUploadPath, setSelectedUploadPath] = useState("");
+  // Direct link to the file picker, so it can be reset.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Updates one field and keeps all the others.
   // K is the field name. FormInputs[K] makes sure the value is the right type for that field
   // (for example, text for "name" and true/false for "maps").
   const updateField = <K extends keyof FormInputs>(field: K, value: FormInputs[K]): void => {
-    setInputs((values) => ({ ...values, [field]: value }));
+    onInputsChange((values) => ({ ...values, [field]: value }));
   };
 
   // Empties the file picker. The browser keeps its own copy of the chosen file,
@@ -96,45 +104,46 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
     }
   };
 
-  // Saves the file the user picked. If they cancel, saves null.
+  // Saves the selected spatial file.
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
-    updateField("uploadFile", event.target.files?.[0] ?? null);
+    const files = Array.from(event.target.files ?? []).slice(0, 1);
+    updateField("uploadFiles", files);
+    const selectedPath = files[0]?.name ?? "";
+    setSelectedUploadPath(selectedPath);
   };
 
   // Removes the chosen file.
   const handleRemoveFile = (): void => {
-    updateField("uploadFile", null);
+    updateField("uploadFiles", []);
+    setSelectedUploadPath("");
     clearFileInput();
   };
 
   // Resets the whole form back to its starting values.
   const handleClearAll = (): void => {
-    setInputs(INITIAL_INPUTS);
-    setPreviewMessage("");
+    onInputsChange(() => INITIAL_INPUTS);
+    setSelectedUploadPath("");
+    onShapePreviewEnabledChange(false);
+    onPreviewMessageChange("");
     clearFileInput();
+    onViewTantalis(null);
+    onClearCriticalConflicts();
   };
 
-  // When a shape is clicked on the map, put each identifier in its matching field
-  // and switch Source to TANTALIS so those fields are visible.
-  useEffect(() => {
-    // Nothing clicked yet.
-    if (!mapSelection) {
+  const handleViewShapeToggle = (isEnabled: boolean): void => {
+    if (!isEnabled) {
+      onShapePreviewEnabledChange(false);
+      onPreviewMessageChange("");
+      onViewTantalis(null);
+      onClearCriticalConflicts();
       return;
     }
 
-    setInputs((values) => ({
-      ...values,
-      source: SOURCE_TANTALIS,
-      fileNumber: mapSelection.fileNumber,
-      dispositionId: mapSelection.dispositionId,
-      parcelId: mapSelection.parcelId,
-    }));
-    setPreviewMessage("");
-  }, [mapSelection]); // Runs every time a new shape is clicked.
+    onClearCriticalConflicts();
+    if (inputs.source !== SOURCE_TANTALIS) {
+      return;
+    }
 
-  // Runs when "View shape on map" is clicked.
-  // Sends the typed identifiers up to LandingPage, which passes them to the map.
-  const handleViewTantalisInMap = (): void => {
     // Remove extra spaces from the start and end of each value.
     const fileNumber = inputs.fileNumber.trim();
     const dispositionId = inputs.dispositionId.trim();
@@ -142,13 +151,22 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
 
     // All three are needed for the lookup. Show a message if any are empty.
     if (!fileNumber || !dispositionId || !parcelId) {
-      setPreviewMessage("Enter a File Number, Disposition ID and Parcel ID first.");
+      onPreviewMessageChange("Enter a File Number, Disposition ID and Parcel ID first.");
       return;
     }
 
     // Clear any old message and send the values up.
-    setPreviewMessage("");
+    onShapePreviewEnabledChange(true);
+    onPreviewMessageChange("");
     onViewTantalis({ fileNumber, dispositionId, parcelId });
+  };
+
+  const handleSourceChange = (source: string): void => {
+    updateField("source", source);
+    onShapePreviewEnabledChange(false);
+    onPreviewMessageChange("");
+    onViewTantalis(null);
+    onClearCriticalConflicts();
   };
 
   async function handleSubmission() {
@@ -163,8 +181,8 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
       formData.append("parcel_number", inputs.parcelId.trim());
       formData.append("generate_maps", String(inputs.maps));
       formData.append("export_overlap_results", String(inputs.overlaps));
-      if (inputs.uploadFile) {
-        formData.append("upload_file", inputs.uploadFile);
+      if (inputs.uploadFiles[0]) {
+        formData.append("upload_file", inputs.uploadFiles[0]);
       }
 
       const response = await fetch("http://localhost:8000/api/jobs", {
@@ -179,94 +197,94 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
       const data = await response.json();
 
       console.log(data);
-      
+
     } catch (error) {
       console.error("Download failed:", error);
     }
   }
+
   // What appears on the page.
   return (
     <div className="form-container">
-      {/* Name field */}
       <div className="full-width-field">
-        <TextField
-          label="Name"
+        <input
+          className="ast-inline-input"
+          aria-label="Name"
           name="name"
+          placeholder="Name"
           value={inputs.name}
-          onChange={(value) => updateField("name", value)}
+          onChange={(event) => updateField("name", event.currentTarget.value)}
         />
       </div>
 
-      {/* Email field. type="email" gives an email keyboard on phones. */}
       <div className="full-width-field">
-        <TextField
-          label="Email"
+        <input
+          className="ast-inline-input"
+          aria-label="Email"
           name="email"
           type="email"
+          placeholder="Email"
           value={inputs.email}
-          onChange={(value) => updateField("email", value)}
+          onChange={(event) => updateField("email", event.currentTarget.value)}
         />
       </div>
 
-      {/* Region dropdown. selectedKey is null when nothing is picked, so the placeholder shows. */}
-      <Select
-        label="Region"
-        name="region"
-        items={REGION_ITEMS}
-        selectionMode="single"
-        size="medium"
-        selectedKey={inputs.region || null}
-        onSelectionChange={(key) => updateField("region", key == null ? "" : String(key))}
-      />
+      <div className="region-select">
+        <Select
+          aria-label="Region"
+          name="region"
+          items={REGION_ITEMS}
+          selectionMode="single"
+          size="medium"
+          placeholder="Select a Region"
+          selectedKey={inputs.region || null}
+          onSelectionChange={(key) => updateField("region", key == null ? "" : String(key))}
+        />
+      </div>
 
       <div className="source-container">
-        {/* Source: choose a TANTALIS lookup or an uploaded file. */}
+        {/* Source: choose a Tantalis lookup or an uploaded file. */}
         <RadioGroup
           label="Source"
           orientation="horizontal"
           name="source"
           value={inputs.source}
-          onChange={(value) => updateField("source", value)}
+          onChange={handleSourceChange}
         >
-          <Radio value={SOURCE_TANTALIS}>TANTALIS</Radio>
+          <Radio value={SOURCE_TANTALIS}>Tantalis</Radio>
           <Radio value={SOURCE_UPLOAD}>Upload</Radio>
         </RadioGroup>
 
-        {/* TANTALIS section. Always on the page, but only opens (with a CSS animation)
-            when TANTALIS is picked. The "expanded" class is what opens it. */}
+        {/* Tantalis section. Always on the page, but only opens (with a CSS animation)
+            when Tantalis is picked. The "expanded" class is what opens it. */}
         <div className={`source-details ${inputs.source === SOURCE_TANTALIS ? "expanded" : ""}`}>
           <div className="source-details-inner">
             <hr />
-            {/* The three TANTALIS identifiers. Also filled in automatically when a map shape is clicked. */}
-            <TextField
-              label="File Number"
+            {/* The three Tantalis identifiers. Also filled in automatically when a map shape is clicked. */}
+            <input
+              className="ast-inline-input"
+              aria-label="File Number"
               name="fileNumber"
+              placeholder="File Number"
               value={inputs.fileNumber}
-              onChange={(value) => updateField("fileNumber", value)}
+              onChange={(event) => updateField("fileNumber", event.currentTarget.value)}
             />
-            <TextField
-              label="Disposition ID"
+            <input
+              className="ast-inline-input"
+              aria-label="Disposition ID"
               name="dispositionId"
+              placeholder="Disposition ID"
               value={inputs.dispositionId}
-              onChange={(value) => updateField("dispositionId", value)}
+              onChange={(event) => updateField("dispositionId", event.currentTarget.value)}
             />
-            <TextField
-              label="Parcel ID"
+            <input
+              className="ast-inline-input"
+              aria-label="Parcel ID"
               name="parcelId"
+              placeholder="Parcel ID"
               value={inputs.parcelId}
-              onChange={(value) => updateField("parcelId", value)}
+              onChange={(event) => updateField("parcelId", event.currentTarget.value)}
             />
-
-            <div className="tantalis-preview-row">
-              <button type="button" className="tantalis-preview-link" onClick={handleViewTantalisInMap}>
-                View shape on map
-              </button>
-            </div>
-            {previewMessage && (
-              <p className="tantalis-preview-message" role="status" aria-live="polite">
-                {previewMessage}
-              </p>
-            )}
           </div>
         </div>
 
@@ -276,24 +294,33 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
             <hr />
             <p>Select File:</p>
             <div className="upload-input-row">
-              {/* File picker. accept limits it to these spatial file types. */}
+              <button type="button" onClick={() => fileInputRef.current?.click()}>
+                Choose File
+              </button>
               <input
-                type="file"
-                accept=".geojson,.json,.kml,.shp"
                 ref={fileInputRef}
+                type="file"
+                className="upload-file-input"
+                accept=".shp,.zip,.geojson,.json,.kml"
                 onChange={handleFileChange}
               />
-              {/* Name of the chosen file. Only shown once a file is picked. */}
-              {inputs.uploadFile && <span className="upload-file-name">{inputs.uploadFile.name}</span>}
+              {inputs.uploadFiles.length > 0 && (
+                <span className="upload-file-name">{selectedUploadPath}</span>
+              )}
             </div>
             {/* Remove button. Only shown once a file is picked. */}
-            {inputs.uploadFile && (
+            {inputs.uploadFiles.length > 0 && (
               <button type="button" onClick={handleRemoveFile}>
                 Remove file
               </button>
             )}
           </div>
         </div>
+        {previewMessage && (
+          <p className="tantalis-preview-message" role="status" aria-live="polite">
+            {previewMessage}
+          </p>
+        )}
       </div>
 
       {/* On/off switches for the output options. */}
@@ -310,11 +337,22 @@ const ASTForm: FC<ASTFormProps> = ({ mapSelection, onViewTantalis }) => {
         <Switch
           labelPosition="right"
           name="overlaps"
-          isSelected={inputs.overlaps}
-          onChange={(value) => updateField("overlaps", value)}
+          isSelected={!inputs.overlaps}
+          onChange={(value) => updateField("overlaps", !value)}
         >
-          Export Overlap Results
+          Do Not Export Overlap Results
         </Switch>
+
+        <Switch
+          labelPosition="right"
+          name="viewTantalis"
+          isSelected={isShapePreviewEnabled}
+          isDisabled={inputs.source !== SOURCE_TANTALIS}
+          onChange={handleViewShapeToggle}
+        >
+          View Tantalis Shape on Map
+        </Switch>
+
       </div>
 
       <div className="button-container">
