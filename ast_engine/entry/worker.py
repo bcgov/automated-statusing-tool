@@ -6,10 +6,12 @@ from datetime import datetime, UTC
 from uuid import UUID
 from enum import StrEnum
 from typing import Optional, Any, Iterable
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from shared_models.models import AOIOptions
 from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
-from ast_engine.core.aoi.exceptions import AOIValidationError
+from ast_engine.core.aoi.exceptions import AOIError, AOIValidationError
+from ast_engine.config.registry.models import DataAdapter
 from ast_engine.core.execution import run_analysis, build_tasks
 from ast_engine.core.results import AstResults
 from ast_engine.core.data_adapters.oracle import OracleConnection
@@ -38,7 +40,9 @@ class AstJob(BaseModel):
     aoi_id: str
     aoi_name: str
     aoi: dict[str, Any] #gdf.to_json()
+    aoi_options: AOIOptions = Field(default_factory=AOIOptions)
     status: Optional [JobStatus]
+    error: Optional[str] = None  # why the job failed, when it did
 
     
 def publish_results(job: AstJob, ast_results: AstResults):
@@ -87,7 +91,7 @@ def publish_results(job: AstJob, ast_results: AstResults):
 
 def run_worker(job: AstJob, publish: bool = False):
     # executes ast_engine and optionally publishes using storage settings in ast_engine.config.settings
-    # returns job with updated status
+    # returns job with updated status: COMPLETED, or FAILED with the reason in job.error
     logger.info("Worker Processing [job-id:%s]", job.aoi_id)
     if publish is True:
         logger.info("Worker Processing [job-id:%s] -- Publication On: %s storage", job.aoi_id,settings.storage_type)
@@ -95,13 +99,9 @@ def run_worker(job: AstJob, publish: bool = False):
         logger.info("Worker Processing [job-id:%s] -- Publication OFF", job.aoi_id)
         
     job.status = JobStatus.PROCESSING
+    conn = None
     
     try:
-        # Create database connection
-        conn = OracleConnection(username=settings.oracle_user,
-                                password=settings.oracle_password.get_secret_value(),
-                                hostname=f'{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}'
-                                )
         # Form the AOI
         # TODO: Is from features what we want to use here?Coordinate with API
         gdf = gpd.GeoDataFrame.from_features(job.aoi["features"])
@@ -110,10 +110,15 @@ def run_worker(job: AstJob, publish: bool = False):
         gdf.crs ="EPSG:4326"
         logger.debug("AOI GeoDataFrame has crs %s", str(gdf.crs))
         
-        request = AOIRequest(aoi_id=job.aoi_id, name=job.aoi_name, target_crs= settings.system_crs)
+        # How the user chose to report a multi-row AOI (#219). part_policy is not passed yet:
+        # AOIOptions refuses "exploded" until the AOI part builder supports it (#237).
+        options = job.aoi_options
+        request = AOIRequest(aoi_id=job.aoi_id, name=job.aoi_name, target_crs= settings.system_crs,
+                             dissolve_mode=options.dissolve_mode,
+                             dissolve_fields=tuple(options.dissolve_fields),
+                             allow_overlaps=options.allow_overlaps)
         built = AOIBuilder().build_from_request(AOIBuildRequest(spec=request, raw_gdf=gdf))
         # Stop on AOI validation errors, as the old from_gdf did; log the warnings.
-        # TODO: agree the worker's rule for AOI validation issues with the team
         for issue in built.warnings:
             logger.warning("AOI warning %s: %s", issue.code, issue.message)
         if built.has_errors:
@@ -121,6 +126,14 @@ def run_worker(job: AstJob, publish: bool = False):
         aoi = built.aoi
 
         tasks = build_tasks(job.registries)
+
+        # Create database connection: after the AOI, so a rejected AOI never opens one,
+        # and only when a dataset reads from BCGW.
+        if any(task.source_type == DataAdapter.ORACLE for task in tasks):
+            conn = OracleConnection(username=settings.oracle_user,
+                                    password=settings.oracle_password.get_secret_value(),
+                                    hostname=f'{settings.oracle_host}:{settings.oracle_port}/{settings.oracle_database}'
+                                    )
         tracker = DiagnosticTracker()
         # engage engine
         ast_results = run_analysis(
@@ -138,7 +151,18 @@ def run_worker(job: AstJob, publish: bool = False):
             publish_results(job=job, ast_results=ast_results)
         job.status = JobStatus.COMPLETED
 
-        return job
+    except AOIError as e:
+        # The AOI cannot be used as submitted (e.g. a missing dissolve field, overlapping
+        # parts, a sliver): fail the job and keep the reason for the user.
+        logger.warning("Job %s failed, AOI rejected: %s", job.job_id, e)
+        job.status = JobStatus.FAILED
+        job.error = str(e)
     except Exception as e:
         logger.exception(f"Job with run_worker {job.job_id} failed catastrophically.")
-        # TODO: Handel errors in execution and publication
+        job.status = JobStatus.FAILED
+        job.error = "The analysis could not be completed. The details are in the worker log."
+    finally:
+        if conn is not None:
+            conn.close()
+
+    return job

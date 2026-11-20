@@ -196,3 +196,64 @@ def test_upload_source_requires_file(client):
 
 def test_get_jobs_returns_empty_list_when_table_has_no_jobs(temp_db):
     assert database.get_jobs() == []
+
+
+def test_create_job_without_aoi_options_stores_and_queues_the_defaults(client, sample_job_payload, temp_db):
+    response = client.post("/api/jobs", data=sample_job_payload)
+
+    defaults = {"dissolve_mode": "full_union", "dissolve_fields": [], "allow_overlaps": False, "part_policy": "multi_part"}
+    assert response.status_code == 201
+    assert response.json()["item"]["aoi_options"] == defaults
+    with sqlite3.connect(temp_db) as connection:
+        stored = connection.execute("SELECT aoi_options FROM jobs").fetchone()[0]
+    assert json.loads(stored) == defaults
+
+
+def test_aoi_options_form_fields_reach_the_queue(client, sample_job_payload):
+    payload = {
+        **sample_job_payload,
+        "dissolve_mode": "by_fields",
+        "dissolve_fields": ["BLOCK", "ZONE"],
+        "allow_overlaps": "true",
+    }
+
+    response = client.post("/api/jobs", data=payload)
+
+    assert response.status_code == 201
+    queued = json.loads(api_main.redis_client.lrange("jobs_queue", 0, -1)[0])
+    assert queued["aoi_options"] == {
+        "dissolve_mode": "by_fields",
+        "dissolve_fields": ["BLOCK", "ZONE"],
+        "allow_overlaps": True,
+        "part_policy": "multi_part",
+    }
+
+
+@pytest.mark.parametrize(
+    "aoi_fields, reason",
+    [
+        ({"dissolve_mode": "by_fields"}, "needs at least one dissolve field"),
+        ({"dissolve_fields": ["BLOCK"]}, "only be used with dissolve_mode 'by_fields'"),
+        ({"dissolve_mode": "by_district"}, "Input should be"),
+        ({"part_policy": "exploded"}, "not available yet"),
+    ],
+)
+def test_bad_aoi_options_are_rejected_without_creating_job(client, sample_job_payload, aoi_fields, reason):
+    response = client.post("/api/jobs", data={**sample_job_payload, **aoi_fields})
+
+    assert response.status_code == 422
+    assert reason in response.json()["detail"]
+    assert database.get_jobs() == []
+    assert api_main.redis_client.lrange("jobs_queue", 0, -1) == []
+
+
+def test_create_table_adds_aoi_options_to_existing_jobs_table(temp_db):
+    with sqlite3.connect(temp_db) as connection:
+        connection.execute("ALTER TABLE jobs DROP COLUMN aoi_options")
+
+    database.create_table()
+
+    with sqlite3.connect(temp_db) as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(jobs)")}
+
+    assert "aoi_options" in columns

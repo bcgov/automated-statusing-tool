@@ -18,6 +18,8 @@ RUN uv sync --frozen --no-install-project --no-dev
 
 # Copy the rest of the application code
 COPY ./ast_engine /app
+# The shared job models, imported by the worker
+COPY ./shared_models /app/shared_models
 
 # RUN uv tool install uvicorn
 RUN uv sync --frozen --no-dev

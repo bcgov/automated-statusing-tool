@@ -28,6 +28,7 @@ def create_table():
             parcel_number TEXT,
             generate_maps BOOLEAN DEFAULT FALSE,
             export_overlap_results BOOLEAN DEFAULT FALSE,
+            aoi_options TEXT NOT NULL DEFAULT '{}',
             status TEXT NOT NULL
                 CHECK (status IN ('Queued', 'Processing', 'Publishing', 'Completed', 'Failed'))
         )
@@ -39,6 +40,10 @@ def create_table():
     if "source" not in columns:
         cursor.execute(
             "ALTER TABLE jobs ADD COLUMN source TEXT NOT NULL DEFAULT '1'"
+        )
+    if "aoi_options" not in columns:
+        cursor.execute(
+            "ALTER TABLE jobs ADD COLUMN aoi_options TEXT NOT NULL DEFAULT '{}'"
         )
     connection.commit()
     connection.close()
@@ -57,6 +62,7 @@ def create_job(job: CreateJob) -> int:
         "parcel_number": data["parcel_number"],
         "generate_maps": data["generate_maps"],
         "export_overlap_results": data["export_overlap_results"],
+        "aoi_options": json.dumps(data["aoi_options"]),
         "status": (job.status or JobStatus.QUEUED).value,
     }
 
@@ -66,12 +72,12 @@ def create_job(job: CreateJob) -> int:
         """
         INSERT INTO jobs (
             name, email, region, source, crown_file_number, disposition_number,
-            parcel_number, generate_maps, export_overlap_results, status
+            parcel_number, generate_maps, export_overlap_results, aoi_options, status
         )
         VALUES (
             :name, :email, :region, :source, :crown_file_number,
             :disposition_number, :parcel_number, :generate_maps,
-            :export_overlap_results, :status
+            :export_overlap_results, :aoi_options, :status
         )
         """,
         row,
