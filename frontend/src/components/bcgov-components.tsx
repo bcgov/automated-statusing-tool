@@ -5,10 +5,43 @@ import { useState } from "react";
 // FC = "function component".
 import type { FC, FormEvent, RefObject } from "react";
 // Ready-made page pieces from the BC Government design system.
-import { Header, Footer, AlertBanner } from "@bcgov/design-system-react-components";
+import { Footer } from "@bcgov/design-system-react-components";
 
-// The GeoBC logo shown in the header.
-import geobcLogo from "../assets/geobc_logo.png";
+// The GeoBC logo shown in the top bar.
+import geobcLogo from "../assets/geobc_logo_white.png";
+
+// Colours and font shared by the top bar and the map footer bar. BC blue background with white text.
+const HEADER_BACKGROUND = "#013366";
+const HEADER_TEXT = "#ffffff";
+const HEADER_FONT = '"BC Sans", "Noto Sans", Verdana, Arial, sans-serif';
+// Colour of the map scale bar lines and blocks (BC gold). The scale numbers stay white.
+const SCALE_BAR_COLOUR = "#fcba19";
+
+// Colours for the map footer bar (scale bar, Support, More Information).
+// The popup menus that open above it are not changed.
+const FOOTER_STYLES = `
+  .map-frame-footer {
+    background: ${HEADER_BACKGROUND} !important;
+    color: ${HEADER_TEXT} !important;
+    border-top: 0.25px solid #011a33 !important;
+  }
+  .map-frame-footer .map-frame-footer__more {
+    background: transparent !important;
+    color: ${HEADER_TEXT} !important;
+    border-color: ${HEADER_TEXT} !important;
+  }
+  .map-frame-footer .map-frame-footer__scale,
+  .map-frame-footer .map-frame-footer__scale * {
+    color: ${HEADER_TEXT} !important;
+    border-color: ${SCALE_BAR_COLOUR} !important;
+  }
+  .map-frame-footer .map-frame-footer__scale [class*="singlebar-odd"] {
+    background-color: ${SCALE_BAR_COLOUR} !important;
+  }
+  .map-frame-footer .map-frame-footer__scale [class*="singlebar-even"] {
+    background-color: transparent !important;
+  }
+`;
 
 // One link in the map-frame footer.
 interface FooterLink {
@@ -89,6 +122,7 @@ const MapFrameFooter: FC<MapFrameFooterProps> = ({ scaleBarTargetRef, onScaleCha
 
   return (
     <>
+      <style>{FOOTER_STYLES}</style>
       {isAcknowledgementOpen && (
         <div className="map-frame-acknowledgement" role="region" aria-label="Territorial acknowledgement">
           <button
@@ -266,51 +300,78 @@ const MapFrameFooter: FC<MapFrameFooterProps> = ({ scaleBarTargetRef, onScaleCha
   );
 };
 
-// Text and link shown in the "in development" banner at the top of the app.
+// Text and link shown on the right of the top bar.
 const ALERT_MESSAGE = "This site is currently in development.";
 const PROJECT_REPO_URL = "https://github.com/bcgov/automated-statusing-tool";
 
-// Page header: the BC Gov branded top bar with the site title and GeoBC logo.
-const PageHeader: FC = () => {
+// The top bar: one blue bar with the GeoBC logo and site title on the left
+// and the "in development" notice on the right.
+const AlertBannerComponent: FC = () => {
   return (
-    <div className="bcgov-header">
-      <Header
-        title="Automated Status Tool"
-        // The logo is wrapped in this link, so clicking it goes back to the home page.
-        logoLinkElement={<a href="/" title="Return home"></a>}
-        // The logo image. alt text is read by screen readers.
-        // Its size is set in index.scss (.bcgov-header img).
-        logoImage={<img src={geobcLogo} alt="GeoBC Logo" />}
-      />
+    <div
+      className="bcgov-top-bar"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: 12,
+        boxSizing: "border-box",
+        width: "100%",
+        padding: "10px 24px",
+        borderBottom: "0.5px solid #011a33",
+        background: HEADER_BACKGROUND,
+        color: HEADER_TEXT,
+        fontFamily: HEADER_FONT,
+      }}
+    >
+      {/* Logo and title. Clicking them goes back to the home page. */}
+      <a
+        href="/"
+        title="Return home"
+        style={{ display: "flex", alignItems: "flex-end", gap: 12, color: HEADER_TEXT, textDecoration: "none" }}
+      >
+        <img src={geobcLogo} alt="GeoBC Logo" style={{ display: "block", height: 28, width: "auto" }} />
+        <span
+          style={{
+            fontFamily: '"Times New Roman", Times, serif',
+            fontSize: "2.1rem",
+            lineHeight: 0.8, // Keeps the title shorter than the logo, so the logo sets the bar height
+            marginBottom: -2, // Nudges the text so its bottom lines up with the bottom of the logo
+            fontWeight: 700,
+            fontVariant: "small-caps",
+            letterSpacing: "0.04em",
+            color: HEADER_TEXT,
+          }}
+        >
+          Automated Status Tool
+        </span>
+      </a>
+
+      {/* In development notice, on the right. */}
+      <div
+        style={{
+          alignSelf: "flex-end",
+          fontFamily: HEADER_FONT,
+          fontSize: "1.05rem",
+          lineHeight: 1,
+          textAlign: "right",
+          color: HEADER_TEXT,
+        }}
+        > 
+        {ALERT_MESSAGE}{" "}
+        <a
+          href={PROJECT_REPO_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: HEADER_TEXT, textDecoration: "underline" }}
+        >
+          Learn more
+        </a>
+      </div>
     </div>
   );
 };
 
-// Alert banner: the blue "in development" message across the top of the app,
-// with a link to the project's GitHub page.
-const AlertBannerComponent: FC = () => {
-  return (
-    <AlertBanner
-      variant="info" // Blue information style
-      isIconHidden={false} // Show the info icon
-      isCloseable={false} // Users can't close it
-      layout="fixed"
-    >
-      {ALERT_MESSAGE}
-      {/* Adds a space between the message and "Learn more". */}
-      {" "}
-      {/* Opens the GitHub page in a new tab. noopener noreferrer is the same security setting as above. */}
-      <a
-        href={PROJECT_REPO_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: "white", textDecoration: "underline" }}
-      >
-        Learn more
-      </a>
-    </AlertBanner>
-  );
-};
-
-// Makes these three components available to other files (for example, App.tsx).
-export { PageHeader, MapFrameFooter, AlertBannerComponent };
+// Makes these components available to other files (for example, main.tsx).
+export { MapFrameFooter, AlertBannerComponent };

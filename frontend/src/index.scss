@@ -120,7 +120,7 @@ select {
 // Inside of the design system header: logo and title on the left, full width.
 .bcgov-header .bcds-header--container {
   display: flex;
-  align-items: center; // Centre the logo and title vertically
+  align-items: baseline; // Align the logo and title at their baselines
   justify-content: flex-start;
   width: auto;
   max-width: none;
@@ -129,12 +129,12 @@ select {
   min-height: 56px;
 }
 
-// Site title ("Automated Statusing Tool").
+// Site title ("Automated Status Tool").
 .bcgov-header .bcds-header--title {
   margin-left: 0;
   text-align: left;
   color: var(--text) !important;
-  font-size: 1.4rem; // 1.4 x 12px = about 17px
+  font-size: 2.4rem; // 2.0 x 12px = about 24px
   line-height: 1.2;
   white-space: nowrap; // Keep the title on one line
 }

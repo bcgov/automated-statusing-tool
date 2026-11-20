@@ -72,7 +72,7 @@ const SATELLITE_URL =
 // BC Open Maps web service (WFS) used to look up Tantalis shapes.
 const TANTALIS_WFS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
 const TANTALIS_WMS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
-// The Tantalis Crown tenures layer to search.
+// The Tantalis Crown tenures layer used to look up and preview a shape from the form.
 const TANTALIS_LAYER = "pub:WHSE_TANTALIS.TA_CROWN_TENURES_SVW";
 
 // Credit shown for the Esri basemap tiles.
@@ -180,6 +180,16 @@ const PARENT_GROUP_LABEL = "FrontCounter BC Provincial Layers";
 
 // The layer the Preview Critical Conflicts check uses (First Nation Treaty Related Lands).
 const CRITICAL_CONFLICT_LAYER_NAME = "first-nation-treaty-related-lands";
+
+// Style shared by the main panel titles ("Select map" and "Map layers").
+const PANEL_TITLE_STYLE = {
+  fontFamily: '"BC Sans", "Noto Sans", Verdana, Arial, sans-serif',
+  fontVariant: "small-caps",
+  fontSize: "1.35rem",
+  fontWeight: 700,
+  letterSpacing: "0.04em",
+  color: "#003366",
+} as const;
 
 interface TantalisQueryResult {
   objectId: string;
@@ -389,6 +399,7 @@ const parseLayerDescriptions = (xmlText: string): globalThis.Map<string, string>
 };
 
 // Named hooks keep external OpenLayers and DOM synchronization in focused lifecycle boundaries.
+// Keeps the Layers panel from growing taller than the space left in the window.
 const useLayerPanelHeight = (
   openMapPanel: "basemap" | "layers" | null,
   panelRef: RefObject<HTMLDivElement | null>,
@@ -397,7 +408,6 @@ const useLayerPanelHeight = (
   setMaxHeight: (height: number) => void
 ): void => {
   useEffect(() => {
-    // Change: isolated the panel-size synchronization in a named effect hook.
     if (openMapPanel !== "layers") return;
 
     const panel = panelRef.current;
@@ -405,22 +415,13 @@ const useLayerPanelHeight = (
     const controls = controlsRef.current;
     if (!panel || !frame || !controls) return;
 
-    let observedFooter: HTMLElement | null = null;
-    let resizeObserver: ResizeObserver | undefined;
     const updateLayerPanelHeight = (): void => {
-      const footer = document.querySelector<HTMLElement>(".bcgov-page-footer");
       const panelTop = panel.getBoundingClientRect().top;
-      const availableBottom = footer?.getBoundingClientRect().top ?? window.innerHeight;
-      const availableHeight = Math.max(0, availableBottom - panelTop - 8);
+      const availableHeight = Math.max(0, window.innerHeight - panelTop - 8);
       setMaxHeight(Math.min(380, availableHeight));
-      if (footer !== observedFooter) {
-        if (observedFooter) resizeObserver?.unobserve(observedFooter);
-        observedFooter = footer;
-        if (footer) resizeObserver?.observe(footer);
-      }
     };
 
-    resizeObserver = new ResizeObserver(updateLayerPanelHeight);
+    const resizeObserver = new ResizeObserver(updateLayerPanelHeight);
     resizeObserver.observe(frame);
     resizeObserver.observe(controls);
     const mutationObserver = new MutationObserver(updateLayerPanelHeight);
@@ -433,7 +434,7 @@ const useLayerPanelHeight = (
     updateLayerPanelHeight();
 
     return () => {
-      resizeObserver?.disconnect();
+      resizeObserver.disconnect();
       mutationObserver.disconnect();
       window.removeEventListener("resize", updateLayerPanelHeight);
     };
@@ -447,7 +448,7 @@ const useSyncTantalisLayers = (
   toggleRefs: RefObject<Record<string, HTMLInputElement | null>>
 ): void => {
   useEffect(() => {
-    // Change: visibility and WMS style synchronization is now a named external-system hook.
+    // Visibility and WMS style synchronization is a named external-system hook.
     Object.entries(visibleLayers).forEach(([name, isVisible]) => {
       layerRefs.current[name]?.setVisible(isVisible);
     });
@@ -474,7 +475,7 @@ const useSyncMapView = (
   zoom: number
 ): void => {
   useEffect(() => {
-    // Change: OpenLayers view synchronization is isolated from component rendering.
+    // OpenLayers view synchronization is isolated from component rendering.
     mapRef.current?.getView().animate({ center: fromLonLat(center), zoom, duration: 400 });
   }, [center, zoom, mapRef]);
 };
@@ -484,7 +485,7 @@ const useSyncBasemap = (
   selectedBasemap: BasemapId
 ): void => {
   useEffect(() => {
-    // Change: swapping external tile sources is explicit and independently testable.
+    // Swapping external tile sources is explicit and independently testable.
     const baseLayer = mapRef.current?.getLayers().item(0);
     if (!(baseLayer instanceof TileLayer)) return;
     const url = selectedBasemap === "street" ? STREET_URL : SATELLITE_URL;
@@ -497,7 +498,7 @@ const useMapResize = (
   mapRef: RefObject<Map | null>
 ): void => {
   useEffect(() => {
-    // Change: ResizeObserver lifecycle is named and no component-render logic is mixed into it.
+    // ResizeObserver lifecycle is named and no component-render logic is mixed into it.
     const mapContainer = mapContainerRef.current;
     if (!mapContainer) return;
     const resizeObserver = new ResizeObserver(() => mapRef.current?.updateSize());
@@ -512,7 +513,7 @@ const useSyncPreviewStyle = (
   previewOpacity: number
 ): void => {
   useEffect(() => {
-    // Change: restyling an external OpenLayers layer is kept in a named synchronization hook.
+    // Restyling an external OpenLayers layer is kept in a named synchronization hook.
     previewLayerRef.current?.setStyle(buildPreviewStyle(previewHue, previewOpacity));
   }, [previewHue, previewOpacity, previewLayerRef]);
 };
@@ -574,7 +575,7 @@ const OLMap: FC<OLMapProps> = ({
   const [isQuerying, setIsQuerying] = useState<boolean>(false);
   const [zoomingObjectId, setZoomingObjectId] = useState<string | null>(null);
   const [zoomingLayerName, setZoomingLayerName] = useState<string | null>(null);
-  // Keep the sample overlays off until the user enables them.
+  // Keep the overlays off until the user enables them.
   const [visibleTantalisLayers, setVisibleTantalisLayers] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(MAP_LAYER_GROUPS.flatMap((group) => group.layers.map((layer) => [layer.name, false])))
   );
@@ -998,6 +999,7 @@ const OLMap: FC<OLMapProps> = ({
       map.addLayer(conflictLayer);
     }
 
+    // The conflict check uses the First Nation Treaty Related Lands layer from the spreadsheet.
     const treatyRelatedLandsLayer = MAP_LAYER_GROUPS.flatMap((group) => group.layers).find(
       (layer) => layer.name === CRITICAL_CONFLICT_LAYER_NAME
     );
@@ -1434,7 +1436,7 @@ const OLMap: FC<OLMapProps> = ({
       <div className="map-frame" ref={mapFrameRef}>
         {/* OpenLayers draws the map inside this div. */}
         <div ref={mapContainerRef} className="map-container" aria-label="Interactive map" />
-        {/* Change: a compact white utility bar combines the scale bar area with map/policy links. */}
+        {/* A compact utility bar combines the scale bar area with map/policy links. */}
         <MapFrameFooter
           scaleBarTargetRef={scaleBarTargetRef}
           onScaleChange={setMapScale}
@@ -1491,19 +1493,9 @@ const OLMap: FC<OLMapProps> = ({
                 {/* Picker title and close button. */}
                 <div
                   className="basemap-panel__header"
-                  style={{ borderBottom: "2px solid #003366", paddingBottom: 6 }}
+                  style={{ borderBottom: "1px solid #fcba19", paddingBottom: 4 }}
                 >
-                  <span
-                    style={{
-                      fontVariant: "small-caps",
-                      fontSize: "1.35rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.04em",
-                      color: "#003366",
-                    }}
-                  >
-                    Select map
-                  </span>
+                  <span style={PANEL_TITLE_STYLE}>Select map</span>
                   <button
                     type="button"
                     aria-label="Close basemap options"
@@ -1567,18 +1559,9 @@ const OLMap: FC<OLMapProps> = ({
               >
                 <div
                   className="map-layer-panel__header"
-                  style={{ borderBottom: "2px solid #003366", paddingBottom: 6, marginBottom: 8 }}
+                  style={{ borderBottom: "1px solid #fcba19", paddingBottom: 4, marginBottom: 8 }}
                 >
-                  <div
-                    className="map-layer-panel__title"
-                    style={{
-                      fontVariant: "small-caps",
-                      fontSize: "1.35rem",
-                      fontWeight: 700,
-                      letterSpacing: "0.04em",
-                      color: "#003366",
-                    }}
-                  >
+                  <div className="map-layer-panel__title" style={PANEL_TITLE_STYLE}>
                     Map layers
                   </div>
                   <button
@@ -1645,321 +1628,321 @@ const OLMap: FC<OLMapProps> = ({
                   </p>
                 )}
                 {filteredLayerGroups.length > 0 && (
-                <details
-                  className="map-layer-parent-group"
-                  open={isParentGroupOpen || Boolean(searchTerm)}
-                  onToggle={(event) => setIsParentGroupOpen(event.currentTarget.open)}
-                >
-                <summary
-                  style={{
-                    fontSize: "1.2rem",
-                    fontWeight: 700,
-                    color: "#003366",
-                    cursor: "pointer",
-                    margin: "4px 0 10px",
-                  }}
-                >
-                  {PARENT_GROUP_LABEL}
-                </summary>
-                {filteredLayerGroups.map((group) => {
-                  const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
+                  <details
+                    className="map-layer-parent-group"
+                    open={isParentGroupOpen || Boolean(searchTerm)}
+                    onToggle={(event) => setIsParentGroupOpen(event.currentTarget.open)}
+                  >
+                    <summary
+                      style={{
+                        fontSize: "1.2rem",
+                        fontWeight: 700,
+                        color: "#003366",
+                        cursor: "pointer",
+                        margin: "4px 0 10px",
+                      }}
+                    >
+                      {PARENT_GROUP_LABEL}
+                    </summary>
+                    {filteredLayerGroups.map((group) => {
+                      const enabledCount = group.layers.filter((layer) => visibleTantalisLayers[layer.name]).length;
 
-                  return (
-                    <fieldset className="map-layer-group" key={group.id}>
-                      <legend style={{ fontSize: "0.95rem" }}>{group.label}</legend>
-                      <label className="map-layer-option map-layer-option--group">
-                        <input
-                          ref={(element) => {
-                            layerGroupToggleRefs.current[group.id] = element;
-                          }}
-                          type="checkbox"
-                          checked={enabledCount === group.layers.length}
-                          aria-label={`Toggle all ${group.label} layers`}
-                          onChange={(event) => {
-                            const isVisible = event.currentTarget.checked;
-                            setVisibleTantalisLayers((current) => ({
-                              ...current,
-                              ...Object.fromEntries(group.layers.map((layer) => [layer.name, isVisible])),
-                            }));
-                          }}
-                        />
-                        <span>Show all</span>
-                      </label>
-                      {group.layers.map((layer) => {
-                        const selectedAttribute = layer.queryAttributes.find(
-                          (attribute) => attribute.name === selectedQueryAttributes[layer.name]
-                        );
-                        return (
-                          <div className="map-layer-entry" key={layer.name}>
-                            <div className="map-layer-row">
-                              <label className="map-layer-option map-layer-option--active">
-                                <input
-                                  type="checkbox"
-                                  checked={visibleTantalisLayers[layer.name]}
-                                  aria-label={`Toggle ${layer.label} layer`}
-                                  onChange={(event) => {
-                                    const isVisible = event.currentTarget.checked;
-                                    setVisibleTantalisLayers((current) => ({ ...current, [layer.name]: isVisible }));
-                                    if (!isVisible) {
-                                      setOpenLayerActionMenu(null);
-                                    }
-                                    if (isVisible) {
-                                      selectQueryLayer(layer.name);
-                                    }
-                                  }}
-                                />
-                                <span className="map-layer-name">{layer.label}</span>
-                              </label>
-                              {visibleTantalisLayers[layer.name] && (
-                                <div className="map-layer-menu">
-                                  <button
-                                    type="button"
-                                    className="map-layer-menu-toggle"
-                                    aria-label={`${openLayerActionMenu === layer.name ? "Close" : "Open"} ${layer.label} options`}
-                                    aria-haspopup="menu"
-                                    aria-expanded={openLayerActionMenu === layer.name}
-                                    title={`${layer.label} options`}
-                                    onClick={() => {
-                                      setOpenLayerActionMenu((current) =>
-                                        current === layer.name ? null : layer.name
-                                      );
-                                    }}
-                                  >
-                                    <span aria-hidden="true">▾</span>
-                                  </button>
-                                  {openLayerActionMenu === layer.name && (
-                                    <div className="map-layer-menu-options" role="menu" aria-label={`${layer.label} options`}>
-                                      <button
-                                        type="button"
-                                        className="map-layer-menu-close"
-                                        role="menuitem"
-                                        aria-label={`Close ${layer.label} options`}
-                                        title="Close options"
-                                        onClick={() => setOpenLayerActionMenu(null)}
-                                      >
-                                        ×
-                                      </button>
-                                      <button
-                                        type="button"
-                                        role="menuitemcheckbox"
-                                        aria-checked={Boolean(openLayerQueries[layer.name])}
-                                        onClick={() => {
-                                          const isOpening = !openLayerQueries[layer.name];
-                                          setOpenLayerQueries((current) => ({ ...current, [layer.name]: isOpening }));
-                                          setOpenLayerSymbology((current) => ({ ...current, [layer.name]: false }));
+                      return (
+                        <fieldset className="map-layer-group" key={group.id}>
+                          <legend style={{ fontSize: "0.95rem" }}>{group.label}</legend>
+                          <label className="map-layer-option map-layer-option--group">
+                            <input
+                              ref={(element) => {
+                                layerGroupToggleRefs.current[group.id] = element;
+                              }}
+                              type="checkbox"
+                              checked={enabledCount === group.layers.length}
+                              aria-label={`Toggle all ${group.label} layers`}
+                              onChange={(event) => {
+                                const isVisible = event.currentTarget.checked;
+                                setVisibleTantalisLayers((current) => ({
+                                  ...current,
+                                  ...Object.fromEntries(group.layers.map((layer) => [layer.name, isVisible])),
+                                }));
+                              }}
+                            />
+                            <span>Show all</span>
+                          </label>
+                          {group.layers.map((layer) => {
+                            const selectedAttribute = layer.queryAttributes.find(
+                              (attribute) => attribute.name === selectedQueryAttributes[layer.name]
+                            );
+                            return (
+                              <div className="map-layer-entry" key={layer.name}>
+                                <div className="map-layer-row">
+                                  <label className="map-layer-option map-layer-option--active">
+                                    <input
+                                      type="checkbox"
+                                      checked={visibleTantalisLayers[layer.name]}
+                                      aria-label={`Toggle ${layer.label} layer`}
+                                      onChange={(event) => {
+                                        const isVisible = event.currentTarget.checked;
+                                        setVisibleTantalisLayers((current) => ({ ...current, [layer.name]: isVisible }));
+                                        if (!isVisible) {
                                           setOpenLayerActionMenu(null);
-                                          if (isOpening && activeTantalisLayer !== layer.name) {
-                                            selectQueryLayer(layer.name);
-                                          }
+                                        }
+                                        if (isVisible) {
+                                          selectQueryLayer(layer.name);
+                                        }
+                                      }}
+                                    />
+                                    <span className="map-layer-name">{layer.label}</span>
+                                  </label>
+                                  {visibleTantalisLayers[layer.name] && (
+                                    <div className="map-layer-menu">
+                                      <button
+                                        type="button"
+                                        className="map-layer-menu-toggle"
+                                        aria-label={`${openLayerActionMenu === layer.name ? "Close" : "Open"} ${layer.label} options`}
+                                        aria-haspopup="menu"
+                                        aria-expanded={openLayerActionMenu === layer.name}
+                                        title={`${layer.label} options`}
+                                        onClick={() => {
+                                          setOpenLayerActionMenu((current) =>
+                                            current === layer.name ? null : layer.name
+                                          );
                                         }}
                                       >
-                                        Query Layer
+                                        <span aria-hidden="true">▾</span>
                                       </button>
-                                      <button
-                                        type="button"
-                                        role="menuitemcheckbox"
-                                        aria-checked={Boolean(openLayerSymbology[layer.name])}
-                                        onClick={() => {
-                                          const isOpening = !openLayerSymbology[layer.name];
-                                          setOpenLayerSymbology((current) => ({
-                                            ...current,
-                                            [layer.name]: isOpening,
-                                          }));
-                                          setOpenLayerQueries((current) => ({ ...current, [layer.name]: false }));
-                                          setOpenLayerActionMenu(null);
-                                        }}
-                                      >
-                                        Symbology
-                                      </button>
+                                      {openLayerActionMenu === layer.name && (
+                                        <div className="map-layer-menu-options" role="menu" aria-label={`${layer.label} options`}>
+                                          <button
+                                            type="button"
+                                            className="map-layer-menu-close"
+                                            role="menuitem"
+                                            aria-label={`Close ${layer.label} options`}
+                                            title="Close options"
+                                            onClick={() => setOpenLayerActionMenu(null)}
+                                          >
+                                            ×
+                                          </button>
+                                          <button
+                                            type="button"
+                                            role="menuitemcheckbox"
+                                            aria-checked={Boolean(openLayerQueries[layer.name])}
+                                            onClick={() => {
+                                              const isOpening = !openLayerQueries[layer.name];
+                                              setOpenLayerQueries((current) => ({ ...current, [layer.name]: isOpening }));
+                                              setOpenLayerSymbology((current) => ({ ...current, [layer.name]: false }));
+                                              setOpenLayerActionMenu(null);
+                                              if (isOpening && activeTantalisLayer !== layer.name) {
+                                                selectQueryLayer(layer.name);
+                                              }
+                                            }}
+                                          >
+                                            Query Layer
+                                          </button>
+                                          <button
+                                            type="button"
+                                            role="menuitemcheckbox"
+                                            aria-checked={Boolean(openLayerSymbology[layer.name])}
+                                            onClick={() => {
+                                              const isOpening = !openLayerSymbology[layer.name];
+                                              setOpenLayerSymbology((current) => ({
+                                                ...current,
+                                                [layer.name]: isOpening,
+                                              }));
+                                              setOpenLayerQueries((current) => ({ ...current, [layer.name]: false }));
+                                              setOpenLayerActionMenu(null);
+                                            }}
+                                          >
+                                            Symbology
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
-                              )}
-                            </div>
-                            {visibleTantalisLayers[layer.name] && openLayerSymbology[layer.name] && (
-                              <div className="map-layer-symbology-controls">
-                                <select
-                                  aria-label={`${layer.label} symbology`}
-                                  title={`${layer.label} symbology`}
-                                  value={selectedTantalisStyles[layer.name] ?? ""}
-                                  onChange={(event) => {
-                                    const styleName = event.currentTarget.value;
-                                    setSelectedTantalisStyles((current) => ({
-                                      ...current,
-                                      [layer.name]: styleName,
-                                    }));
-                                  }}
-                                >
-                                  {layer.styles.map((style) => (
-                                    <option value={style.name} key={style.name || "default"}>
-                                      {style.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  type="button"
-                                  className="map-layer-filter-submit"
-                                  aria-label={`Zoom to ${layer.label}`}
-                                  title={`Zoom to ${layer.label}`}
-                                  disabled={zoomingLayerName !== null}
-                                  onClick={() => void zoomToTantalisLayer(layer)}
-                                >
-                                  {zoomingLayerName === layer.name ? "Loading..." : "Zoom to Layer"}
-                                </button>
-                              </div>
-                            )}
-                            {visibleTantalisLayers[layer.name] && openLayerQueries[layer.name] && (
-                              <form
-                                className="map-layer-filter-row"
-                                onSubmit={(event) => {
-                                  if (!selectedAttribute) {
-                                    event.preventDefault();
-                                    return;
-                                  }
-                                  void searchTantalisLayer(event, layer, {
-                                    attribute: selectedAttribute,
-                                    value: queryAttributeValues[layer.name] ?? "",
-                                    operator: selectedQueryOperators[layer.name] ?? "=",
-                                  });
-                                }}
-                              >
-                                <label className="map-layer-query-control">
-                                  <span>Field</span>
-                                  <select
-                                    aria-label={`${layer.label} query field`}
-                                    title={`${layer.label} query fields`}
-                                    value={selectedQueryAttributes[layer.name] ?? ""}
-                                    onChange={(event) => {
-                                      const attributeName = event.currentTarget.value;
-                                      setSelectedQueryAttributes((current) => ({
-                                        ...current,
-                                        [layer.name]: attributeName,
-                                      }));
+                                {visibleTantalisLayers[layer.name] && openLayerSymbology[layer.name] && (
+                                  <div className="map-layer-symbology-controls">
+                                    <select
+                                      aria-label={`${layer.label} symbology`}
+                                      title={`${layer.label} symbology`}
+                                      value={selectedTantalisStyles[layer.name] ?? ""}
+                                      onChange={(event) => {
+                                        const styleName = event.currentTarget.value;
+                                        setSelectedTantalisStyles((current) => ({
+                                          ...current,
+                                          [layer.name]: styleName,
+                                        }));
+                                      }}
+                                    >
+                                      {layer.styles.map((style) => (
+                                        <option value={style.name} key={style.name || "default"}>
+                                          {style.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      type="button"
+                                      className="map-layer-filter-submit"
+                                      aria-label={`Zoom to ${layer.label}`}
+                                      title={`Zoom to ${layer.label}`}
+                                      disabled={zoomingLayerName !== null}
+                                      onClick={() => void zoomToTantalisLayer(layer)}
+                                    >
+                                      {zoomingLayerName === layer.name ? "Loading..." : "Zoom to Layer"}
+                                    </button>
+                                  </div>
+                                )}
+                                {visibleTantalisLayers[layer.name] && openLayerQueries[layer.name] && (
+                                  <form
+                                    className="map-layer-filter-row"
+                                    onSubmit={(event) => {
+                                      if (!selectedAttribute) {
+                                        event.preventDefault();
+                                        return;
+                                      }
+                                      void searchTantalisLayer(event, layer, {
+                                        attribute: selectedAttribute,
+                                        value: queryAttributeValues[layer.name] ?? "",
+                                        operator: selectedQueryOperators[layer.name] ?? "=",
+                                      });
                                     }}
                                   >
-                                    <option value="">Choose a field...</option>
-                                    {layer.queryAttributes.map((attribute) => (
-                                      <option value={attribute.name} key={attribute.name}>
-                                        {attribute.label}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                                <label className="map-layer-query-control">
-                                  <span>Operator</span>
-                                  <select
-                                    aria-label={`${layer.label} query operator`}
-                                    title={`${layer.label} query operator`}
-                                    value={selectedQueryOperators[layer.name] ?? "="}
-                                    onChange={(event) => {
-                                      const operator = event.currentTarget.value as QueryOperator;
-                                      setSelectedQueryOperators((current) => ({
-                                        ...current,
-                                        [layer.name]: operator,
-                                      }));
-                                    }}
-                                  >
-                                    <option value="<">Less than (&lt;)</option>
-                                    <option value="<=">Less than or equal to (&lt;=)</option>
-                                    <option value="=">Equal to (=)</option>
-                                    <option value=">=">Greater than or equal to (&gt;=)</option>
-                                    <option value=">">Greater than (&gt;)</option>
-                                    <option value="<>">Not equal to (&lt;&gt;)</option>
-                                  </select>
-                                </label>
-                                <label className="map-layer-query-control map-layer-query-control--value">
-                                  <span>Value</span>
-                                  <input
-                                    type={selectedAttribute?.type === "date" ? "date" : "text"}
-                                    inputMode={selectedAttribute?.type === "number" ? "numeric" : undefined}
-                                    aria-label={`${layer.label} ${selectedAttribute?.label ?? "attribute"} value`}
-                                    placeholder={selectedAttribute?.label ?? "Enter a value"}
-                                    value={queryAttributeValues[layer.name] ?? ""}
-                                    disabled={!selectedAttribute}
-                                    onChange={(event) => {
-                                      const attributeValue = event.currentTarget.value;
-                                      setQueryAttributeValues((current) => ({
-                                        ...current,
-                                        [layer.name]: attributeValue,
-                                      }));
-                                    }}
-                                  />
-                                </label>
-                                <button
-                                  type="submit"
-                                  className="map-layer-filter-submit map-layer-filter-submit--inline"
-                                  aria-label="Search and Zoom"
-                                  title="Search and Zoom"
-                                  disabled={
-                                    !selectedQueryAttributes[layer.name] ||
-                                    !queryAttributeValues[layer.name]?.trim() ||
-                                    isQuerying
-                                  }
-                                >
-                                  Search and Zoom
-                                </button>
-                              </form>
-                            )}
-                            {visibleTantalisLayers[layer.name] &&
-                              openLayerQueries[layer.name] &&
-                              activeTantalisLayer === layer.name &&
-                              queryStatus && (
-                              <div className="map-query-status" role="status" aria-live="polite">
-                                {queryStatus}
-                              </div>
-                            )}
-                            {visibleTantalisLayers[layer.name] &&
-                              openLayerQueries[layer.name] &&
-                              activeTantalisLayer === layer.name &&
-                              queryResults.length > 0 && (
-                              <ul className="map-query-results">
-                                {queryResults.map((result) => {
-                                  const primaryAttribute =
-                                    result.attributes.find(
-                                      (attribute) =>
-                                        attribute.name === result.queryAttributeName && attribute.value
-                                    ) ?? result.attributes.find((attribute) => attribute.value);
-                                  const additionalAttributes = result.attributes
-                                    .filter(
-                                      (attribute) =>
-                                        attribute.value && attribute.name !== primaryAttribute?.name
-                                    )
-                                    .slice(0, 3);
-
-                                  return (
-                                    <li key={`${result.layerName}-${result.objectId}`}>
-                                      <div className="map-query-result__details">
-                                        <strong>
-                                          {primaryAttribute
-                                            ? `${primaryAttribute.label}: ${primaryAttribute.value}`
-                                            : `${result.idAttribute.label}: ${result.objectId}`}
-                                        </strong>
-                                        {additionalAttributes.map((attribute) => (
-                                          <span key={attribute.name}>
-                                            {attribute.label}: {attribute.value}
-                                          </span>
-                                        ))}
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="map-query-zoom"
-                                        disabled={zoomingObjectId !== null}
-                                        onClick={() => void zoomToQueryResult(result)}
+                                    <label className="map-layer-query-control">
+                                      <span>Field</span>
+                                      <select
+                                        aria-label={`${layer.label} query field`}
+                                        title={`${layer.label} query fields`}
+                                        value={selectedQueryAttributes[layer.name] ?? ""}
+                                        onChange={(event) => {
+                                          const attributeName = event.currentTarget.value;
+                                          setSelectedQueryAttributes((current) => ({
+                                            ...current,
+                                            [layer.name]: attributeName,
+                                          }));
+                                        }}
                                       >
-                                        {zoomingObjectId === result.objectId ? "Loading..." : "Zoom to"}
-                                      </button>
-                                    </li>
-                                  );
-                                })}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </fieldset>
-                  );
-                })}
-                </details>
+                                        <option value="">Choose a field...</option>
+                                        {layer.queryAttributes.map((attribute) => (
+                                          <option value={attribute.name} key={attribute.name}>
+                                            {attribute.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+                                    <label className="map-layer-query-control">
+                                      <span>Operator</span>
+                                      <select
+                                        aria-label={`${layer.label} query operator`}
+                                        title={`${layer.label} query operator`}
+                                        value={selectedQueryOperators[layer.name] ?? "="}
+                                        onChange={(event) => {
+                                          const operator = event.currentTarget.value as QueryOperator;
+                                          setSelectedQueryOperators((current) => ({
+                                            ...current,
+                                            [layer.name]: operator,
+                                          }));
+                                        }}
+                                      >
+                                        <option value="<">Less than (&lt;)</option>
+                                        <option value="<=">Less than or equal to (&lt;=)</option>
+                                        <option value="=">Equal to (=)</option>
+                                        <option value=">=">Greater than or equal to (&gt;=)</option>
+                                        <option value=">">Greater than (&gt;)</option>
+                                        <option value="<>">Not equal to (&lt;&gt;)</option>
+                                      </select>
+                                    </label>
+                                    <label className="map-layer-query-control map-layer-query-control--value">
+                                      <span>Value</span>
+                                      <input
+                                        type={selectedAttribute?.type === "date" ? "date" : "text"}
+                                        inputMode={selectedAttribute?.type === "number" ? "numeric" : undefined}
+                                        aria-label={`${layer.label} ${selectedAttribute?.label ?? "attribute"} value`}
+                                        placeholder={selectedAttribute?.label ?? "Enter a value"}
+                                        value={queryAttributeValues[layer.name] ?? ""}
+                                        disabled={!selectedAttribute}
+                                        onChange={(event) => {
+                                          const attributeValue = event.currentTarget.value;
+                                          setQueryAttributeValues((current) => ({
+                                            ...current,
+                                            [layer.name]: attributeValue,
+                                          }));
+                                        }}
+                                      />
+                                    </label>
+                                    <button
+                                      type="submit"
+                                      className="map-layer-filter-submit map-layer-filter-submit--inline"
+                                      aria-label="Search and Zoom"
+                                      title="Search and Zoom"
+                                      disabled={
+                                        !selectedQueryAttributes[layer.name] ||
+                                        !queryAttributeValues[layer.name]?.trim() ||
+                                        isQuerying
+                                      }
+                                    >
+                                      Search and Zoom
+                                    </button>
+                                  </form>
+                                )}
+                                {visibleTantalisLayers[layer.name] &&
+                                  openLayerQueries[layer.name] &&
+                                  activeTantalisLayer === layer.name &&
+                                  queryStatus && (
+                                  <div className="map-query-status" role="status" aria-live="polite">
+                                    {queryStatus}
+                                  </div>
+                                )}
+                                {visibleTantalisLayers[layer.name] &&
+                                  openLayerQueries[layer.name] &&
+                                  activeTantalisLayer === layer.name &&
+                                  queryResults.length > 0 && (
+                                  <ul className="map-query-results">
+                                    {queryResults.map((result) => {
+                                      const primaryAttribute =
+                                        result.attributes.find(
+                                          (attribute) =>
+                                            attribute.name === result.queryAttributeName && attribute.value
+                                        ) ?? result.attributes.find((attribute) => attribute.value);
+                                      const additionalAttributes = result.attributes
+                                        .filter(
+                                          (attribute) =>
+                                            attribute.value && attribute.name !== primaryAttribute?.name
+                                        )
+                                        .slice(0, 3);
+
+                                      return (
+                                        <li key={`${result.layerName}-${result.objectId}`}>
+                                          <div className="map-query-result__details">
+                                            <strong>
+                                              {primaryAttribute
+                                                ? `${primaryAttribute.label}: ${primaryAttribute.value}`
+                                                : `${result.idAttribute.label}: ${result.objectId}`}
+                                            </strong>
+                                            {additionalAttributes.map((attribute) => (
+                                              <span key={attribute.name}>
+                                                {attribute.label}: {attribute.value}
+                                              </span>
+                                            ))}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="map-query-zoom"
+                                            disabled={zoomingObjectId !== null}
+                                            onClick={() => void zoomToQueryResult(result)}
+                                          >
+                                            {zoomingObjectId === result.objectId ? "Loading..." : "Zoom to"}
+                                          </button>
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </fieldset>
+                      );
+                    })}
+                  </details>
                 )}
               </div>
             )}

@@ -83,9 +83,6 @@ const ASTForm: FC<ASTFormProps> = ({
   previewMessage,
   onPreviewMessageChange,
   onViewTantalis,
-  isShapeLoaded,
-  isCriticalConflictsOpen,
-  onPreviewCriticalConflicts,
   onClearCriticalConflicts,
 }) => {
   const [selectedUploadPath, setSelectedUploadPath] = useState("");
@@ -162,14 +159,6 @@ const ASTForm: FC<ASTFormProps> = ({
     onShapePreviewEnabledChange(true);
     onPreviewMessageChange("");
     onViewTantalis({ fileNumber, dispositionId, parcelId });
-  };
-
-  const handlePreviewCriticalConflictsToggle = (isEnabled: boolean): void => {
-    if (!isEnabled) {
-      onClearCriticalConflicts();
-      return;
-    }
-    onPreviewCriticalConflicts();
   };
 
   const handleSourceChange = (source: string): void => {
@@ -364,15 +353,6 @@ const ASTForm: FC<ASTFormProps> = ({
           View Tantalis Shape on Map
         </Switch>
 
-        <Switch
-          labelPosition="right"
-          name="criticalConflicts"
-          isSelected={isCriticalConflictsOpen}
-          isDisabled={!isShapeLoaded && !isCriticalConflictsOpen}
-          onChange={handlePreviewCriticalConflictsToggle}
-        >
-          Preview Critical Conflicts
-        </Switch>
       </div>
 
       <div className="button-container">

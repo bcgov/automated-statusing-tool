@@ -1,8 +1,6 @@
 import ReactDOM from "react-dom/client";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-// import useState hook from React
-import { useState } from 'react'
-import { PageHeader, AlertBannerComponent } from "./components/bcgov-components";
+import { AlertBannerComponent } from "./components/bcgov-components";
 import LandingPage from "./pages/LandingPage";
 import "./index.scss";
 import { AuthProvider } from "./auth/AuthContext";
@@ -21,7 +19,6 @@ if (appElement) {
     <Router>
       <AuthProvider>
         <AlertBannerComponent />
-        <PageHeader />
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/callback" element={<Callback />} />
