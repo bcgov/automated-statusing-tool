@@ -61,11 +61,11 @@ const LandingPage = () => {
   // What appears on the page.
   return (
     <>
-      {false ? ( // TEMP: Show a loading message while authentication status is being determined
+      {isLoadingAuth ? ( // Show a loading message while authentication status is being determined
         <p>Loading authentication status...</p>
       ) : (
         <>
-          {true ? ( // TEMP: Render only if the user is authenticated
+          {isAuthenticated ? ( // TEMP: Render only if the user is authenticated
             <div className="landing-page">
               {/* The form.
                   inputs / onInputsChange = the shared form values, held here on LandingPage.
