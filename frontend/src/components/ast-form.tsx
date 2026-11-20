@@ -39,7 +39,7 @@ export interface FormInputs {
   dispositionId: string;
   parcelId: string;
   uploadFiles: File[];
-  maps: boolean; // Generate Maps switch (true = on)
+  maps: boolean; // Generate Maps by default; false opts out
   overlaps: boolean; // Export results by default; false opts out
 }
 
@@ -58,7 +58,7 @@ export const INITIAL_INPUTS: FormInputs = {
   dispositionId: "",
   parcelId: "",
   uploadFiles: [],
-  maps: false,
+  maps: true,
   overlaps: true,
 };
 
@@ -328,10 +328,10 @@ const ASTForm: FC<ASTFormProps> = ({
         <Switch
           labelPosition="right"
           name="maps"
-          isSelected={inputs.maps}
-          onChange={(value) => updateField("maps", value)}
+          isSelected={!inputs.maps}
+          onChange={(value) => updateField("maps", !value)}
         >
-          Generate Maps
+          Do Not Generate Maps
         </Switch>
 
         <Switch
