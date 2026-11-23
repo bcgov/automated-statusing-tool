@@ -37,6 +37,7 @@ import geopandas as gpd
 
 from .aoi import AreaOfInterest
 from .data_adapters.base import BaseSpatialAdapter
+from .data_adapters.exceptions import DataConnectionError
 from .data_adapters.file.adapter import FileSpatialAdapter
 from .data_adapters.duckdb.adapter import DuckDBAdapter, DuckDBConfig
 from .data_adapters.oracle import OracleAdapter, OracleConnection
@@ -318,6 +319,9 @@ def _run_one_task(
             status=outcome.status,
             parts=outcome.parts,
         )
+    except DataConnectionError:
+        # The connection is gone, so every later dataset would fail the same way: stop the run.
+        raise
     except Exception as exc:
         elapsed = time.perf_counter() - start
         timings.append((task.dataset_name, elapsed))
