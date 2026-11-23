@@ -9,7 +9,7 @@ from typing import Any
 import geopandas as gpd
 import oracledb
 from ..base import BaseSpatialAdapter, DatasetInfo, ReadOptions
-from ..exceptions import DataCrsError, DataReadError
+from ..exceptions import DataConnectionError, DataCrsError, DataReadError
 from ..where_compiler import compile_where
 
 from . import queries, utils
@@ -50,6 +50,10 @@ class OracleAdapter(BaseSpatialAdapter):
         except (DataReadError, DataCrsError):
             raise
         except oracledb.DatabaseError as exc:
+            # A dropped connection (e.g. DPY-4011) is flagged by the driver: every later
+            # read would fail the same way, so raise it apart from a normal read error.
+            if getattr(exc.args[0], "is_session_dead", False):
+                raise DataConnectionError(f"Lost the Oracle connection while reading {table}: {exc}") from exc
             raise DataReadError(f"Oracle query failed for {table}: {exc}") from exc
 
     def _read(
