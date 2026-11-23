@@ -35,6 +35,8 @@ import pyogrio
 from shapely.geometry import MultiPolygon, box
 from uuid import UUID
 
+from ast_engine.core import execution
+from ast_engine.core.data_adapters.exceptions import DataConnectionError
 from ast_engine.core.execution import (
     AnalysisTask,
     _pick_adapter,
@@ -186,6 +188,28 @@ def test_per_task_error_isolation():
     assert good.status == "success"
     assert good.error is None
     assert good.parts[0].result.feature_count == 2
+
+
+def test_a_lost_connection_stops_the_run(monkeypatch):
+    """Unlike a bad dataset, a lost database connection stops the run (#253):
+    every later dataset on that connection would fail the same way."""
+    read = []
+
+    def run_operator(task, aoi, adapter):
+        read.append(task.dataset_name)
+        raise DataConnectionError("Lost the Oracle connection while reading first")
+
+    monkeypatch.setattr(execution, "_run_operator", run_operator)
+    tasks = [
+        _file_task("1", "first", POLYGONS, "overlay", geom_type="polygon"),
+        _file_task("2", "second", POLYGONS, "overlay", geom_type="polygon"),
+    ]
+
+    with pytest.raises(DataConnectionError):
+        run_analysis(aoi=projected_execution_aoi(), tasks=tasks,
+                     job_id=UUID("32345678-1234-5678-1234-567812345678"))
+
+    assert read == ["first"]
 
 
 def test_a_dataset_with_no_matches_is_a_success_not_a_failure():

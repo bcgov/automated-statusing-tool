@@ -15,8 +15,10 @@ integration tests, which run the same queries against the live warehouse:
   ast_engine/tests/integration/test_bcgw.py
 
 """
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import oracledb
 import pytest
 import geopandas as gpd
 from shapely.geometry import Polygon
@@ -25,7 +27,7 @@ from ast_engine.core.data_adapters.oracle.adapter import OracleAdapter
 from ast_engine.core.data_adapters.oracle import utils
 from ast_engine.core.data_adapters.oracle.utils import _gtype_to_geometry_type
 from ast_engine.core.data_adapters.base import ReadOptions, SpatialFilter
-from ast_engine.core.data_adapters.exceptions import DataReadError
+from ast_engine.core.data_adapters.exceptions import DataConnectionError, DataReadError
 from ast_engine.config.registry.query import definition_to_where
 
 
@@ -92,6 +94,22 @@ def test_oracle_adapter_raises_when_no_spatial_filter(_mock_adapter):
     adapter, _ = _mock_adapter
     with pytest.raises(DataReadError):
         adapter._read_impl(read_options=ReadOptions(), table=TABLE)
+
+
+@pytest.mark.parametrize("session_dead, expected", [(True, DataConnectionError), (False, DataReadError)])
+def test_oracle_adapter_raises_a_connection_error_when_the_connection_is_lost(
+    _mock_adapter, _aoi, session_dead, expected
+):
+    """The driver flags a dropped connection (e.g. DPY-4011) with is_session_dead.
+    That must come out as DataConnectionError so the run stops (#253); any other
+    Oracle error stays a DataReadError."""
+    adapter, cursor = _mock_adapter
+    error = SimpleNamespace(is_session_dead=session_dead, message="DPY-4011: the connection was closed")
+    cursor.execute.side_effect = oracledb.DatabaseError(error)
+    opts = ReadOptions(spatial_filter=SpatialFilter(aoi=_aoi, predicate="intersects"))
+
+    with pytest.raises(expected):
+        adapter._read_impl(read_options=opts, table=TABLE)
 
 
 # ---------------------------------------------------------------------------
