@@ -302,7 +302,7 @@ def parquet_creator(input_data, output_folder):
                 gdf = gpd.read_file(input_data)
             gdf = gdf.to_crs(epsg=3005)
             output_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(input_data))[0]}.parquet")
-            # gdf.to_parquet(output_path)
+            gdf.to_parquet(output_path)
         except (pyogrio.errors.DataSourceError, pyogrio.errors.DataLayerError) as e:
             raise DataAdapterError(str(e))
         return output_path
