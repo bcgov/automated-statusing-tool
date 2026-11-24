@@ -14,6 +14,8 @@ from pathlib import Path
 
 import logging
 
+# import pyogrio
+
 from ast_engine.config.logging_config import setup_logging
 from ast_engine.config.registry import enrichment, utils, models
 from ast_engine.config.settings import Settings
@@ -113,7 +115,7 @@ def main() -> None:
         # Ensure pathing is correct for host OS
         for dataset in datasets:
             dataset["datasource"] = utils.path_translate(dataset["datasource"], path_lookup)
-            dataset["datasource"] = utils.parquet_creator(dataset["datasource"], f"C:\\temp\\")
+            # dataset["datasource"] = utils.parquet_creator(dataset["datasource"], r"\\spatialfiles.bcgov\work\srm\gss\projects\gr_2026_332_AST_OpenSource\work\registry\parquet")
         # A dataset that cannot be built is skipped and the build carries on - a
         # couple of bad rows should not cost you the rest of the spreadsheet. Every
         # one that is skipped is collected here and written into the registry under
@@ -126,11 +128,12 @@ def main() -> None:
             for dataset in hydrated:
                 print(dataset)
                 try:
+                    dataset.datasource = utils.parquet_creator(dataset.datasource, r"\\spatialfiles.bcgov\work\srm\gss\projects\gr_2026_332_AST_OpenSource\work\registry\parquet")
                     enriched = enrichment.Enrich(dataset, connection=conn, cursor=cursor,duckdb_config=DuckDBConfig())
                     # enriched["datasource"] = utils.parquet_creator(dataset["datasource"], f"{dataset['datasource']}_output.parquet")
                     enriched.enrich()
                     base_datasets_list.append(enriched.build())
-                except DataAdapterError as e:
+                except (DataAdapterError) as e:
                     # Usually a path in the spreadsheet that no longer points at
                     # anything, or a BCGW table that cannot be read.
                     print(e)
