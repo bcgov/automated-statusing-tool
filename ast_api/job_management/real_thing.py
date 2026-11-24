@@ -8,7 +8,7 @@ import geopandas as gpd
 
 from ast_engine.config.registry import utils
 from ast_engine.entry.worker import AstJob, JobStatus, run_worker
-
+from ast_api.database import create_connection 
 
 #Some pseudo 
 # Where the hell is the AOI ?? 
@@ -20,6 +20,10 @@ from ast_engine.entry.worker import AstJob, JobStatus, run_worker
 
 def process_job(payload: dict) -> dict:
     # Temporary: use one registry configured for all jobs.
+    db = create_connection()
+    job_id = payload.get("job_id")
+
+
     registry = utils.load_yaml(Path(os.environ["SAMPLE_REGISTRY"]))
 
     # The sample jobs contain a GeoJSON Feature; the engine expects
@@ -35,7 +39,7 @@ def process_job(payload: dict) -> dict:
     #Change this to be the incoming spatial from the front end 
     aoi_gdf = gpd.GeoDataFrame.from_features(aoi_geojson["features"])
     aoi_gdf = aoi_gdf.set_crs("EPSG:4326", allow_override=True)
-
+    
     engine_job = AstJob(
         job_id=uuid4(),
         registries=[("demo", registry)],
