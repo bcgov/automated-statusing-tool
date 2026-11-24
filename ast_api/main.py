@@ -1,8 +1,14 @@
 #main to run the fastapi backend connection to the ast_engine
 import json
 import logging
+from multiprocessing import Queue
 from pathlib import Path
 from typing import Literal
+
+import redis
+import rq
+
+from ast_engine.config.settings import Settings
 
 from contextlib import asynccontextmanager
 
@@ -12,10 +18,12 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, sta
 from .database import create_job, create_table, get_jobs
 from shared_models.models import CreateJob, JobQueueItem, JobStatus
 
+
+settings = Settings()
 logger = logging.getLogger("ast_api.main")
 
 redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-
+valkey_queue = rq.Queue(settings.job_queue, connection=redis_client)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,13 +45,44 @@ async def create_job_in_queue_and_db(
     generate_maps: bool = Form(False),
     export_overlap_results: bool = Form(False),
     upload_file: UploadFile | None = File(None),
-    queue: redis.Redis = Depends(lambda: redis_client),
+    queue: rq.Queue = Depends(lambda: valkey_queue),
 ):
+    #Tantalis File 
     if source == "1" and not all((crown_file_number, disposition_number, parcel_number)):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="TANTALIS source requires file, disposition, and parcel identifiers",
         )
+
+    if source == "1" and all ((crown_file_number, disposition_number, parcel_number)):
+        aoi = {
+            "crown_file_number": crown_file_number,
+            "disposition_number": disposition_number,
+            "parcel_number": parcel_number,
+        }
+        job = CreateJob(
+            name=name,
+            email=email,
+            region=region,
+            source=source,
+            crown_file_number=crown_file_number,
+            disposition_number=disposition_number,
+            parcel_number=parcel_number,
+            generate_maps=generate_maps,
+            export_overlap_results=export_overlap_results,
+            status=JobStatus.QUEUED,
+            aoi=aoi,
+
+        )
+        job_id = create_job(job)
+
+        queue_item = JobQueueItem(
+            job_id=str(job_id),
+            status=job.status or JobStatus.QUEUED,
+        )
+
+
+    #File Upload 
     if source == "2" and upload_file is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -58,29 +97,9 @@ async def create_job_in_queue_and_db(
             "size_bytes": len(upload_content),
         }
 
-    job = CreateJob(
-        name=name,
-        email=email,
-        region=region,
-        source=source,
-        crown_file_number=crown_file_number,
-        disposition_number=disposition_number,
-        parcel_number=parcel_number,
-        generate_maps=generate_maps,
-        export_overlap_results=export_overlap_results,
-    )
-    job_id = create_job(job)
 
-    queue_item = JobQueueItem(
-        job_id=str(job_id),
-        name=job.name,
-        email=job.email,       
-        region=job.region.value if hasattr(job.region, "value") else str(job.region),
-        source=job.source,
-        status=job.status or JobStatus.QUEUED,
-    )
 
-    queue.rpush("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))
+    valkey_queue.enqueue("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))
 
     return {
         "job": job.model_dump(mode="json"),

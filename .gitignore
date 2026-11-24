@@ -251,6 +251,6 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Resulty things ??
-.xsl
-.xslx 
-.json
+*.xsl
+*.xslx 
+*.json

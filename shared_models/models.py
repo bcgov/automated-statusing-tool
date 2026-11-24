@@ -34,15 +34,13 @@ class CreateJob(BaseModel):
     generate_maps: bool = False
     export_overlap_results: bool = False
     status: JobStatus = JobStatus.QUEUED
+    aoi: dict[str, Any] | None = None
 
 
 class JobQueueItem(BaseModel):
     job_id: str
-    name: str
-    email: str
-    region: str
-    source: Literal["1", "2"]
     status: JobStatus = JobStatus.QUEUED
+
 
 class JobPayload(BaseModel):
     job: CreateJob
