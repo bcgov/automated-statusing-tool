@@ -266,5 +266,47 @@ class RegistryBuilder():
             skipped=self.skipped)
         return registry
 
+def parquet_creator(input_data, output_folder):
+    '''
+    Creates a geoparquet file from the specified dataset.
+    The dataset is converted to epsg 3005 before being written to the parquet file.
+        input_data: the dataset to be written to the parquet file.
+            This can be a shapfile, geodatabase, or oracle dataset.
+        
+        output_folder: folder where the parquet file will be created
+    
+    Returns the path to the geoparquet file.
+    '''
+    import geopandas as gpd
+    import os
+    import pyogrio
+
+    from ast_engine.core.data_adapters.exceptions import DataAdapterError
+    GEO_EXTENSIONS = (".gdb", ".gpkg", ".shp", ".geojson", ".kml", ".kmz")
+    if "/" in input_data or "\\" in input_data or input_data.lower().endswith(GEO_EXTENSIONS):
+        try:
+            if ".gdb" in input_data.lower():
+                gdb_part, layer_part = input_data.split(".gdb", 1)
+                gdb_path = f"{gdb_part}.gdb"
+                layer_part = layer_part.lstrip("/\\")
+                layer_parts = Path(layer_part).parts
+                if len(layer_parts) == 1:
+                    featureclass = layer_parts[0]
+                    layer_name = featureclass
+                elif len(layer_parts) == 2:
+                    feature_dataset, featureclass = layer_parts
+                    layer_name = f"{feature_dataset}/{featureclass}" # why pull it apart and put back together?
+                name = f"{Path(gdb_path).stem}_{'_'.join(layer_parts)}"
+                gdf = gpd.read_file(gdb_path, layer=layer_name)
+            else:
+                gdf = gpd.read_file(input_data)
+            gdf = gdf.to_crs(epsg=3005)
+            output_path = os.path.join(output_folder, f"{os.path.splitext(os.path.basename(input_data))[0]}.parquet")
+            gdf.to_parquet(output_path)
+        except (pyogrio.errors.DataSourceError, pyogrio.errors.DataLayerError) as e:
+            raise DataAdapterError(str(e))
+        return output_path
+    else:
+        return input_data
 
 
