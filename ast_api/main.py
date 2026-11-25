@@ -5,7 +5,8 @@ from multiprocessing import Queue
 from pathlib import Path
 from typing import Literal 
 import geopandas as gpd
-import uuid4
+import pandas as pd 
+from uuid import uuid4
 
 import redis
 import rq
@@ -79,7 +80,8 @@ async def create_job_in_queue_and_db(
             status=JobStatus.QUEUED,
             aoi=aoi,
         )
-    
+
+        create_job(job)
 
         queue_item = JobQueueItem(
             job_id=job_id,
@@ -97,14 +99,23 @@ async def create_job_in_queue_and_db(
     upload_metadata = None
     if upload_file is not None:
         upload_content = await upload_file.read()
-        aoi = gpd.read_file(upload_file)  # Placeholder for AOI, to be resolved from job ID and database
-        aoi_geojson = json.loads(aoi.to_json())
-        upload_metadata = {
-            "filename": upload_file.filename,
-            "size_bytes": len(upload_content),
-        }
+        await upload_file.seek(0)
+        aoi_gdf = gpd.read_file(upload_file.file) 
+        for column in aoi_gdf.select_dtypes(
+            include=["datetime", "datetimetz"]
+        ).columns:
+            aoi_gdf[column] = aoi_gdf[column].map(
+                lambda value: value.isoformat() if pd.notna(value) else None
+            )
+
+        
+        
+        
+        aoi_geojson = json.loads(aoi_gdf.to_json())
+     
 
         job = CreateJob(
+            job_id=job_id,
             name=name,
             email=email,
             region=region,
@@ -117,10 +128,11 @@ async def create_job_in_queue_and_db(
             status=JobStatus.QUEUED,
             aoi=aoi_geojson,
         )
-        job_id = create_job(job)
+        
+        create_job(job)
 
         queue_item = JobQueueItem(
-            job_id=str(job_id)
+            job_id=job_id
         )
         
     valkey_queue.enqueue("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))

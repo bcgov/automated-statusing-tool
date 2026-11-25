@@ -61,6 +61,8 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
+
+    registry: str | None = None
     
     def validate_system(self) -> list[str]:
         """Validate environment before orchestration. Returns list of issues."""
