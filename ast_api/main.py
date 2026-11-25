@@ -1,8 +1,17 @@
 #main to run the fastapi backend connection to the ast_engine
 import json
 import logging
+from multiprocessing import Queue
 from pathlib import Path
-from typing import Literal
+from typing import Literal 
+import geopandas as gpd
+import pandas as pd 
+from uuid import uuid4
+
+import redis
+import rq
+
+from ast_engine.config.settings import Settings
 
 from contextlib import asynccontextmanager
 
@@ -13,10 +22,12 @@ from pydantic import ValidationError
 from .database import create_job, create_table, get_jobs
 from shared_models.models import AOIOptions, CreateJob, JobQueueItem, JobStatus
 
+
+settings = Settings()
 logger = logging.getLogger("ast_api.main")
 
 redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-
+valkey_queue = rq.Queue(settings.job_queue, connection=redis_client)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,13 +53,48 @@ async def create_job_in_queue_and_db(
     allow_overlaps: bool = Form(False),
     part_policy: str = Form("multi_part"),
     upload_file: UploadFile | None = File(None),
-    queue: redis.Redis = Depends(lambda: redis_client),
+    queue: rq.Queue = Depends(lambda: valkey_queue),
 ):
+    
+    job_id = str(uuid4())  # Generate a unique job ID
+    
+    #Tantalis File 
     if source == "1" and not all((crown_file_number, disposition_number, parcel_number)):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="TANTALIS source requires file, disposition, and parcel identifiers",
         )
+
+    if source == "1" and all ((crown_file_number, disposition_number, parcel_number)):
+        aoi = {
+            "crown_file_number": crown_file_number,
+            "disposition_number": disposition_number,
+            "parcel_number": parcel_number,
+        }
+        job = CreateJob(
+            job_id=job_id,
+            name=name,
+            email=email,
+            region=region,
+            source=source,
+            crown_file_number=crown_file_number,
+            disposition_number=disposition_number,
+            parcel_number=parcel_number,
+            generate_maps=generate_maps,
+            export_overlap_results=export_overlap_results,
+            status=JobStatus.QUEUED,
+            aoi=aoi,
+        )
+
+        create_job(job)
+
+        queue_item = JobQueueItem(
+            job_id=job_id,
+    
+        )
+
+
+    #File Upload 
     if source == "2" and upload_file is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -71,36 +117,51 @@ async def create_job_in_queue_and_db(
     upload_metadata = None
     if upload_file is not None:
         upload_content = await upload_file.read()
-        upload_metadata = {
-            "filename": upload_file.filename,
-            "size_bytes": len(upload_content),
-        }
+        await upload_file.seek(0)
+        
+        try:
+            aoi_gdf = gpd.read_file(upload_file.file)
+        except (ValueError, RuntimeError) as error:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Uploaded file could not be read as a spatial dataset",
+            ) from error
 
-    job = CreateJob(
-        name=name,
-        email=email,
-        region=region,
-        source=source,
-        crown_file_number=crown_file_number,
-        disposition_number=disposition_number,
-        parcel_number=parcel_number,
-        generate_maps=generate_maps,
-        export_overlap_results=export_overlap_results,
-        aoi_options=aoi_options,
-    )
-    job_id = create_job(job)
+        for column in aoi_gdf.select_dtypes(
+            include=["datetime", "datetimetz"]
+        ).columns:
+            aoi_gdf[column] = aoi_gdf[column].map(
+                lambda value: value.isoformat() if pd.notna(value) else None
+            )
 
-    queue_item = JobQueueItem(
-        job_id=str(job_id),
-        name=job.name,
-        email=job.email,       
-        region=job.region.value if hasattr(job.region, "value") else str(job.region),
-        source=job.source,
-        aoi_options=job.aoi_options,
-        status=job.status or JobStatus.QUEUED,
-    )
+        
+        
+        
+        aoi_geojson = json.loads(aoi_gdf.to_json())
+     
 
-    queue.rpush("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))
+        job = CreateJob(
+            job_id=job_id,
+            name=name,
+            email=email,
+            region=region,
+            source=source,
+            crown_file_number=crown_file_number,
+            disposition_number=disposition_number,
+            parcel_number=parcel_number,
+            generate_maps=generate_maps,
+            export_overlap_results=export_overlap_results,
+            status=JobStatus.QUEUED,
+            aoi=aoi_geojson,
+        )
+        
+        create_job(job)
+
+        queue_item = JobQueueItem(
+            job_id=job_id
+        )
+        
+    valkey_queue.enqueue("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))
 
     return {
         "job": job.model_dump(mode="json"),

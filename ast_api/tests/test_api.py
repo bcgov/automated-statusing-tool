@@ -23,6 +23,14 @@ class FakeRedis:
         return self._items[start:stop]
 
 
+class FakeQueue:
+    def __init__(self):
+        self.enqueued = []
+
+    def enqueue(self, function, *args, **kwargs):
+        self.enqueued.append((function, args, kwargs))
+
+
 @pytest.fixture
 def temp_db(monkeypatch, tmp_path):
     db_path = tmp_path / "jobs.db"
@@ -30,6 +38,13 @@ def temp_db(monkeypatch, tmp_path):
     monkeypatch.setattr(api_main, "redis_client", FakeRedis())
     database.create_table()
     return db_path
+
+
+@pytest.fixture
+def fake_queue(monkeypatch):
+    queue = FakeQueue()
+    monkeypatch.setattr(api_main, "valkey_queue", queue)
+    return queue
 
 
 @pytest.fixture
@@ -178,6 +193,82 @@ def test_upload_source_reads_multipart_file(client):
         "size_bytes": len(b'{"type":"FeatureCollection","features":[]}'),
     }
     assert database.get_jobs()[0][4] == "2"
+
+
+def test_upload_source_persists_aoi(client, temp_db, fake_queue):
+    upload_content = json.dumps(
+        {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"label": "test area"},
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [-123.1, 49.2],
+                    },
+                }
+            ],
+        }
+    ).encode()
+
+    response = client.post(
+        "/api/jobs",
+        data={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "region": "Cariboo",
+            "source": "2",
+        },
+        files={
+            "upload_file": (
+                "aoi.geojson",
+                upload_content,
+                "application/geo+json",
+            )
+        },
+    )
+
+    assert response.status_code == 201
+    with sqlite3.connect(temp_db) as connection:
+        stored_body = connection.execute(
+            "SELECT body FROM jobs"
+        ).fetchone()[0]
+
+    stored_job = json.loads(stored_body)
+    feature = stored_job["aoi"]["features"][0]
+    assert feature["properties"]["label"] == "test area"
+    assert feature["geometry"]["type"] == "Point"
+    assert feature["geometry"]["coordinates"] == [-123.1, 49.2]
+    assert len(fake_queue.enqueued) == 1
+
+
+def test_invalid_spatial_upload_does_not_create_or_enqueue_job(
+    client,
+    temp_db,
+    fake_queue,
+):
+    response = client.post(
+        "/api/jobs",
+        data={
+            "name": "Alice",
+            "email": "alice@example.com",
+            "region": "Cariboo",
+            "source": "2",
+        },
+        files={"upload_file": ("invalid.geojson", b"not spatial data")},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Uploaded file could not be read as a spatial dataset"
+    )
+    with sqlite3.connect(temp_db) as connection:
+        job_count = connection.execute(
+            "SELECT COUNT(*) FROM jobs"
+        ).fetchone()[0]
+    assert job_count == 0
+    assert fake_queue.enqueued == []
 
 
 def test_upload_source_requires_file(client):

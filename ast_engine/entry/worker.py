@@ -33,7 +33,7 @@ class JobStatus(StrEnum):
 
 #Payload structure TODO: ensure aoi crs is same as api and frontend
 class AstJob(BaseModel):
-    job_id: UUID
+    job_id: int
     registries: Iterable[tuple[str, Any]]
     created_at: Optional[str] = None
     user: str
@@ -42,8 +42,6 @@ class AstJob(BaseModel):
     aoi: dict[str, Any] #gdf.to_json()
     aoi_options: AOIOptions = Field(default_factory=AOIOptions)
     status: Optional [JobStatus]
-    error: Optional[str] = None  # why the job failed, when it did
-
     
 def publish_results(job: AstJob, ast_results: AstResults):
     # Publishes AstResults to local disk storage or S3

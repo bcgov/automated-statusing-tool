@@ -1,4 +1,4 @@
-# ast_engine/workers/redis_worker.py
+# ast_engine/entry/redis_worker.py
 # this worker polls redis for jobs and pushes the AstJob to worker
 # this is an entry point
 
@@ -6,7 +6,7 @@ import logging
 import redis
 from pydantic import ValidationError
 from ast_engine.config.settings import Settings
-from worker import run_worker, AstJob, JobStatus
+from .worker import run_worker, AstJob, JobStatus
 from ast_engine.config.logging_config import setup_logging
 
 setup_logging()

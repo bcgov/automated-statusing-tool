@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Literal, Any, Dict, Optional
 from dataclasses import dataclass, field
 import yaml
+import geopandas as gpd
 
 
 class Regions(str, Enum): 
@@ -74,6 +75,7 @@ class AOIOptions(BaseModel):
 
 
 class CreateJob(BaseModel):
+    job_id: str
     name: str
     email: str
     region: Regions | str
@@ -85,20 +87,12 @@ class CreateJob(BaseModel):
     export_overlap_results: bool = False
     aoi_options: AOIOptions = Field(default_factory=AOIOptions)
     status: JobStatus = JobStatus.QUEUED
+    aoi: dict[str, Any] | None = None
 
 
 class JobQueueItem(BaseModel):
     job_id: str
-    name: str
-    email: str
-    region: str
-    source: Literal["1", "2"]
-    aoi_options: AOIOptions = Field(default_factory=AOIOptions)
-    status: JobStatus = JobStatus.QUEUED
 
-class JobPayload(BaseModel):
-    job: CreateJob
-    item: JobQueueItem
 
 @dataclass
 class ArtifactRecord:
