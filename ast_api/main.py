@@ -3,7 +3,8 @@ import json
 import logging
 from multiprocessing import Queue
 from pathlib import Path
-from typing import Literal
+from typing import Literal 
+import geopandas as gpd
 
 import redis
 import rq
@@ -47,6 +48,8 @@ async def create_job_in_queue_and_db(
     upload_file: UploadFile | None = File(None),
     queue: rq.Queue = Depends(lambda: valkey_queue),
 ):
+    
+    
     #Tantalis File 
     if source == "1" and not all((crown_file_number, disposition_number, parcel_number)):
         raise HTTPException(
@@ -72,7 +75,6 @@ async def create_job_in_queue_and_db(
             export_overlap_results=export_overlap_results,
             status=JobStatus.QUEUED,
             aoi=aoi,
-
         )
         job_id = create_job(job)
 
@@ -92,13 +94,33 @@ async def create_job_in_queue_and_db(
     upload_metadata = None
     if upload_file is not None:
         upload_content = await upload_file.read()
+        aoi = gpd.read_file(upload_file)  # Placeholder for AOI, to be resolved from job ID and database
+        aoi_geojson = json.loads(aoi.to_json())
         upload_metadata = {
             "filename": upload_file.filename,
             "size_bytes": len(upload_content),
         }
 
+        job = CreateJob(
+            name=name,
+            email=email,
+            region=region,
+            source=source,
+            crown_file_number=crown_file_number,
+            disposition_number=disposition_number,
+            parcel_number=parcel_number,
+            generate_maps=generate_maps,
+            export_overlap_results=export_overlap_results,
+            status=JobStatus.QUEUED,
+            aoi=aoi_geojson,
+        )
+        job_id = create_job(job)
 
-
+        queue_item = JobQueueItem(
+            job_id=str(job_id),
+            status=job.status or JobStatus.QUEUED,
+        )
+        
     valkey_queue.enqueue("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))
 
     return {

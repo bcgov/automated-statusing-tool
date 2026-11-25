@@ -27,7 +27,7 @@ def process_job(payload: dict) -> dict:
     aoi_gdf = aoi_gdf.set_crs("EPSG:4326", allow_override=True)
 
     engine_job = AstJob(
-        job_id=uuid4(),
+        job_id=payload["job_id"],
         registries=[("demo", registry)],
         created_at=datetime.now(UTC).isoformat(),
         user=payload["user"],

@@ -3,6 +3,7 @@ from enum import Enum
 from typing import Literal, Any, Dict, Optional
 from dataclasses import dataclass, field
 import yaml
+import geopandas as gpd
 
 
 class Regions(str, Enum): 
@@ -41,10 +42,6 @@ class JobQueueItem(BaseModel):
     job_id: str
     status: JobStatus = JobStatus.QUEUED
 
-
-class JobPayload(BaseModel):
-    job: CreateJob
-    item: JobQueueItem
 
 @dataclass
 class ArtifactRecord:
