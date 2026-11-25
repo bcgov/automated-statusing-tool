@@ -25,6 +25,7 @@ class JobStatus(str, Enum):
 
 
 class CreateJob(BaseModel):
+    job_id: str
     name: str
     email: str
     region: Regions | str
@@ -40,7 +41,6 @@ class CreateJob(BaseModel):
 
 class JobQueueItem(BaseModel):
     job_id: str
-    status: JobStatus = JobStatus.QUEUED
 
 
 @dataclass

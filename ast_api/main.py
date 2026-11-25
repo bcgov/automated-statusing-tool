@@ -5,6 +5,7 @@ from multiprocessing import Queue
 from pathlib import Path
 from typing import Literal 
 import geopandas as gpd
+import uuid4
 
 import redis
 import rq
@@ -49,6 +50,7 @@ async def create_job_in_queue_and_db(
     queue: rq.Queue = Depends(lambda: valkey_queue),
 ):
     
+    job_id = str(uuid4())  # Generate a unique job ID
     
     #Tantalis File 
     if source == "1" and not all((crown_file_number, disposition_number, parcel_number)):
@@ -64,6 +66,7 @@ async def create_job_in_queue_and_db(
             "parcel_number": parcel_number,
         }
         job = CreateJob(
+            job_id=job_id,
             name=name,
             email=email,
             region=region,
@@ -76,11 +79,11 @@ async def create_job_in_queue_and_db(
             status=JobStatus.QUEUED,
             aoi=aoi,
         )
-        job_id = create_job(job)
+    
 
         queue_item = JobQueueItem(
-            job_id=str(job_id),
-            status=job.status or JobStatus.QUEUED,
+            job_id=job_id,
+    
         )
 
 
@@ -117,8 +120,7 @@ async def create_job_in_queue_and_db(
         job_id = create_job(job)
 
         queue_item = JobQueueItem(
-            job_id=str(job_id),
-            status=job.status or JobStatus.QUEUED,
+            job_id=str(job_id)
         )
         
     valkey_queue.enqueue("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))

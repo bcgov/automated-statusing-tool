@@ -29,7 +29,7 @@ def create_table():
     connection.close()
 
 
-def create_job(job: CreateJob) -> int:
+def create_job(job: CreateJob) -> CreateJob:
     data = job.model_dump(mode="json")
 
     row = {
