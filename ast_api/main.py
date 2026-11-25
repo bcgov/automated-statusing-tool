@@ -100,6 +100,7 @@ async def create_job_in_queue_and_db(
     if upload_file is not None:
         upload_content = await upload_file.read()
         await upload_file.seek(0)
+        
         try:
             aoi_gdf = gpd.read_file(upload_file.file)
         except (ValueError, RuntimeError) as error:
