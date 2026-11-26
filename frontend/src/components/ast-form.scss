@@ -1,5 +1,17 @@
 // Styles for the AST form
+.form-container {
+  font-family: "BC Sans", Arial, sans-serif;
+  font-size: 12px;
 
+  // Only apply form typography to form controls
+  > .full-width-field,
+  > .region-select,
+  > .source-container,
+  > .switch-container,
+  > .button-container {
+    font-size: 12px;
+  }
+}
 
 .ast-inline-input {
   display: block;

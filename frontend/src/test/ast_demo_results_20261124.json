@@ -1,0 +1,117 @@
+[{
+  "job_id": "ff951d58-fe1f-4a9c-b1f6-f8127ae2d49a",
+  "aoi_id": "demo_aoi",
+  "results": [
+    {
+      "dataset_id": "1",
+      "dataset_name": "Test polygons",
+      "status": "success",
+      "error": null,
+      "parts": [
+        {
+          "aoi_part_id": "demo_aoi_part_1",
+          "part_index": 1,
+          "part_area_ha": 1201.7814521912544,
+          "part_attributes": {},
+          "result": {
+            "analysis_timestamp": "2026-11-24T19:56:40.286716Z",
+            "registry": null,
+            "operator_type": "polygon_overlay",
+            "features": [
+              {
+                "feature_id": "0",
+                "properties": {
+                  "Name": "First"
+                },
+                "measure": 31374.9371320722
+              },
+              {
+                "feature_id": "1",
+                "properties": {
+                  "Name": "Second"
+                },
+                "measure": 7843.788374542336
+              }
+            ],
+            "spatial_link": null,
+            "total_area": 39218.72550661454,
+            "feature_count": 2,
+            "measure_value": 39218.72550661454,
+            "measure_unit": "square meters"
+          }
+        }
+      ]
+    },
+    {
+      "dataset_id": "2",
+      "dataset_name": "Test points",
+      "status": "success",
+      "error": null,
+      "parts": [
+        {
+          "aoi_part_id": "demo_aoi_part_1",
+          "part_index": 1,
+          "part_area_ha": 1201.7814521912544,
+          "part_attributes": {},
+          "result": {
+            "analysis_timestamp": "2026-11-24T19:56:40.295967Z",
+            "registry": null,
+            "operator_type": "proximity",
+            "features": [
+              {
+                "feature_id": "0",
+                "properties": {
+                  "Name": "First"
+                },
+                "measure": 0.0
+              },
+              {
+                "feature_id": "1",
+                "properties": {
+                  "Name": "Second"
+                },
+                "measure": 0.0
+              }
+            ],
+            "spatial_link": null,
+            "feature_count": 2,
+            "measure_value": 0.0,
+            "measure_unit": "meters"
+          }
+        }
+      ]
+    },
+    {
+      "dataset_id": "3",
+      "dataset_name": "Test box (self)",
+      "status": "success",
+      "error": null,
+      "parts": [
+        {
+          "aoi_part_id": "demo_aoi_part_1",
+          "part_index": 1,
+          "part_area_ha": 1201.7814521912544,
+          "part_attributes": {},
+          "result": {
+            "analysis_timestamp": "2026-11-24T19:56:40.303558Z",
+            "registry": null,
+            "operator_type": "adjacency",
+            "features": [
+              {
+                "feature_id": "0",
+                "properties": {},
+                "measure": 13875.809600003064
+              }
+            ],
+            "spatial_link": null,
+            "is_adjacent": true,
+            "feature_count": 1,
+            "measure_value": 13875.809600003064,
+            "measure_unit": "meters"
+          }
+        }
+      ]
+    }
+  ],
+  "execution_time": 0.03
+}]

@@ -38,15 +38,6 @@
     overflow: auto; // Add a scroll bar if the form is taller than the page
 }
 
-// Font for the form and everything inside it.
-// The * means "every element inside". !important overrides the design system's own
-// font sizes, so all form text is 12px. This only affects the form, not the map.
-.landing-page > .form-container,
-.landing-page > .form-container * {
-    font-family: "BC Sans", Arial, sans-serif !important; // BC Sans, or Arial if BC Sans isn't available
-    font-size: 12px !important;
-}
-
 // Map column
 // The outer box that holds the map. It stacks its contents from top to bottom.
 .landing-page > .map-shell {

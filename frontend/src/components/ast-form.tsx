@@ -8,6 +8,13 @@ import type { ChangeEvent, FC } from "react";
 // Ready-made form pieces from the BC Government design system.
 import { Button, Switch, Select, Radio, RadioGroup } from "@bcgov/design-system-react-components";
 import type { TantalisIdentifiers } from "../types/tantalis";
+
+// TEMP Test Results from JSON file
+import {loadJSON} from "../test/read-jsonfile";
+import resultsUrl from '../test/ast_demo_results_20261124.json?url';
+import { ResultsWindow } from "./results-display";
+import type { JobPayload } from "../types/results";
+
 // Styles for this form.
 import "./ast-form.scss";
 
@@ -89,6 +96,10 @@ const ASTForm: FC<ASTFormProps> = ({
   // Direct link to the file picker, so it can be reset.
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Results
+  const [jobResults, setJobResults] = useState<JobPayload[]>([]);
+  const [submitError, setSubmitError] = useState("");
+
   // Updates one field and keeps all the others.
   // K is the field name. FormInputs[K] makes sure the value is the right type for that field
   // (for example, text for "name" and true/false for "maps").
@@ -128,6 +139,8 @@ const ASTForm: FC<ASTFormProps> = ({
     clearFileInput();
     onViewTantalis(null);
     onClearCriticalConflicts();
+    setJobResults([]);
+    setSubmitError("");
   };
 
   const handleViewShapeToggle = (isEnabled: boolean): void => {
@@ -169,6 +182,39 @@ const ASTForm: FC<ASTFormProps> = ({
     onClearCriticalConflicts();
   };
 
+  function isResultsPayload(data: unknown): data is JobPayload[] {
+    return (
+      Array.isArray(data) &&
+      data.every(
+        (item) =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof (item as JobPayload).job_id === "string" &&
+          typeof (item as JobPayload).aoi_id === "string"
+      )
+    );
+}
+
+  // Test Results Submission handler (real one commented out below)
+  async function handleTestSubmission() {
+    setSubmitError("");
+
+    try {
+      const payload = await loadJSON<JobPayload[]>(
+        resultsUrl,
+        isResultsPayload
+      );
+
+      setJobResults(payload);
+
+    } catch (error) {
+      console.error("Download failed:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "Submission failed."
+      );
+    }
+  }
+
   async function handleSubmission() {
     try {
       const formData = new FormData();
@@ -185,13 +231,26 @@ const ASTForm: FC<ASTFormProps> = ({
         formData.append("upload_file", inputs.uploadFiles[0]);
       }
 
-      const response = await fetch("http://localhost:8000/api/jobs", {
+      console.log("FormData entries:");
+
+      for (const [key, value] of formData.entries()) {
+        console.log(`${key}:`, value);
+      }
+
+      const response = await fetch("/api/jobs", {
         method: "POST",
         body: formData,
       });
+      console.log(response)
 
       if (!response.ok) {
-        throw new Error(`Request failed: ${response.status}`);
+        const errorDetails = await response.json();
+
+        console.error("API validation error:", errorDetails);
+
+        throw new Error(
+          `Request failed: ${response.status} - ${JSON.stringify(errorDetails.detail)}`
+        );
       }
 
       const data = await response.json();
@@ -361,12 +420,23 @@ const ASTForm: FC<ASTFormProps> = ({
         <Button onClick={handleSubmission} variant="primary" type="button">
           Submit
         </Button>
+        <Button onClick={handleTestSubmission} variant="primary" type="button">
+          Load Test Data
+        </Button>
         {/* Clear button. type="button" so it never submits.
             onPress is the design system's version of onClick. */}
         <Button variant="secondary" type="button" onPress={handleClearAll}>
           Clear Form
         </Button>
       </div>
+
+      {submitError && (
+        <p className="results-error" role="alert">
+          {submitError}
+        </p>
+      )}
+
+      <ResultsWindow jobResults={jobResults} />
     </div>
   );
 };

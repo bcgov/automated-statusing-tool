@@ -1,0 +1,251 @@
+
+.results-container {
+  font-family: "BC Sans", Arial, sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+
+  // Establish independent typography
+  h2, h3, h4, h5, h6,
+  p, span, li, strong, button {
+    font-family: inherit;
+  }
+
+  // Your existing styles follow...
+}
+
+.results-container {
+  margin-top: 2rem;
+
+  > h2 {
+    font-size: 20px;
+    margin-bottom: 1rem;
+  }
+
+  .results-list {
+    padding-left: 1.5rem;
+
+    li {
+      margin-bottom: 0.75rem;
+    }
+  }
+
+  .link-button {
+    padding: 0;
+    border: none;
+    background: none;
+    color: #0066cc;
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover {
+      color: #004080;
+    }
+  }
+}
+
+// Modal window
+.results-dialog {
+  width: min(90vw, 1400px);
+  height: 85vh;
+  max-width: 1400px;
+  max-height: 900px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: #fff;
+  color: #242424;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+
+  // Centre the modal
+  position: fixed;
+  inset: 0;
+  margin: auto;
+
+  &::backdrop {
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(3px);
+  }
+}
+
+// Sticky modal header
+.results-dialog-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+  background: #003366;
+  color: #fff;
+  border-bottom: 1px solid #d8dde3;
+
+  h2 {
+    margin: 0 0 0.5rem;
+    font-size: 26px;
+  }
+
+  p {
+    margin: 0.25rem 0;
+    font-size: 18px;
+  }
+
+  button {
+    flex-shrink: 0;
+    padding: 0.65rem 1.25rem;
+    border: none;
+    border-radius: 5px;
+    background: #313f54;
+    color: white;
+    font-size: 0.95rem;
+    cursor: pointer;
+
+    &:hover {
+      background: #1d2939;
+    }
+  }
+}
+
+// Scrollable results area
+.results-dialog-content {
+  height: calc(85vh - 115px);
+  padding: 1.5rem 2rem 2rem;
+  overflow-y: auto;
+}
+
+// Dataset sections
+.result-dataset {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border: 1px solid #d8dde3;
+  border-radius: 8px;
+  background: #fff;
+
+  > h3 {
+    margin: 0 0 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #003366;
+    color: #243b53;
+    font-size: 18px;
+  }
+
+  > p {
+    margin: 0.5rem 0;
+  }
+}
+
+// Part sections
+.result-part {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border-left: 4px solid #fcba19;
+  border-radius: 5px;
+  background: #f3f6f6;
+
+  h4 {
+    margin: 0 0 1rem;
+    color: #285c55;
+    font-size: 16px;
+  }
+
+  p {
+    margin: 0.5rem 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+// Analysis sections
+.result-analysis {
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid #dce2e8;
+  border-radius: 6px;
+  background: #fff;
+
+  h5 {
+    margin: 0 0 1rem;
+    color: #334e68;
+    font-size: 14px;
+  }
+
+  h6 {
+    margin: 1.5rem 0 0.75rem;
+    font-size: 16px;
+  }
+}
+
+// Feature table
+.results-feature-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.75rem;
+
+  th,
+  td {
+    padding: 0.75rem 1rem;
+    text-align: left;
+    vertical-align: top;
+    border: 1px solid #d8dde3;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+  }
+
+  th {
+    background: #edf1f5;
+    color: #243b53;
+    font-weight: 600;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #f8fafc;
+  }
+}
+
+// Errors
+.results-error {
+  padding: 0.75rem 1rem;
+  border-left: 4px solid #c62828;
+  background: #fff1f0;
+  color: #b71c1c;
+}
+
+// Smaller screens
+@media (max-width: 768px) {
+  .results-dialog {
+    width: 96vw;
+    height: 92vh;
+    max-height: none;
+    border-radius: 8px;
+  }
+
+  .results-dialog-header {
+    padding: 1rem;
+
+    h2 {
+      font-size: 18px;
+    }
+  }
+
+  .results-dialog-content {
+    height: calc(92vh - 100px);
+    padding: 1rem;
+  }
+
+  .result-dataset,
+  .result-part,
+  .result-analysis {
+    padding: 0.85rem;
+  }
+
+  .results-feature-table {
+    font-size: 12px;
+
+    th,
+    td {
+      padding: 0.5rem;
+    }
+  }
+}
