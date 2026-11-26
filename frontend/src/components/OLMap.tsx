@@ -9,8 +9,10 @@ import type { FC, FormEvent, RefObject } from "react";
 import Map from "ol/Map";
 import View from "ol/View"; // Controls where the map looks (center and zoom)
 import LayerGroup from "ol/layer/Group";
+import ImageLayer from "ol/layer/Image";
 import TileLayer from "ol/layer/Tile"; // Layer for basemap image tiles
 import VectorLayer from "ol/layer/Vector"; // Layer for shapes (Tantalis preview)
+import ImageArcGISRest from "ol/source/ImageArcGISRest";
 import XYZ from "ol/source/XYZ"; // Loads tiles from a URL pattern like {z}/{y}/{x}
 import TileWMS from "ol/source/TileWMS";
 import VectorSource from "ol/source/Vector"; // Holds the shapes shown in a vector layer
@@ -36,8 +38,8 @@ import { COMMON_DATASET_GROUPS } from "../data/commonDatasets";
 // Default OpenLayers styling.
 import "ol/ol.css";
 
-// The only two basemap choices.
-type BasemapId = "street" | "satellite";
+// Available basemap choices.
+type BasemapId = "street" | "satellite" | "bcgov" | "topographic";
 
 // Everything LandingPage can pass into this map. The ? means the value is optional.
 interface OLMapProps {
@@ -63,11 +65,14 @@ const DEFAULT_CENTER: [number, number] = [-126.5, 54.6];
 // Starting zoom level. 5 shows the whole province.
 const DEFAULT_ZOOM = 5;
 
-// Tile addresses for the two basemaps. {z} = zoom, {y} = row, {x} = column.
+// Tile addresses for the basemaps. {z} = zoom, {y} = row, {x} = column.
 const STREET_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}";
 const SATELLITE_URL =
   "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+const BCGOV_URL =
+  "https://maps.gov.bc.ca/arcgis/rest/services/province/web_mercator_cache/MapServer/tile/{z}/{y}/{x}";
+const BCGOV_TOPOGRAPHIC_URL = "https://maps.gov.bc.ca/arcgis/rest/services/base/base/MapServer";
 
 // BC Open Maps web service (WFS) used to look up Tantalis shapes.
 const TANTALIS_WFS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
@@ -75,8 +80,10 @@ const TANTALIS_WMS_URL = "https://openmaps.gov.bc.ca/geo/pub/ows";
 // The Tantalis Crown tenures layer used to look up and preview a shape from the form.
 const TANTALIS_LAYER = "pub:WHSE_TANTALIS.TA_CROWN_TENURES_SVW";
 
-// Credit shown for the Esri basemap tiles.
+// Credits shown for the basemap tiles.
 const ESRI_ATTRIBUTION = "Tiles © Esri";
+const BCGOV_ATTRIBUTION = "Map data © Province of British Columbia";
+const BCGOV_TOPOGRAPHIC_ATTRIBUTION = "DataBC, Province of British Columbia";
 const TANTALIS_ATTRIBUTION = "Data from the Province of British Columbia";
 
 interface MapLayerDefinition {
@@ -184,7 +191,6 @@ const CRITICAL_CONFLICT_LAYER_NAME = "first-nation-treaty-related-lands";
 // Style shared by the main panel titles ("Select map" and "Map layers").
 const PANEL_TITLE_STYLE = {
   fontFamily: '"BC Sans", "Noto Sans", Verdana, Arial, sans-serif',
-  fontVariant: "small-caps",
   fontSize: "1.35rem",
   fontWeight: 700,
   letterSpacing: "0.04em",
@@ -213,9 +219,15 @@ interface CriticalLayerCheck {
 
 const TANTALIS_QUERY_RESULT_LIMIT = 10;
 // Builds a basemap tile source from a tile URL.
-// crossOrigin lets the browser use tiles from another website safely.
-const createBasemapSource = (url: string): XYZ =>
-  new XYZ({ url, crossOrigin: "anonymous", attributions: ESRI_ATTRIBUTION });
+const createBasemapSource = (url: string, attribution: string): XYZ =>
+  new XYZ({ url, attributions: attribution });
+
+const createTopographicSource = (): ImageArcGISRest =>
+  new ImageArcGISRest({
+    url: BCGOV_TOPOGRAPHIC_URL,
+    attributions: BCGOV_TOPOGRAPHIC_ATTRIBUTION,
+    ratio: 1,
+  });
 
 const asText = (value: unknown): string => (value == null ? "" : String(value));
 
@@ -482,15 +494,26 @@ const useSyncMapView = (
 
 const useSyncBasemap = (
   mapRef: RefObject<Map | null>,
+  topographicLayerRef: RefObject<ImageLayer<ImageArcGISRest> | null>,
   selectedBasemap: BasemapId
 ): void => {
   useEffect(() => {
     // Swapping external tile sources is explicit and independently testable.
     const baseLayer = mapRef.current?.getLayers().item(0);
     if (!(baseLayer instanceof TileLayer)) return;
-    const url = selectedBasemap === "street" ? STREET_URL : SATELLITE_URL;
-    baseLayer.setSource(createBasemapSource(url));
-  }, [selectedBasemap, mapRef]);
+    const isTopographic = selectedBasemap === "topographic";
+    baseLayer.setVisible(!isTopographic);
+    topographicLayerRef.current?.setVisible(isTopographic);
+    if (isTopographic) return;
+
+    const basemap =
+      selectedBasemap === "street"
+        ? { url: STREET_URL, attribution: ESRI_ATTRIBUTION }
+        : selectedBasemap === "bcgov"
+          ? { url: BCGOV_URL, attribution: BCGOV_ATTRIBUTION }
+          : { url: SATELLITE_URL, attribution: ESRI_ATTRIBUTION };
+    baseLayer.setSource(createBasemapSource(basemap.url, basemap.attribution));
+  }, [selectedBasemap, mapRef, topographicLayerRef]);
 };
 
 const useMapResize = (
@@ -538,6 +561,7 @@ const OLMap: FC<OLMapProps> = ({
   const layerPanelRef = useRef<HTMLDivElement | null>(null);
   // The OpenLayers map, so every part of this file can reach it.
   const mapRef = useRef<Map | null>(null);
+  const topographicLayerRef = useRef<ImageLayer<ImageArcGISRest> | null>(null);
   // The layer showing the current Tantalis preview shape, so the sliders can restyle it.
   const previewLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   // References let the layer panel update individual OpenLayers WMS layers.
@@ -552,8 +576,8 @@ const OLMap: FC<OLMapProps> = ({
   const criticalConflictPinnedRef = useRef<object | null>(null);
   const criticalConflictDescriptionsRef = useRef<Promise<globalThis.Map<string, string>> | null>(null);
 
-  // Which basemap is selected. Starts on satellite.
-  const [selectedBasemap, setSelectedBasemap] = useState<BasemapId>("satellite");
+  // Which basemap is selected. Starts on the BC Government map.
+  const [selectedBasemap, setSelectedBasemap] = useState<BasemapId>("bcgov");
   // One active popup keeps map tools from stacking on top of each other.
   const [openMapPanel, setOpenMapPanel] = useState<"basemap" | "layers" | null>(null);
   const [layerPanelMaxHeight, setLayerPanelMaxHeight] = useState<number>();
@@ -669,8 +693,15 @@ const OLMap: FC<OLMapProps> = ({
       return;
     }
 
-    // Basemap layer. Starts on satellite to match the selected option.
-    const baseLayer = new TileLayer({ source: createBasemapSource(SATELLITE_URL) });
+    // Basemap layer. Starts on the BC Government map to match the selected option.
+    const baseLayer = new TileLayer({
+      source: createBasemapSource(BCGOV_URL, BCGOV_ATTRIBUTION),
+    });
+    const topographicLayer = new ImageLayer({
+      visible: false,
+      source: createTopographicSource(),
+    });
+    topographicLayerRef.current = topographicLayer;
 
     // Create a real OpenLayers group so these related WMS overlays remain grouped on the map.
     const mapLayerGroups = MAP_LAYER_GROUPS.map((group) => {
@@ -698,7 +729,7 @@ const OLMap: FC<OLMapProps> = ({
 
     const map = new Map({
       target: mapContainerRef.current, // Draw the map inside our <div>
-      layers: [baseLayer, ...mapLayerGroups],
+      layers: [baseLayer, topographicLayer, ...mapLayerGroups],
       view: new View({ center: fromLonLat(center), zoom }),
       controls: [], // Hide the default OpenLayers buttons. We use our own.
     });
@@ -790,6 +821,7 @@ const OLMap: FC<OLMapProps> = ({
       map.removeControl(scaleLineControl);
       map.setTarget(undefined);
       mapRef.current = null;
+      topographicLayerRef.current = null;
       queryHighlightLayerRef.current = null;
       criticalConflictLayerRef.current = null;
     };
@@ -808,8 +840,8 @@ const OLMap: FC<OLMapProps> = ({
   // 2. Move the map smoothly when the center or zoom props change.
   useSyncMapView(mapRef, center, zoom);
 
-  // 3. Swap the basemap tiles when the user picks Street or Satellite.
-  useSyncBasemap(mapRef, selectedBasemap);
+  // 3. Switch between tile basemaps and the BC Government topographic service.
+  useSyncBasemap(mapRef, topographicLayerRef, selectedBasemap);
 
   // 4. Resize the map whenever its container changes size (for example, when the layout shifts).
   useMapResize(mapContainerRef, mapRef);
@@ -1506,7 +1538,30 @@ const OLMap: FC<OLMapProps> = ({
                   </button>
                 </div>
 
-                {/* Street option. Checked when street is selected. */}
+                {/* BC Government basemap option. */}
+                <label className="basemap-option">
+                  <input
+                    type="radio"
+                    name="basemap"
+                    value="bcgov"
+                    checked={selectedBasemap === "bcgov"}
+                    onChange={() => setSelectedBasemap("bcgov")}
+                  />
+                  <span>BC Government</span>
+                </label>
+
+                {/* Remaining options are listed alphabetically. */}
+                <label className="basemap-option">
+                  <input
+                    type="radio"
+                    name="basemap"
+                    value="satellite"
+                    checked={selectedBasemap === "satellite"}
+                    onChange={() => setSelectedBasemap("satellite")}
+                  />
+                  <span>Satellite</span>
+                </label>
+
                 <label className="basemap-option">
                   <input
                     type="radio"
@@ -1518,16 +1573,16 @@ const OLMap: FC<OLMapProps> = ({
                   <span>Street</span>
                 </label>
 
-                {/* Satellite option. Checked when satellite is selected. */}
+                {/* BC Government topographic map service. */}
                 <label className="basemap-option">
                   <input
                     type="radio"
                     name="basemap"
-                    value="satellite"
-                    checked={selectedBasemap === "satellite"}
-                    onChange={() => setSelectedBasemap("satellite")}
+                    value="topographic"
+                    checked={selectedBasemap === "topographic"}
+                    onChange={() => setSelectedBasemap("topographic")}
                   />
-                  <span>Satellite</span>
+                  <span>Topographic</span>
                 </label>
               </div>
             )}
