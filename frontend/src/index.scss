@@ -724,7 +724,7 @@ select {
   z-index: 1;
   top: 100%;
   left: 0;
-  width: min(360px, calc(100vw - 20px));
+  box-sizing: border-box;
   max-width: calc(100vw - 20px);
   max-height: min(70vh, 380px, calc(100dvh - 120px));
   overflow-x: hidden;
@@ -757,6 +757,7 @@ select {
 
 // Layer picker, with enough width for readable names and a scrollable layer list.
 .map-layer-panel {
+  width: min(320px, calc(100vw - 20px));
   font-size: 11px;
 }
 
@@ -1172,6 +1173,7 @@ select {
 
 // Space inside the Basemap panel.
 .basemap-panel {
+  width: 200px;
   padding: 10px 12px 8px;
 }
 
@@ -1366,9 +1368,12 @@ select {
     border-bottom: 1px solid #dfe5eb;
   }
 
-  .basemap-panel,
+  .basemap-panel {
+    width: min(200px, calc(100vw - 20px));
+  }
+
   .map-layer-panel {
-    width: min(360px, calc(100vw - 20px));
+    width: min(320px, calc(100vw - 20px));
     max-height: min(70dvh, 380px, calc(100dvh - 100px));
   }
 }
