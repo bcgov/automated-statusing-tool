@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     # App environment
     environment: Literal["development", "test", "production"] = "development"
     main_directory: str = "ast-app"
+    database_url: str = "sqlite:////app-data/ast_jobs.db" # defaults to sqlite db in /appdata/ast-jobs.db
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"

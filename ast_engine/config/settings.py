@@ -5,6 +5,8 @@ from typing import Literal
 class Settings(BaseSettings):
     # App environment
     environment: Literal["development", "staging", "production"] = "development"
+    main_directory: str = "ast-app" # impacts s3 storage root
+    database_url: str = "sqlite:////app-data/ast_jobs.db" # defaults to sqlite db in /appdata/ast-jobs.db
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
