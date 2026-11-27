@@ -8,7 +8,7 @@ from enum import StrEnum
 from typing import Optional, Any, Iterable
 from pydantic import BaseModel, Field
 
-from shared_models.models import AOIOptions
+
 from ast_engine.core.aoi import AOIBuilder, AOIBuildRequest, AOIRequest
 from ast_engine.core.aoi.exceptions import AOIError, AOIValidationError
 from ast_engine.config.registry.models import DataAdapter
@@ -20,30 +20,16 @@ from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, JobStorageContext
 from ast_engine.storage.models import OperatorArtifact
 from ast_engine.config.settings import Settings
-
+from shared_models.api import JobStatus
+from shared_models.models import AOIOptions
+from shared_models.engine import AstEngineJob
 logger = logging.getLogger(__name__)
 settings = Settings()
 
-class JobStatus(StrEnum):
-    QUEUED = "Queued"
-    PROCESSING = "Processing"
-    PUBLISHING = "Publishing"
-    COMPLETED = "Completed"
-    FAILED = "Failed"
-
 #Payload structure TODO: ensure aoi crs is same as api and frontend
-class AstJob(BaseModel):
-    job_id: int
-    registries: Iterable[tuple[str, Any]]
-    created_at: Optional[str] = None
-    user: str
-    aoi_id: str
-    aoi_name: str
-    aoi: dict[str, Any] #gdf.to_json()
-    aoi_options: AOIOptions = Field(default_factory=AOIOptions)
-    status: Optional [JobStatus]
+
     
-def publish_results(job: AstJob, ast_results: AstResults):
+def publish_results(job: AstEngineJob, ast_results: AstResults):
     # Publishes AstResults to local disk storage or S3
 
     logging.debug("Publish [job-id: %s]: Started",job.job_id)
@@ -87,7 +73,7 @@ def publish_results(job: AstJob, ast_results: AstResults):
     logging.debug("Publish [job-id: %s]: Completed", job.job_id)
     return {"job":job, "artifacts": artifacts}
 
-def run_worker(job: AstJob, publish: bool = False):
+def run_worker(job: AstEngineJob, publish: bool = False):
     # executes ast_engine and optionally publishes using storage settings in ast_engine.config.settings
     # returns job with updated status: COMPLETED, or FAILED with the reason in job.error
     logger.info("Worker Processing [job-id:%s]", job.aoi_id)

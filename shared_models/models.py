@@ -1,12 +1,12 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from enum import Enum
+from enum import StrEnum
 from typing import Literal, Any, Dict, Optional
 from dataclasses import dataclass, field
 import yaml
 import geopandas as gpd
 
 
-class Regions(str, Enum): 
+class Regions(StrEnum): 
     Cariboo = "Cariboo"
     KootenayBoundary = "Kootenay Boundary"
     ThompsonOkanagan = "Thompson Okanagan"
@@ -16,7 +16,7 @@ class Regions(str, Enum):
     SouthCoast = "South Coast"
     WestCoast = "West Coast"
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     QUEUED = "Queued"
     PROCESSING = "Processing"
     PUBLISHING = "Publishing"
