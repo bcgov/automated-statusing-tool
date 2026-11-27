@@ -6,8 +6,10 @@ from typing import Literal
 
 
 class Settings(BaseSettings):
+    
     # App environment
-    environment: Literal["development", "staging", "production"] = "development"
+    environment: Literal["development", "test", "production"] = "development"
+    main_directory: str = "ast-app"
 
     # Logging
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
@@ -55,6 +57,9 @@ class Settings(BaseSettings):
     # engine settings
     system_crs: str = "EPSG:3005"
 
+    # api settings
+    api_port: int = 8000
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

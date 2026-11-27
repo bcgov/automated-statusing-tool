@@ -55,7 +55,10 @@ class Settings(BaseSettings):
 
     # engine settings
     system_crs: str = "EPSG:3005"
-
+    
+    # api settings
+    api_port: int = 8000
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
