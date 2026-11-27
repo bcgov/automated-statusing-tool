@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 import ast_api.database as database
 import ast_api.main as api_main
-from shared_models.models import JobStatus
+from shared_modules.models.models import JobStatus
 
 pytestmark = pytest.mark.unit
 

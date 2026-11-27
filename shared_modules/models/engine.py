@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import Any, Optional, Iterable
 from enum import StrEnum
 from uuid import UUID, uuid4
-from shared_models.models import JobStatus, AOIOptions
+from models import JobStatus, AOIOptions
 
 class AstEngineJob(BaseModel):
     job_id: int

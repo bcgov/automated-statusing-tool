@@ -20,9 +20,9 @@ from ast_engine.storage.publisher import ResultsPublisher
 from ast_engine.storage import create_results_writer, JobStorageContext
 from ast_engine.storage.models import OperatorArtifact
 from ast_engine.config.settings import Settings
-from shared_models.api import JobStatus
-from shared_models.models import AOIOptions
-from shared_models.engine import AstEngineJob
+from shared_modules.models.api import JobStatus
+from shared_modules.models.models import AOIOptions
+from shared_modules.models.engine import AstEngineJob
 logger = logging.getLogger(__name__)
 settings = Settings()
 

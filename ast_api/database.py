@@ -3,7 +3,7 @@ from pathlib import Path
 import sqlite3
 
 
-from shared_models.models import CreateJob, JobStatus
+from shared_modules.models.models import CreateJob, JobStatus
 
 #create path anchored to the current file's directory
 DB_PATH = Path(__file__).resolve().parent / "jobs.db"
