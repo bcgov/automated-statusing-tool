@@ -14,204 +14,241 @@ import rq
 from ast_engine.config.settings import Settings
 
 from contextlib import asynccontextmanager
-
+from datetime import datetime
 import redis
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from pydantic import ValidationError
+from oidc.oidcAuthorize import verify_token
 
-from .database import create_job, create_table, get_jobs
-from shared_models.models import AOIOptions, CreateJob, JobQueueItem, JobStatus
-
+#from .database import create_job, create_table, get_jobs
+from shared_modules.database import init_db, get_db, create_job,Session
+from shared_modules.models.models import AOIOptions, CreateJob, JobQueueItem, JobStatus
+# models
+from shared_modules.models.engine import AstEngineJob
+from shared_modules.models.api import JobRequest, JobStatusResponse,RegistrySummary
 
 settings = Settings()
 logger = logging.getLogger("ast_api.main")
+QUEUE_NAME = "ast_engine.entry.queue_worker.process_queue_job"
 
-redis_client = redis.Redis(host="localhost", port=6379, decode_responses=True)
-valkey_queue = rq.Queue(settings.job_queue, connection=redis_client)
+redis_client = redis.Redis(host=settings.redis_host, port=settings.redis_port, db=settings.redis_database)
+# valkey_queue = rq.Queue(settings.job_queue, connection=redis_client)
+valkey_queue = rq.Queue("ast_engine.entry.redis_worker.main", connection=redis_client)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_table()
+    # create_table()
+    init_db()
     yield
 
 
 app = FastAPI(lifespan=lifespan)
-
-@app.post("/api/jobs", status_code=status.HTTP_201_CREATED)
-async def create_job_in_queue_and_db(
-    name: str = Form(...),
-    email: str = Form(...),
-    region: str = Form(...),
-    source: Literal["1", "2"] = Form(...),
-    crown_file_number: str | None = Form(None),
-    disposition_number: str | None = Form(None),
-    parcel_number: str | None = Form(None),
-    generate_maps: bool = Form(False),
-    export_overlap_results: bool = Form(False),
-    dissolve_mode: str = Form("full_union"),
-    dissolve_fields: list[str] = Form([]),
-    allow_overlaps: bool = Form(False),
-    part_policy: str = Form("multi_part"),
-    upload_file: UploadFile | None = File(None),
-    queue: rq.Queue = Depends(lambda: valkey_queue),
-):
-    
-    job_id = str(uuid4())  # Generate a unique job ID
-    
-    #Tantalis File 
-    if source == "1" and not all((crown_file_number, disposition_number, parcel_number)):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="TANTALIS source requires file, disposition, and parcel identifiers",
-        )
-
-    if source == "1" and all ((crown_file_number, disposition_number, parcel_number)):
-        aoi = {
-            "crown_file_number": crown_file_number,
-            "disposition_number": disposition_number,
-            "parcel_number": parcel_number,
-        }
-        job = CreateJob(
-            job_id=job_id,
-            name=name,
-            email=email,
-            region=region,
-            source=source,
-            crown_file_number=crown_file_number,
-            disposition_number=disposition_number,
-            parcel_number=parcel_number,
-            generate_maps=generate_maps,
-            export_overlap_results=export_overlap_results,
-            status=JobStatus.QUEUED,
-            aoi=aoi,
-        )
-
-        create_job(job)
-
-        queue_item = JobQueueItem(
-            job_id=job_id,
-    
-        )
-
-
-    #File Upload 
-    if source == "2" and upload_file is None:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Upload source requires an uploaded spatial file",
-        )
-    # How a multi-row AOI is reported (#219), with the same checks as the engine's AOIRequest.
+@app.post("/jobs",response_model=JobStatusResponse)
+async def new_job(job:JobRequest, queue: rq.Queue = Depends(valkey_queue)):
     try:
-        aoi_options = AOIOptions(
-            dissolve_mode=dissolve_mode,
-            dissolve_fields=dissolve_fields,
-            allow_overlaps=allow_overlaps,
-            part_policy=part_policy,
-        )
-    except ValidationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="; ".join(error["msg"] for error in exc.errors()),
-        )
-
-    upload_metadata = None
-    if upload_file is not None:
-        upload_content = await upload_file.read()
-        await upload_file.seek(0)
-        
-        try:
-            aoi_gdf = gpd.read_file(upload_file.file)
-        except (ValueError, RuntimeError) as error:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail="Uploaded file could not be read as a spatial dataset",
-            ) from error
-
-        for column in aoi_gdf.select_dtypes(
-            include=["datetime", "datetimetz"]
-        ).columns:
-            aoi_gdf[column] = aoi_gdf[column].map(
-                lambda value: value.isoformat() if pd.notna(value) else None
+        # TODO: Adjust AstEngineJob to accept AOI path
+        # TODO: API to save geojson and add path to job model
+        # TODO: get user from authentication when model is created
+        # TODO: is AOI name and id needed?
+        new_job = AstEngineJob(
+            job_id=job.job_id,
+            registries=None,
+            created_at=job.created_at,
+            user= job.user,
+            aoi_id= None,
+            aoi_name =  'test_this_aoi',
+            aoi = None,
+            aoi_options=AOIOptions(),
+            status=JobStatus.QUEUED
             )
+        create_job(db=get_db(),
+            job_id=job.job_id,
+            payload=new_job.model_dump_json())
+        valkey_queue.enqueue(valkey_queue, job.model_dump_json())
+
+        
+        return JobStatusResponse(job_id=job.job_id, status=JobStatus.QUEUED)
+    except Exception:
+        return JobStatusResponse(job_id=job.job_id, status=JobStatus.FAILED)
+@app.get("/registries",response_model=list[RegistrySummary])
+def get_registries(db: Session = Depends(get_db)):
+    return get_registries
+
+# @app.post("/api/jobs", status_code=status.HTTP_201_CREATED)
+# async def create_job_in_queue_and_db(
+#     name: str = Form(...),
+#     email: str = Form(...),
+#     region: str = Form(...),
+#     source: Literal["1", "2"] = Form(...),
+#     crown_file_number: str | None = Form(None),
+#     disposition_number: str | None = Form(None),
+#     parcel_number: str | None = Form(None),
+#     generate_maps: bool = Form(False),
+#     export_overlap_results: bool = Form(False),
+#     dissolve_mode: str = Form("full_union"),
+#     dissolve_fields: list[str] = Form([]),
+#     allow_overlaps: bool = Form(False),
+#     part_policy: str = Form("multi_part"),
+#     upload_file: UploadFile | None = File(None),
+#     queue: rq.Queue = Depends(lambda: valkey_queue),
+# ):
+    
+#     job_id = str(uuid4())  # Generate a unique job ID
+    
+#     #Tantalis File 
+#     if source == "1" and not all((crown_file_number, disposition_number, parcel_number)):
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+#             detail="TANTALIS source requires file, disposition, and parcel identifiers",
+#         )
+
+#     if source == "1" and all ((crown_file_number, disposition_number, parcel_number)):
+#         aoi = {
+#             "crown_file_number": crown_file_number,
+#             "disposition_number": disposition_number,
+#             "parcel_number": parcel_number,
+#         }
+#         job = CreateJob(
+#             job_id=job_id,
+#             name=name,
+#             email=email,
+#             region=region,
+#             source=source,
+#             crown_file_number=crown_file_number,
+#             disposition_number=disposition_number,
+#             parcel_number=parcel_number,
+#             generate_maps=generate_maps,
+#             export_overlap_results=export_overlap_results,
+#             status=JobStatus.QUEUED,
+#             aoi=aoi,
+#         )
+
+#         create_job(job)
+
+#         queue_item = JobQueueItem(
+#             job_id=job_id,
+    
+#         )
+
+
+#     #File Upload 
+#     if source == "2" and upload_file is None:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+#             detail="Upload source requires an uploaded spatial file",
+#         )
+#     # How a multi-row AOI is reported (#219), with the same checks as the engine's AOIRequest.
+#     try:
+#         aoi_options = AOIOptions(
+#             dissolve_mode=dissolve_mode,
+#             dissolve_fields=dissolve_fields,
+#             allow_overlaps=allow_overlaps,
+#             part_policy=part_policy,
+#         )
+#     except ValidationError as exc:
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+#             detail="; ".join(error["msg"] for error in exc.errors()),
+#         )
+
+#     upload_metadata = None
+#     if upload_file is not None:
+#         upload_content = await upload_file.read()
+#         await upload_file.seek(0)
+        
+#         try:
+#             aoi_gdf = gpd.read_file(upload_file.file)
+#         except (ValueError, RuntimeError) as error:
+#             raise HTTPException(
+#                 status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+#                 detail="Uploaded file could not be read as a spatial dataset",
+#             ) from error
+
+#         for column in aoi_gdf.select_dtypes(
+#             include=["datetime", "datetimetz"]
+#         ).columns:
+#             aoi_gdf[column] = aoi_gdf[column].map(
+#                 lambda value: value.isoformat() if pd.notna(value) else None
+#             )
 
         
         
         
-        aoi_geojson = json.loads(aoi_gdf.to_json())
+#         aoi_geojson = json.loads(aoi_gdf.to_json())
      
 
-        job = CreateJob(
-            job_id=job_id,
-            name=name,
-            email=email,
-            region=region,
-            source=source,
-            crown_file_number=crown_file_number,
-            disposition_number=disposition_number,
-            parcel_number=parcel_number,
-            generate_maps=generate_maps,
-            export_overlap_results=export_overlap_results,
-            status=JobStatus.QUEUED,
-            aoi=aoi_geojson,
-        )
+#         job = CreateJob(
+#             job_id=job_id,
+#             name=name,
+#             email=email,
+#             region=region,
+#             source=source,
+#             crown_file_number=crown_file_number,
+#             disposition_number=disposition_number,
+#             parcel_number=parcel_number,
+#             generate_maps=generate_maps,
+#             export_overlap_results=export_overlap_results,
+#             status=JobStatus.QUEUED,
+#             aoi=aoi_geojson,
+#         )
         
-        create_job(job)
+#         create_job(job)
 
-        queue_item = JobQueueItem(
-            job_id=job_id
-        )
+#         queue_item = JobQueueItem(
+#             job_id=job_id
+#         )
         
-    valkey_queue.enqueue("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))
+#     valkey_queue.enqueue("jobs_queue", json.dumps(queue_item.model_dump(mode="json")))
 
-    return {
-        "job": job.model_dump(mode="json"),
-        "item": queue_item.model_dump(mode="json"),
-        "upload": upload_metadata,
-    }
-
-
-@app.get("/jobs")
-def read_jobs():
-    return get_jobs()
+#     return {
+#         "job": job.model_dump(mode="json"),
+#         "item": queue_item.model_dump(mode="json"),
+#         "upload": upload_metadata,
+#     }
 
 
-@app.get(
-    "/api/jobs",
-    response_model=list[JobQueueItem],
-    status_code=status.HTTP_200_OK,
-)
-def get_whole_queue(queue: redis.Redis = Depends(lambda: redis_client)):
-    raw_jobs = [json.loads(item) for item in queue.lrange("jobs_queue", 0, -1)]
-    return [JobQueueItem(**job) for job in raw_jobs]
+# @app.get("/jobs")
+# def read_jobs():
+#     return get_jobs()
 
 
-@app.get(
-    "/api/jobs/{job_id}",
-    response_model=JobQueueItem,
-    status_code=status.HTTP_200_OK,
-)
-def get_job_by_id(job_id: str, queue: redis.Redis = Depends(lambda: redis_client)):
-    raw_jobs = [json.loads(item) for item in queue.lrange("jobs_queue", 0, -1)]
-    job = next((job for job in raw_jobs if job["job_id"] == job_id), None)
-    if not job:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
-    return JobQueueItem(**job)
+# @app.get(
+#     "/api/jobs",
+#     response_model=list[JobQueueItem],
+#     status_code=status.HTTP_200_OK,
+# )
+# def get_whole_queue(queue: redis.Redis = Depends(lambda: redis_client)):
+#     raw_jobs = [json.loads(item) for item in queue.lrange("jobs_queue", 0, -1)]
+#     return [JobQueueItem(**job) for job in raw_jobs]
 
 
-@app.get("/api/debug/queue")
-def debug_queue(queue: redis.Redis = Depends(lambda: redis_client)):
-    items = [json.loads(item) for item in queue.lrange("jobs_queue", 0, -1)]
-    return {
-        "count": len(items),
-        "items": items,
-    }
+# @app.get(
+#     "/api/jobs/{job_id}",
+#     response_model=JobQueueItem,
+#     status_code=status.HTTP_200_OK,
+# )
+# def get_job_by_id(job_id: str, queue: redis.Redis = Depends(lambda: redis_client)):
+#     raw_jobs = [json.loads(item) for item in queue.lrange("jobs_queue", 0, -1)]
+#     job = next((job for job in raw_jobs if job["job_id"] == job_id), None)
+#     if not job:
+#         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+#     return JobQueueItem(**job)
 
-@app.get("/api/results")
-def get_results():
-    '''
-    Sample route for now -> returns a simple JSON results output object
-    '''
-    path = Path("ast_api/tests/data/results.json")
 
-    with path.open(encoding="cp1252") as f:
-        return json.load(f)
+# @app.get("/api/debug/queue")
+# def debug_queue(queue: redis.Redis = Depends(lambda: redis_client)):
+#     items = [json.loads(item) for item in queue.lrange("jobs_queue", 0, -1)]
+#     return {
+#         "count": len(items),
+#         "items": items,
+#     }
+
+# @app.get("/api/results")
+# def get_results():
+#     '''
+#     Sample route for now -> returns a simple JSON results output object
+#     '''
+#     path = Path("ast_api/tests/data/results.json")
+
+#     with path.open(encoding="cp1252") as f:
+#         return json.load(f)
