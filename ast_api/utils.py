@@ -233,3 +233,12 @@ class ObjectStorage:
             logger.error(f"Error generating presigned URL for {object_key}: {e}")
             return None
 
+def app_object_storage(settings=Settings())->ObjectStorage:
+    return ObjectStorage(S3_ENDPOINT=settings.results_s3_endpoint_url,
+                         S3_ACCESS_ID=settings.results_s3_access_id,
+                         S3_BUCKET=settings.results_s3_bucket,
+                         S3_APP_DIR=settings.main_directory,
+                         S3_KEY=settings.results_s3_key,
+                         VERIFY=settings.s3_use_ssl)
+
+    
